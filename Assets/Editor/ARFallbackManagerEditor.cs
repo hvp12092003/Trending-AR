@@ -1,69 +1,72 @@
-using UnityEngine;
 using UnityEditor;
+using UnityEngine;
 
 [CustomEditor(typeof(ARFallbackManager))]
 public class ARFallbackManagerEditor : Editor
 {
-    private SerializedProperty m_ForceFallback;
-    private SerializedProperty m_ARSession;
-    private SerializedProperty m_ARPlaneManager;
-    private SerializedProperty m_TapToPlacePrefab;
-    private SerializedProperty m_FallbackRawImage;
-    private SerializedProperty m_AutoAlignRawImage;
+    private SerializedProperty m_SceneModeProp;
+    private SerializedProperty m_ARSessionProp;
+    private SerializedProperty m_ARPlaneManagerProp;
+    private SerializedProperty m_TapToPlacePrefabProp;
+    private SerializedProperty m_FallbackRawImageProp;
+    private SerializedProperty m_AutoAlignRawImageProp;
+    private SerializedProperty m_ForceFallbackProp;
 
     private void OnEnable()
     {
-        m_ForceFallback = serializedObject.FindProperty("m_ForceFallback");
-        m_ARSession = serializedObject.FindProperty("m_ARSession");
-        m_ARPlaneManager = serializedObject.FindProperty("m_ARPlaneManager");
-        m_TapToPlacePrefab = serializedObject.FindProperty("m_TapToPlacePrefab");
-        m_FallbackRawImage = serializedObject.FindProperty("m_FallbackRawImage");
-        m_AutoAlignRawImage = serializedObject.FindProperty("m_AutoAlignRawImage");
+        m_SceneModeProp = serializedObject.FindProperty("m_SceneMode");
+        m_ARSessionProp = serializedObject.FindProperty("m_ARSession");
+        m_ARPlaneManagerProp = serializedObject.FindProperty("m_ARPlaneManager");
+        m_TapToPlacePrefabProp = serializedObject.FindProperty("m_TapToPlacePrefab");
+        m_FallbackRawImageProp = serializedObject.FindProperty("m_FallbackRawImage");
+        m_AutoAlignRawImageProp = serializedObject.FindProperty("m_AutoAlignRawImage");
+        m_ForceFallbackProp = serializedObject.FindProperty("m_ForceFallback");
     }
 
     public override void OnInspectorGUI()
     {
         serializedObject.Update();
 
-        // 1. Hiển thị Dropdown chọn chế độ ở trên cùng
-        string[] modeOptions = new string[] 
-        { 
-            "AR Mode (Có ARCore / Thiết bị hỗ trợ)", 
-            "Non-AR Mode (Không có ARCore / Chạy giả lập)" 
-        };
-        
-        int currentSelection = m_ForceFallback.boolValue ? 1 : 0;
-        
+        // Tiêu đề lớn cho giao diện đẹp đẽ
+        EditorGUILayout.LabelField("AR Fallback Manager Configuration", EditorStyles.boldLabel);
         EditorGUILayout.Space(5);
-        int newSelection = EditorGUILayout.Popup("Chế độ AR Setup", currentSelection, modeOptions);
-        
-        if (newSelection != currentSelection)
-        {
-            m_ForceFallback.boolValue = (newSelection == 1);
-        }
-        
+
+        // Hiển thị Option ở trên cùng
+        EditorGUILayout.PropertyField(m_SceneModeProp, new GUIContent("Scene Mode", "Chọn chế độ hoạt động tương ứng với Scene"));
+
         EditorGUILayout.Space(10);
 
-        // 2. Hiển thị các trường tương ứng dựa trên chế độ đã chọn
-        if (m_ForceFallback.boolValue)
+        ARFallbackManager.SceneMode currentMode = (ARFallbackManager.SceneMode)m_SceneModeProp.enumValueIndex;
+
+        if (currentMode == ARFallbackManager.SceneMode.ARScene)
         {
-            // Chế độ Không có ARCore (Non-AR / Fallback)
-            EditorGUILayout.LabelField("Cấu hình chế độ Non-AR", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox("Chế độ này sẽ chạy bằng WebCam của máy tính/điện thoại thường và tạo mặt phẳng ảo để tương tác.", MessageType.Info);
-            
-            EditorGUILayout.PropertyField(m_FallbackRawImage);
-            EditorGUILayout.PropertyField(m_AutoAlignRawImage);
-            EditorGUILayout.PropertyField(m_TapToPlacePrefab);
+            EditorGUILayout.HelpBox("Đang ở chế độ AR Scene. Script sẽ kiểm tra độ tương thích ARCore của thiết bị trước, nếu không hỗ trợ sẽ tự động chuyển sang camera WebCam làm nền giả lập.", MessageType.Info);
+            EditorGUILayout.Space(5);
+
+            EditorGUILayout.LabelField("AR Components (Required for AR)", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(m_ARSessionProp);
+            EditorGUILayout.PropertyField(m_ARPlaneManagerProp);
+            EditorGUILayout.PropertyField(m_TapToPlacePrefabProp);
+
+            EditorGUILayout.Space(10);
+            EditorGUILayout.LabelField("Fallback Screen Settings", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(m_FallbackRawImageProp);
+            EditorGUILayout.PropertyField(m_AutoAlignRawImageProp);
+            EditorGUILayout.PropertyField(m_ForceFallbackProp);
         }
-        else
+        else if (currentMode == ARFallbackManager.SceneMode.NonARScene)
         {
-            // Chế độ Có ARCore (AR Mode)
-            EditorGUILayout.LabelField("Cấu hình chế độ AR Core", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox("Chế độ này sẽ quét không gian bằng ARCore thực tế trên thiết bị di động được hỗ trợ.", MessageType.Info);
+            EditorGUILayout.HelpBox("Đang ở chế độ Non-AR Scene. Script sẽ luôn chạy ở chế độ giả lập (WebCam + mặt phẳng trước camera), tắt các thành phần ARCore để tránh xung đột.", MessageType.Info);
+            EditorGUILayout.Space(5);
+
+            EditorGUILayout.LabelField("Non-AR Background Settings", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(m_FallbackRawImageProp);
+            EditorGUILayout.PropertyField(m_AutoAlignRawImageProp);
             
-            EditorGUILayout.PropertyField(m_ARSession);
-            EditorGUILayout.PropertyField(m_ARPlaneManager);
-            EditorGUILayout.PropertyField(m_TapToPlacePrefab);
+            // Ở Non-AR Scene thì Force Fallback được thiết lập ngầm là true
+            GUI.enabled = false;
+            EditorGUILayout.Toggle("Force Fallback (Always True)", true);
+            GUI.enabled = true;
         }
 
         serializedObject.ApplyModifiedProperties();

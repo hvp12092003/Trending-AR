@@ -2,21 +2,20 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
-using UnityEngine.XR.ARFoundation;
-using UnityEngine.XR.ARSubsystems;
 
 /// <summary>
-/// Component dùng để tạo (instantiate) một Prefab tại vị trí người dùng click hoặc chạm (tap) trên Plane trong AR.
+/// Component riêng dùng để tạo (instantiate) hoặc di chuyển một Prefab tại vị trí người dùng click hoặc chạm (tap) 
+/// trong môi trường giả lập (Non-AR) trực tiếp theo mặt phẳng trước Camera.
 /// </summary>
-public class TapToPlacePrefab : MonoBehaviour
+public class TapToPlacePrefabNonAR : MonoBehaviour
 {
     [Header("Prefab Settings")]
     [SerializeField]
-    [Tooltip("Prefab sẽ được tạo ra khi người dùng click/chạm vào Plane.")]
+    [Tooltip("Prefab sẽ được tạo ra khi người dùng click/chạm.")]
     private GameObject m_PrefabToSpawn;
 
     /// <summary>
-    /// Prefab sẽ được tạo ra khi người dùng click/chạm vào Plane.
+    /// Prefab sẽ được tạo ra khi người dùng click/chạm.
     /// </summary>
     public GameObject prefabToSpawn
     {
@@ -45,29 +44,26 @@ public class TapToPlacePrefab : MonoBehaviour
     [Tooltip("Nếu được bật, Prefab khi tạo ra sẽ tự động quay mặt về phía Camera.")]
     private bool m_RotateTowardsCamera = true;
 
-
-    [Header("Fallback Settings")]
-    [SerializeField]
-    [Tooltip("Nếu được bật, script sẽ hoạt động ở chế độ giả lập (không cần ARCore).")]
-    private bool m_UseFallbackMode = false;
-
-    public bool useFallbackMode
+    public bool rotateTowardsCamera
     {
-        get => m_UseFallbackMode;
-        set => m_UseFallbackMode = value;
+        get => m_RotateTowardsCamera;
+        set => m_RotateTowardsCamera = value;
     }
 
-
-
-    [Header("Raycast Settings")]
+    [Header("Raycast Distance")]
     [SerializeField]
-    [Tooltip("ARRaycastManager dùng để tìm kiếm các mặt phẳng AR Plane. Nếu để trống, script sẽ tự động tìm trên GameObject này hoặc trong Scene.")]
-    private ARRaycastManager m_RaycastManager;
+    [Tooltip("Khoảng cách spawn vật thể trước Camera.")]
+    private float m_SpawnDistance = 5f;
+
+    public float spawnDistance
+    {
+        get => m_SpawnDistance;
+        set => m_SpawnDistance = value;
+    }
 
     private GameObject m_SpawnedObject;
-    private static List<ARRaycastHit> s_Hits = new List<ARRaycastHit>();
 
-    // Cache variables to avoid GC allocations on Android
+    // Cache variables to avoid GC allocations
     private PointerEventData m_PointerEventData;
     private List<RaycastResult> m_RaycastResultsCache = new List<RaycastResult>();
     private Camera m_MainCamera;
@@ -75,25 +71,7 @@ public class TapToPlacePrefab : MonoBehaviour
 
     private void Awake()
     {
-        // Tự động tìm ARRaycastManager nếu chưa được gán
-        if (m_RaycastManager == null)
-        {
-            m_RaycastManager = GetComponent<ARRaycastManager>();
-            if (m_RaycastManager == null)
-            {
-                m_RaycastManager = FindFirstObjectByType<ARRaycastManager>();
-            }
-        }
-
-        if (m_RaycastManager == null && !m_UseFallbackMode)
-        {
-            Debug.LogError("TapToPlacePrefab: ARRaycastManager không tìm thấy! Vui lòng thêm ARRaycastManager vào Scene.", this);
-        }
-
-        // Cache camera chính
         m_MainCamera = Camera.main;
-
-        // Tìm kiếm Joystick
         m_Joystick = FindFirstObjectByType<Joystick>();
     }
 
@@ -126,33 +104,18 @@ public class TapToPlacePrefab : MonoBehaviour
                         if (CharacterManager.Instance != null)
                         {
                             CharacterManager.Instance.SelectCharacter(characterMove.gameObject);
-                            return; // Dừng lại ở đây, không thực hiện spawn/di chuyển trên Plane
+                            return; // Dừng lại ở đây, không thực hiện spawn/di chuyển
                         }
                     }
                 }
             }
 
             // 2. Thực hiện tạo nhân vật trực tiếp theo mặt phẳng song song với màn hình camera
-            if (m_UseFallbackMode)
+            if (m_MainCamera != null)
             {
-                if (m_MainCamera != null)
-                {
-                    // Tạo ở khoảng cách cố định trước Camera (ví dụ: 5.0 mét) để hiển thị đúng vị trí click trên màn hình
-                    float spawnDistance = 5f;
-                    Vector3 spawnPosition = m_MainCamera.ScreenToWorldPoint(new Vector3(touchPosition.x, touchPosition.y, spawnDistance));
-                    Pose hitPose = new Pose(spawnPosition, Quaternion.identity);
-                    HandleSpawning(hitPose);
-                }
-            }
-            else
-            {
-                // Sử dụng TrackableType.PlaneWithinPolygon để phát hiện các va chạm nằm trong đa giác của Plane
-                if (m_RaycastManager != null && m_RaycastManager.Raycast(touchPosition, s_Hits, TrackableType.PlaneWithinPolygon))
-                {
-                    // Lấy thông tin Pose (vị trí & hướng) của điểm va chạm đầu tiên
-                    Pose hitPose = s_Hits[0].pose;
-                    HandleSpawning(hitPose);
-                }
+                Vector3 spawnPosition = m_MainCamera.ScreenToWorldPoint(new Vector3(touchPosition.x, touchPosition.y, m_SpawnDistance));
+                Pose hitPose = new Pose(spawnPosition, Quaternion.identity);
+                HandleSpawning(hitPose);
             }
         }
     }
@@ -164,11 +127,9 @@ public class TapToPlacePrefab : MonoBehaviour
     {
         if (m_PrefabToSpawn == null)
         {
-            Debug.LogWarning("TapToPlacePrefab: Chưa gán PrefabToSpawn trong Inspector!", this);
+            Debug.LogWarning("TapToPlacePrefabNonAR: Chưa gán PrefabToSpawn trong Inspector!", this);
             return;
         }
-
-
 
         Quaternion spawnRotation = hitPose.rotation;
 

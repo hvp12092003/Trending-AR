@@ -9,6 +9,22 @@ using UnityEngine.XR.ARFoundation;
 /// </summary>
 public class ARFallbackManager : MonoBehaviour
 {
+    public enum SceneMode
+    {
+        ARScene,
+        NonARScene
+    }
+
+    [Header("Mode Selection")]
+    [SerializeField]
+    private SceneMode m_SceneMode = SceneMode.ARScene;
+
+    public SceneMode sceneMode
+    {
+        get => m_SceneMode;
+        set => m_SceneMode = value;
+    }
+
     [Header("Components")]
     [SerializeField] 
     [Tooltip("ARSession trong Scene. Nếu để trống, script sẽ tự động tìm.")]
@@ -49,8 +65,25 @@ public class ARFallbackManager : MonoBehaviour
         set => m_ForceFallback = value;
     }
 
+    private bool m_InitialForceFallback;
+    private string m_CurrentInitializedScene = "";
+    private static ARFallbackManager s_Instance;
+
     private void Awake()
     {
+        m_InitialForceFallback = m_ForceFallback;
+
+        // Xử lý Singleton để tránh trùng lặp giữa instance tự động tạo và instance trong Scene
+        if (s_Instance != null && s_Instance != this)
+        {
+            Debug.Log($"ARFallbackManager: Phát hiện instance mới trong scene '{gameObject.scene.name}'. Hủy instance cũ.");
+            s_Instance.Cleanup(true);
+            Destroy(s_Instance.gameObject);
+        }
+
+        s_Instance = this;
+        DontDestroyOnLoad(gameObject);
+
         // Tự động tìm kiếm các thành phần nếu chưa được gán trong Inspector
         if (m_ARSession == null)
         {
@@ -66,17 +99,74 @@ public class ARFallbackManager : MonoBehaviour
         {
             m_TapToPlacePrefab = FindFirstObjectByType<TapToPlacePrefab>();
         }
+
+        // Đăng ký sự kiện load scene để cập nhật cấu hình động
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
     private void Start()
     {
+        // Thực hiện khởi tạo cho scene hiện tại khi vừa bắt đầu
+        InitializeForScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+    }
+
+    private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    {
+        Debug.Log($"ARFallbackManager: Đã load scene mới = {scene.name}. Đang cấu hình lại...");
+
+        Cleanup(false);
+
+        // Chuyển reference bị hủy về null hoàn toàn để tránh lỗi C# reference rác
+        if (m_FallbackRawImage == null)
+        {
+            m_FallbackRawImage = null;
+        }
+
+        // Tìm lại các component tương ứng với scene vừa tải
+        m_ARSession = FindFirstObjectByType<ARSession>();
+        m_ARPlaneManager = FindFirstObjectByType<ARPlaneManager>();
+        m_TapToPlacePrefab = FindFirstObjectByType<TapToPlacePrefab>();
+
+        InitializeForScene(scene.name);
+    }
+
+    private void InitializeForScene(string sceneName)
+    {
+        if (m_CurrentInitializedScene == sceneName)
+        {
+            return;
+        }
+
+        m_CurrentInitializedScene = sceneName;
+
+        // Dừng các coroutine cũ đang chạy
+        StopAllCoroutines();
+
+        // 1. Không làm gì ở Menu Scene chính
+        if (sceneName == "Menu Scene")
+        {
+            Debug.Log("ARFallbackManager: Đang ở Menu Scene, bỏ qua kích hoạt Camera phông nền.");
+            return;
+        }
+
+        // Khôi phục giá trị cấu hình ban đầu
+        m_ForceFallback = m_InitialForceFallback;
+
+        // 2. Bắt buộc kích hoạt chế độ giả lập nếu ở Non-AR Scene hoặc được thiết lập cứng trong Inspector
+        bool isNonAR = (m_SceneMode == SceneMode.NonARScene) || (sceneName == "Non-AR Scene");
+        if (isNonAR)
+        {
+            m_ForceFallback = true;
+        }
+
         if (m_ForceFallback)
         {
-            Debug.Log("ARFallbackManager: Bắt buộc kích hoạt Chế độ Giả lập AR (Force Fallback).");
+            Debug.Log($"ARFallbackManager: Kích hoạt Chế độ Giả lập AR (Force Fallback) cho scene '{sceneName}'.");
             ActivateFallbackMode();
         }
         else
         {
+            Debug.Log($"ARFallbackManager: Đang chạy kiểm tra khả năng tương thích AR cho scene '{sceneName}'.");
             StartCoroutine(CheckARAvailability());
         }
     }
@@ -290,6 +380,12 @@ public class ARFallbackManager : MonoBehaviour
             m_WebCamRectTransform.pivot = new Vector2(0.5f, 0.5f);
         }
 
+        // Tắt raycastTarget trên RawImage phông nền để không chặn click chuột / chạm tay ngoài 3D
+        if (m_WebCamRawImage != null)
+        {
+            m_WebCamRawImage.raycastTarget = false;
+        }
+
         if (!string.IsNullOrEmpty(deviceName))
         {
             m_WebCamTexture = new WebCamTexture(deviceName, 1280, 720, 30);
@@ -370,11 +466,38 @@ public class ARFallbackManager : MonoBehaviour
         m_WebCamRectTransform.localScale = new Vector3(s * scaleXSign, s * scaleYSign, 1.0f);
     }
 
+    public void Cleanup(bool unregisterEvent = false)
+    {
+        if (unregisterEvent)
+        {
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+
+        if (m_WebCamTexture != null)
+        {
+            if (m_WebCamTexture.isPlaying)
+            {
+                m_WebCamTexture.Stop();
+            }
+            m_WebCamTexture = null;
+        }
+
+        if (m_FallbackCanvasObj != null)
+        {
+            Destroy(m_FallbackCanvasObj);
+            m_FallbackCanvasObj = null;
+        }
+
+        m_WebCamRawImage = null;
+        m_WebCamRectTransform = null;
+    }
+
     private void OnDestroy()
     {
-        if (m_WebCamTexture != null && m_WebCamTexture.isPlaying)
+        Cleanup(true);
+        if (s_Instance == this)
         {
-            m_WebCamTexture.Stop();
+            s_Instance = null;
         }
     }
 
@@ -389,6 +512,7 @@ public class ARFallbackManager : MonoBehaviour
         {
             GameObject managerObj = new GameObject("ARFallbackManager_AutoCreated");
             managerObj.AddComponent<ARFallbackManager>();
+            DontDestroyOnLoad(managerObj);
             Debug.Log("ARFallbackManager: Đã tự động khởi tạo thành công tại runtime!");
         }
     }

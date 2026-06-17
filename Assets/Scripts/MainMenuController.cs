@@ -14,11 +14,8 @@ public class MainMenuController : MonoBehaviour
 
     private void Start()
     {
-        // Đảm bảo loading overlay ẩn lúc ban đầu
-        if (loadingOverlay != null)
-        {
-            loadingOverlay.SetActive(false);
-        }
+        // Tự động kiểm tra độ tương thích AR và chuyển Scene ngay khi bắt đầu
+        StartCoroutine(CheckARAndLoadScene());
     }
 
     /// <summary>
@@ -28,20 +25,6 @@ public class MainMenuController : MonoBehaviour
     {
         StartCoroutine(CheckARAndLoadScene());
     }
-
-    /// <summary>
-    /// Hàm gọi khi nhấn vào các game phụ khác (chưa phát triển)
-    /// </summary>
-    public void PlayOtherMiniGame(string gameName)
-    {
-        Debug.Log($"Bắt đầu Mini Game: {gameName}");
-#if UNITY_ANDROID && !UNITY_EDITOR
-        AndroidUtils.ShowToast($"Trò chơi '{gameName}' hiện đang được phát triển!");
-#else
-        Debug.LogWarning($"Trò chơi '{gameName}' hiện đang được phát triển!");
-#endif
-    }
-
     private IEnumerator CheckARAndLoadScene()
     {
         // 1. Hiển thị Loading Overlay và cập nhật thông báo
@@ -55,7 +38,15 @@ public class MainMenuController : MonoBehaviour
 
         yield return new WaitForSeconds(0.5f); // Tạo độ trễ nhẹ cho hiệu ứng mượt mà
 
-        // 2. Chạy Coroutine kiểm tra trạng thái tương thích ARCore
+#if UNITY_EDITOR
+        // Trong Unity Editor, tải trực tiếp Scene AR để phát triển/test bằng AR Simulator
+        if (loadingText != null)
+            loadingText.text = "Đang khởi động camera AR (Unity Editor)...";
+        
+        yield return new WaitForSeconds(0.8f);
+        SceneManager.LoadScene("AR Scene");
+#else
+        // 2. Chạy Coroutine kiểm tra trạng thái tương thích ARCore trên thiết bị thật
         if (ARSession.state == ARSessionState.None || ARSession.state == ARSessionState.CheckingAvailability)
         {
             yield return ARSession.CheckAvailability();
@@ -63,7 +54,7 @@ public class MainMenuController : MonoBehaviour
 
         Debug.Log($"MainMenuController: Trạng thái AR Session = {ARSession.state}");
 
-        // 3. Điều hướng dựa vào kết quả
+        // 3. Điều hướng dựa vào kết quả trên thiết bị thật
         if (ARSession.state == ARSessionState.Unsupported)
         {
             if (loadingText != null)
@@ -80,5 +71,6 @@ public class MainMenuController : MonoBehaviour
             yield return new WaitForSeconds(0.8f);
             SceneManager.LoadScene("AR Scene");
         }
+#endif
     }
 }
