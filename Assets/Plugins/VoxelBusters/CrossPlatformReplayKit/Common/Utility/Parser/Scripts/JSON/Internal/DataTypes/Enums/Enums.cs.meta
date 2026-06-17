@@ -1,0 +1,22 @@
+fileFormatVersion: 2
+guid: 70961198809754b1da50c02ffc11ef39
+labels:
+- Corder
+- Everyplay
+timeCreated: 1546664206
+licenseType: Store
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 191899
+  packageName: 'Cross Platform Replay Kit : Easy Screen Recording (Free Version)'
+  packageVersion: 1.6
+  assetPath: Assets/Plugins/VoxelBusters/CrossPlatformReplayKit/Common/Utility/Parser/Scripts/JSON/Internal/DataTypes/Enums/Enums.cs
+  uploadId: 423874

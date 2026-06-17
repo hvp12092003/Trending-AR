@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: 5b90b990d68734560a8a46cc853a57ed
+TextScriptImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 191899
+  packageName: 'Cross Platform Replay Kit : Easy Screen Recording (Free Version)'
+  packageVersion: 1.6
+  assetPath: Assets/Plugins/VoxelBusters/CrossPlatformReplayKit/link.xml
+  uploadId: 423874

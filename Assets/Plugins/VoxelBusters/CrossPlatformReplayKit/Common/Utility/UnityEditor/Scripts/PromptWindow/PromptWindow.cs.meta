@@ -1,0 +1,22 @@
+fileFormatVersion: 2
+guid: b71be86926b124f44804cf3c475933db
+labels:
+- Corder
+- Everyplay
+timeCreated: 1546664206
+licenseType: Store
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 191899
+  packageName: 'Cross Platform Replay Kit : Easy Screen Recording (Free Version)'
+  packageVersion: 1.6
+  assetPath: Assets/Plugins/VoxelBusters/CrossPlatformReplayKit/Common/Utility/UnityEditor/Scripts/PromptWindow/PromptWindow.cs
+  uploadId: 423874

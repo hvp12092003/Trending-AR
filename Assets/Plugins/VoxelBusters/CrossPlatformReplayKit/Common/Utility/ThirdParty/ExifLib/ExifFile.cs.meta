@@ -1,0 +1,22 @@
+fileFormatVersion: 2
+guid: c1bbe6c19552e47e69099189452cff3e
+labels:
+- Corder
+- Everyplay
+timeCreated: 1546664206
+licenseType: Store
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 191899
+  packageName: 'Cross Platform Replay Kit : Easy Screen Recording (Free Version)'
+  packageVersion: 1.6
+  assetPath: Assets/Plugins/VoxelBusters/CrossPlatformReplayKit/Common/Utility/ThirdParty/ExifLib/ExifFile.cs
+  uploadId: 423874
