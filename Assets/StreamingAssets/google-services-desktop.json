@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "21467724602",
+    "project_id": "soundverse-ar",
+    "storage_bucket": "soundverse-ar.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:21467724602:android:ce54a1c08998ea9cec2e03",
+        "android_client_info": {
+          "package_name": "com.starnixcompany.soundversear"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBC2iNnVCc4X5EgkxRKcy-x7EztMnE5bt8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
