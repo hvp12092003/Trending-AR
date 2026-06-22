@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
@@ -15,6 +16,7 @@ public class ProfilePanelController : MonoBehaviour
 {
     [Header("Main Profile UI Elements")]
     [SerializeField] private TextMeshProUGUI userNameText;
+    [SerializeField] private Image avatarImage;
     [SerializeField] private Button backButton;
     [SerializeField] private Button changeAvatarBtn;
     [SerializeField] private Button changePasswordBtn;
@@ -36,6 +38,9 @@ public class ProfilePanelController : MonoBehaviour
     [SerializeField] private string accountSceneName = "Account Scene";
     [SerializeField] private float transitionDuration = 0.25f;
 
+    // Sự kiện thông báo khi avatar thay đổi
+    public static event Action OnAvatarChanged;
+
     // Sự kiện thông báo khi đóng Panel để MainMenuController hiển thị lại Bottom Bar
     public event Action OnPanelClosed;
 
@@ -49,6 +54,11 @@ public class ProfilePanelController : MonoBehaviour
         {
             _canvasGroup = gameObject.AddComponent<CanvasGroup>();
         }
+
+        if (avatarImage != null)
+        {
+            _defaultAvatarSprite = avatarImage.sprite;
+        }
     }
 
     private void Start()
@@ -58,7 +68,7 @@ public class ProfilePanelController : MonoBehaviour
             backButton.onClick.AddListener(ClosePanel);
         
         if (changeAvatarBtn != null)
-            changeAvatarBtn.onClick.AddListener(() => ShowMainNotification("Tính năng đổi avatar đang được phát triển!"));
+            changeAvatarBtn.onClick.AddListener(OnChangeAvatarClicked);
 
         if (changePasswordBtn != null)
             changePasswordBtn.onClick.AddListener(OpenChangePasswordPanel);
@@ -151,6 +161,13 @@ public class ProfilePanelController : MonoBehaviour
 
         if (userNameText != null)
             userNameText.text = userName;
+
+        // Kiểm tra và dọn dẹp cache của tài khoản cũ
+        ValidateAndCleanAvatarCache();
+
+        // Tải ảnh đại diện
+        LoadLocalAvatar();
+        SyncAvatarFromFirestore();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -293,6 +310,212 @@ public class ProfilePanelController : MonoBehaviour
 
         changePassNofiText.text = message;
         changePassNofiText.color = color;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Xử lý Thay đổi Avatar
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private Sprite _defaultAvatarSprite;
+
+    private string GetLocalAvatarPath() => Path.Combine(Application.persistentDataPath, "avatar_cache.jpg");
+
+    private void ValidateAndCleanAvatarCache()
+    {
+        string currentUserId = "";
+        if (FirebaseAuth.DefaultInstance.CurrentUser != null)
+        {
+            currentUserId = FirebaseAuth.DefaultInstance.CurrentUser.UserId;
+        }
+
+        string cachedUserId = PlayerPrefs.GetString("CachedAvatarUserId", "");
+        if (cachedUserId != currentUserId)
+        {
+            string localPath = GetLocalAvatarPath();
+            if (File.Exists(localPath))
+            {
+                try
+                {
+                    File.Delete(localPath);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[ProfilePanelController] Lỗi xóa cache avatar cũ: {ex.Message}");
+                }
+            }
+            PlayerPrefs.SetString("CachedAvatarUserId", currentUserId);
+            PlayerPrefs.Save();
+        }
+    }
+
+    private void LoadLocalAvatar()
+    {
+        string localPath = GetLocalAvatarPath();
+        if (File.Exists(localPath))
+        {
+            try
+            {
+                byte[] bytes = File.ReadAllBytes(localPath);
+                Texture2D tex = new Texture2D(2, 2);
+                if (tex.LoadImage(bytes))
+                {
+                    UpdateAvatarUIFromTexture(tex);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ProfilePanelController] Lỗi load avatar cache: {ex.Message}");
+            }
+        }
+        else
+        {
+            // Reset về default nếu không có cache của user hiện tại
+            if (_dynamicAvatarSprite != null)
+            {
+                Destroy(_dynamicAvatarSprite);
+            }
+            avatarImage.sprite = _defaultAvatarSprite;
+        }
+    }
+
+    private async void SyncAvatarFromFirestore()
+    {
+        if (MainMenuDataManager.Instance == null) return;
+
+        // Chỉ đồng bộ khi thiết bị đang trực tuyến
+        if (SceneTransitionManager.Instance != null)
+        {
+            bool hasInternet = await SceneTransitionManager.Instance.CheckInternetConnectionAsync();
+            if (!hasInternet)
+            {
+                Debug.Log("[ProfilePanelController] Thiết bị ngoại tuyến, sử dụng avatar từ cache cục bộ.");
+                return;
+            }
+        }
+
+        string base64 = await MainMenuDataManager.Instance.GetUserAvatarBase64Async();
+        if (!string.IsNullOrEmpty(base64))
+        {
+            try
+            {
+                byte[] bytes = Convert.FromBase64String(base64);
+                string localPath = GetLocalAvatarPath();
+
+                if (File.Exists(localPath))
+                {
+                    byte[] localBytes = File.ReadAllBytes(localPath);
+                    if (AreByteArraysEqual(bytes, localBytes))
+                    {
+                        return;
+                    }
+                }
+
+                File.WriteAllBytes(localPath, bytes);
+                Texture2D tex = new Texture2D(2, 2);
+                if (tex.LoadImage(bytes))
+                {
+                    UpdateAvatarUIFromTexture(tex);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ProfilePanelController] Lỗi đồng bộ avatar từ Firestore: {ex.Message}");
+            }
+        }
+    }
+
+    private bool AreByteArraysEqual(byte[] a, byte[] b)
+    {
+        if (a == null || b == null) return false;
+        if (a.Length != b.Length) return false;
+        for (int i = 0; i < a.Length; i++)
+        {
+            if (a[i] != b[i]) return false;
+        }
+        return true;
+    }
+
+    private Sprite _dynamicAvatarSprite;
+
+    private void UpdateAvatarUIFromTexture(Texture2D texture)
+    {
+        if (avatarImage == null || texture == null) return;
+
+        // Dọn dẹp sprite động cũ để tránh rò rỉ bộ nhớ (không hủy tài liệu gốc của dự án)
+        if (_dynamicAvatarSprite != null)
+        {
+            Destroy(_dynamicAvatarSprite);
+        }
+
+        _dynamicAvatarSprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+        avatarImage.sprite = _dynamicAvatarSprite;
+        avatarImage.enabled = true;
+    }
+
+    private void OnChangeAvatarClicked()
+    {
+        // NativeGallery sẽ tự động yêu cầu cấp quyền truy cập nếu cần
+        NativeGallery.GetImageFromGallery((path) =>
+        {
+            if (!string.IsNullOrEmpty(path))
+            {
+                HandlePickedImage(path);
+            }
+        }, "Chọn ảnh đại diện", "image/*");
+    }
+
+    private async void HandlePickedImage(string path)
+    {
+        // 1. Tải và tự động xoay ảnh dựa trên EXIF
+        Texture2D texture = NativeGallery.LoadImageAtPath(path, maxSize: 256, markTextureNonReadable: false);
+        if (texture == null)
+        {
+            ShowMainNotification("Không thể tải ảnh đã chọn.");
+            return;
+        }
+
+        // 2. Nén thành JPG chất lượng 75%
+        byte[] bytes = texture.EncodeToJPG(75);
+        string localPath = GetLocalAvatarPath();
+        try
+        {
+            File.WriteAllBytes(localPath, bytes);
+            
+            // Lưu userId vào PlayerPrefs của tệp cache mới này
+            string currentUserId = "";
+            if (FirebaseAuth.DefaultInstance.CurrentUser != null)
+            {
+                currentUserId = FirebaseAuth.DefaultInstance.CurrentUser.UserId;
+            }
+            PlayerPrefs.SetString("CachedAvatarUserId", currentUserId);
+            PlayerPrefs.Save();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[ProfilePanelController] Lỗi lưu cache avatar: {ex.Message}");
+        }
+
+        // 3. Cập nhật UI lập tức
+        UpdateAvatarUIFromTexture(texture);
+
+        // Kích hoạt sự kiện đổi ảnh đại diện
+        OnAvatarChanged?.Invoke();
+
+        // 4. Đồng bộ lên Firestore
+        ShowMainNotification("Đang tải ảnh đại diện lên máy chủ...");
+        string base64 = Convert.ToBase64String(bytes);
+        if (MainMenuDataManager.Instance != null)
+        {
+            bool success = await MainMenuDataManager.Instance.UpdateAvatarAsync(base64);
+            if (success)
+            {
+                ShowMainNotification("Cập nhật ảnh đại diện thành công!");
+            }
+            else
+            {
+                ShowMainNotification("Lưu ảnh lên máy chủ thất bại.");
+            }
+        }
     }
 
     private void ClearNotifications()

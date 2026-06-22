@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -34,6 +35,7 @@ public class MainMenuController : MonoBehaviour
     [SerializeField] private Button profileButton;
     [SerializeField] private ProfilePanelController profilePanel;
     [SerializeField] private TextMeshProUGUI userName;
+    [SerializeField] private Image mainAvatarImage;
 
     [Header("Permission Panel")]
     [SerializeField] private PermissionPanelController permissionPanel;
@@ -91,8 +93,20 @@ public class MainMenuController : MonoBehaviour
             }
         }
 
-        // Cập nhật tên hiển thị người dùng ban đầu
+        if (mainAvatarImage != null)
+        {
+            _defaultAvatarSprite = mainAvatarImage.sprite;
+        }
+
+        ValidateAndCleanAvatarCache();
+
+        // Cập nhật tên hiển thị người dùng ban đầu và avatar
         UpdateUserNameUI();
+        UpdateUserAvatarUI();
+        SyncUserAvatarFromFirestore();
+
+        // Đăng ký sự kiện thay đổi avatar
+        ProfilePanelController.OnAvatarChanged += UpdateUserAvatarUI;
 
         // 4. Đảm bảo người dùng hiện tại đã có document cấu hình trong Firestore
         if (MainMenuDataManager.Instance != null)
@@ -232,6 +246,141 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
+    private Sprite _dynamicAvatarSprite;
+    private Sprite _defaultAvatarSprite;
+
+    private string GetLocalAvatarPath()
+    {
+        return Path.Combine(Application.persistentDataPath, "avatar_cache.jpg");
+    }
+
+    private void ValidateAndCleanAvatarCache()
+    {
+        string currentUserId = "";
+        if (Firebase.Auth.FirebaseAuth.DefaultInstance.CurrentUser != null)
+        {
+            currentUserId = Firebase.Auth.FirebaseAuth.DefaultInstance.CurrentUser.UserId;
+        }
+
+        string cachedUserId = PlayerPrefs.GetString("CachedAvatarUserId", "");
+        if (cachedUserId != currentUserId)
+        {
+            string localPath = GetLocalAvatarPath();
+            if (File.Exists(localPath))
+            {
+                try
+                {
+                    File.Delete(localPath);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[MainMenuController] Lỗi xóa cache avatar cũ: {ex.Message}");
+                }
+            }
+            PlayerPrefs.SetString("CachedAvatarUserId", currentUserId);
+            PlayerPrefs.Save();
+        }
+    }
+
+    /// <summary>
+    /// Tải ảnh đại diện từ cache cục bộ và hiển thị ở Menu chính.
+    /// </summary>
+    private void UpdateUserAvatarUI()
+    {
+        if (mainAvatarImage == null) return;
+
+        string localPath = GetLocalAvatarPath();
+        if (File.Exists(localPath))
+        {
+            try
+            {
+                byte[] bytes = File.ReadAllBytes(localPath);
+                Texture2D tex = new Texture2D(2, 2);
+                if (tex.LoadImage(bytes))
+                {
+                    // Dọn dẹp sprite động cũ để tránh rò rỉ bộ nhớ (không hủy tài liệu gốc của dự án)
+                    if (_dynamicAvatarSprite != null)
+                    {
+                        Destroy(_dynamicAvatarSprite);
+                    }
+
+                    _dynamicAvatarSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                    mainAvatarImage.sprite = _dynamicAvatarSprite;
+                    mainAvatarImage.enabled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[MainMenuController] Lỗi load avatar từ cache cục bộ: {ex.Message}");
+            }
+        }
+        else
+        {
+            // Reset về default nếu không có cache của user hiện tại
+            if (_dynamicAvatarSprite != null)
+            {
+                Destroy(_dynamicAvatarSprite);
+            }
+            mainAvatarImage.sprite = _defaultAvatarSprite;
+        }
+    }
+
+    /// <summary>
+    /// Đồng bộ avatar từ Firestore về máy khi khởi động Main Menu.
+    /// </summary>
+    private async void SyncUserAvatarFromFirestore()
+    {
+        if (MainMenuDataManager.Instance == null) return;
+
+        // Chỉ đồng bộ khi thiết bị đang trực tuyến
+        if (SceneTransitionManager.Instance != null)
+        {
+            bool hasInternet = await SceneTransitionManager.Instance.CheckInternetConnectionAsync();
+            if (!hasInternet)
+            {
+                Debug.Log("[MainMenuController] Thiết bị ngoại tuyến, sử dụng avatar từ cache cục bộ.");
+                return;
+            }
+        }
+
+        string base64 = await MainMenuDataManager.Instance.GetUserAvatarBase64Async();
+        if (!string.IsNullOrEmpty(base64))
+        {
+            try
+            {
+                byte[] bytes = Convert.FromBase64String(base64);
+                string localPath = GetLocalAvatarPath();
+
+                if (File.Exists(localPath))
+                {
+                    byte[] localBytes = File.ReadAllBytes(localPath);
+                    if (AreByteArraysEqual(bytes, localBytes))
+                    {
+                        return;
+                    }
+                }
+
+                File.WriteAllBytes(localPath, bytes);
+                UpdateUserAvatarUI();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[MainMenuController] Lỗi đồng bộ avatar từ Firestore: {ex.Message}");
+            }
+        }
+    }
+
+    private bool AreByteArraysEqual(byte[] a, byte[] b)
+    {
+        if (a == null || b == null) return false;
+        if (a.Length != b.Length) return false;
+        for (int i = 0; i < a.Length; i++)
+        {
+            if (a[i] != b[i]) return false;
+        }
+        return true;
+    }
+
     private void OnDestroy()
     {
         if (profilePanel != null)
@@ -243,5 +392,7 @@ public class MainMenuController : MonoBehaviour
         {
             permissionPanel.OnPermissionsGranted -= OnPermissionsGrantedCallback;
         }
+
+        ProfilePanelController.OnAvatarChanged -= UpdateUserAvatarUI;
     }
 }

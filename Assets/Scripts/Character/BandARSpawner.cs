@@ -33,8 +33,10 @@ public class BandARSpawner : MonoBehaviour
 
     private void Start()
     {
-        // Nếu bật tự động spawn khi bắt đầu và có dữ liệu ban nhạc trong Selection Manager
-        if (spawnOnStart && BandSelectionManager.SelectedBand != null)
+        // Nếu bật tự động spawn khi bắt đầu và có dữ liệu ban nhạc hoặc nhân vật custom
+        bool hasSelectedBand = BandSelectionManager.SelectedBand != null;
+        bool hasCustomCast = MainMenuDataManager.Instance != null && MainMenuDataManager.Instance.castData != null;
+        if (spawnOnStart && (hasSelectedBand || hasCustomCast))
         {
             Vector3 spawnPos = Vector3.zero;
             Quaternion spawnRot = Quaternion.identity;
@@ -71,16 +73,24 @@ public class BandARSpawner : MonoBehaviour
     /// <param name="rotation">Góc xoay của ban nhạc (hướng mặt).</param>
     public void SpawnBand(Vector3 centerPosition, Quaternion rotation)
     {
-        if (BandSelectionManager.SelectedBand == null)
+        BandData band = BandSelectionManager.SelectedBand;
+        CastData customCast = (MainMenuDataManager.Instance != null) ? MainMenuDataManager.Instance.castData : null;
+
+        if (band == null && customCast != null)
         {
-            Debug.LogWarning("[BandARSpawner] Không có dữ liệu ban nhạc nào trong BandSelectionManager!");
+            // Tạo một BandData tạm thời chứa duy nhất nhân vật custom
+            band = new BandData(new List<CastData> { customCast });
+        }
+
+        if (band == null)
+        {
+            Debug.LogWarning("[BandARSpawner] Không có dữ liệu ban nhạc hoặc nhân vật custom nào để spawn!");
             return;
         }
 
         // 1. Dọn dẹp các thành viên cũ nếu có
         ClearSpawnedMembers();
 
-        BandData band = BandSelectionManager.SelectedBand;
         int count = band.casts.Count;
         if (count == 0) return;
 
@@ -133,7 +143,35 @@ public class BandARSpawner : MonoBehaviour
             // ── Tự động cấu hình Audio Nhạc cụ (Nếu được thiết lập) ──
             if (playAudioOnSpawn && !string.IsNullOrEmpty(cast.audioId))
             {
-                // Hook âm thanh ở đây tùy theo kiến trúc âm thanh của dự án
+                AudioSource source = memberObj.GetComponent<AudioSource>();
+                if (source == null)
+                {
+                    source = memberObj.AddComponent<AudioSource>();
+                }
+                
+                source.loop = true;
+
+                if (cast.audioId.StartsWith("rec_"))
+                {
+                    // Tải ghi âm từ Firebase và giải mã trong bộ nhớ
+                    PlayFirebaseRecording(source, cast.audioId);
+                }
+                else
+                {
+                    // Tải từ Resources
+                    AudioClip clip = Resources.Load<AudioClip>("Audios/" + cast.audioId);
+                    if (clip == null) clip = Resources.Load<AudioClip>(cast.audioId);
+                    
+                    if (clip != null)
+                    {
+                        source.clip = clip;
+                        source.Play();
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[BandARSpawner] Không tìm thấy AudioClip mặc định cho ID: {cast.audioId}");
+                    }
+                }
             }
 
             // Chọn thành viên đầu tiên làm đối tượng điều khiển mặc định thông qua CharacterManager
@@ -189,6 +227,37 @@ public class BandARSpawner : MonoBehaviour
             }
         }
         _spawnedMembers.Clear();
+    }
+
+    private async void PlayFirebaseRecording(AudioSource source, string audioId)
+    {
+        if (source == null || string.IsNullOrEmpty(audioId)) return;
+
+        Debug.Log($"[BandARSpawner] Đang tải bản ghi âm từ Firebase cho AudioSource: {audioId}");
+
+        if (MainMenuDataManager.Instance != null)
+        {
+            var recordings = await MainMenuDataManager.Instance.GetRecordingsAsync();
+            var targetRec = recordings.Find(r => r.recordingId == audioId);
+
+            if (targetRec != null && !string.IsNullOrEmpty(targetRec.audioBase64) && source != null)
+            {
+                byte[] wavBytes = System.Convert.FromBase64String(targetRec.audioBase64);
+                // Giải mã mảng byte WAV thành AudioClip trong RAM
+                AudioClip clip = WavUtility.ToAudioClip(wavBytes, targetRec.name);
+                
+                if (clip != null && source != null)
+                {
+                    source.clip = clip;
+                    source.Play();
+                    Debug.Log($"[BandARSpawner] Đã phát thành công bản ghi âm {targetRec.name}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[BandARSpawner] Không tìm thấy bản ghi âm {audioId} trên Firestore!");
+            }
+        }
     }
 
     private void OnDestroy()

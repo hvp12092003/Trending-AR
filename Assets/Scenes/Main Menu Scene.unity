@@ -452,7 +452,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &120895032
 RectTransform:
   m_ObjectHideFlags: 0
@@ -533,6 +533,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProfilePanelController
   userNameText: {fileID: 56337906}
+  avatarImage: {fileID: 1792729569}
   backButton: {fileID: 1562518318}
   changeAvatarBtn: {fileID: 1344841107}
   changePasswordBtn: {fileID: 1325578735}
@@ -771,11 +772,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.VerticalLayoutGroup
   m_Padding:
-    m_Left: 200
+    m_Left: 0
     m_Right: 0
     m_Top: 0
     m_Bottom: 0
-  m_ChildAlignment: 0
+  m_ChildAlignment: 1
   m_Spacing: 100
   m_ChildForceExpandWidth: 1
   m_ChildForceExpandHeight: 1
@@ -1371,7 +1372,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 540, y: -1275}
+  m_AnchoredPosition: {x: 540.03265, y: -1275}
   m_SizeDelta: {x: 680, y: 430}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &242636812
@@ -1683,7 +1684,7 @@ GameObject:
   - component: {fileID: 365575432}
   - component: {fileID: 365575431}
   m_Layer: 5
-  m_Name: AR BAND Button (3)
+  m_Name: AR BAND Button
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1705,7 +1706,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 540, y: -215}
+  m_AnchoredPosition: {x: 540.03265, y: -215}
   m_SizeDelta: {x: 680, y: 430}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &365575431
@@ -2609,6 +2610,7 @@ MonoBehaviour:
   profileButton: {fileID: 695103457}
   profilePanel: {fileID: 120895035}
   userName: {fileID: 1001904659}
+  mainAvatarImage: {fileID: 695103458}
   permissionPanel: {fileID: 1623912877}
 --- !u!4 &481202352
 Transform:
@@ -5961,7 +5963,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 540, y: -745}
+  m_AnchoredPosition: {x: 540.03265, y: -745}
   m_SizeDelta: {x: 680, y: 430}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1301690890
@@ -6710,12 +6712,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.HorizontalLayoutGroup
   m_Padding:
-    m_Left: 5
-    m_Right: 5
-    m_Top: 20
+    m_Left: 0
+    m_Right: 0
+    m_Top: 10
     m_Bottom: 40
-  m_ChildAlignment: 0
-  m_Spacing: 50
+  m_ChildAlignment: 4
+  m_Spacing: 20
   m_ChildForceExpandWidth: 1
   m_ChildForceExpandHeight: 1
   m_ChildControlWidth: 1

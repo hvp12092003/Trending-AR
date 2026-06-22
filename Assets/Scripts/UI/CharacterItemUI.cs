@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
@@ -8,6 +9,9 @@ public class CharacterItemUI : MonoBehaviour
 {
     [SerializeField] private TextMeshProUGUI nameText;
     [SerializeField] private TextMeshProUGUI dateText;
+    [SerializeField] private Button deleteButton;
+
+    public Button DeleteButton => deleteButton;
 
     /// <summary>
     /// Gán thông tin nhân vật lên giao diện.

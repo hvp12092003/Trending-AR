@@ -20,6 +20,11 @@ public class CastButtonUI : MonoBehaviour
     [Tooltip("Nút bấm chính để chọn cast này")]
     [SerializeField] private Button button;
 
+    [Tooltip("Nút bấm để xóa cast này khỏi thư viện")]
+    [SerializeField] private Button deleteButton;
+
+    public Button DeleteButton => deleteButton;
+
     // ─────────────────────────────────────────────────────────────────────────
     // Dữ liệu bổ sung đi kèm nhân vật khi khởi tạo
     // ─────────────────────────────────────────────────────────────────────────

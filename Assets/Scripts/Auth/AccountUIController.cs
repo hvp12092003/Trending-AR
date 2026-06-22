@@ -15,7 +15,6 @@ public class AccountUIController : MonoBehaviour
     [Header("Panels")]
     [SerializeField] private GameObject loginPanel;
     [SerializeField] private GameObject signupPanel;
-    [SerializeField] private GameObject changePassPanel;
     [SerializeField] private GameObject forgotPassPanel;
     [SerializeField] private GameObject welcomePanel;
 
@@ -42,14 +41,6 @@ public class AccountUIController : MonoBehaviour
     [SerializeField] private Button signupButton;
     [SerializeField] private Button goToLoginButton;
 
-    [Header("Change Password Panel UI")]
-    [SerializeField] private TMP_InputField changeCurrentPassword;
-    [SerializeField] private TMP_InputField changeNewPassword;
-    [SerializeField] private TMP_InputField changeConfirmNewPassword;
-    [SerializeField] private TextMeshProUGUI changePassNofiText;
-    [SerializeField] private Button changePasswordButton;
-    [SerializeField] private Button changePassBackButton;
-
     [Header("Forgot Password Panel UI")]
     [SerializeField] private TMP_InputField forgotEmail;
     [SerializeField] private TextMeshProUGUI forgotNofiText;
@@ -59,8 +50,6 @@ public class AccountUIController : MonoBehaviour
     [Header("Welcome Panel UI")]
     [SerializeField] private TextMeshProUGUI welcomeText;
     [SerializeField] private Button startButton;
-    [SerializeField] private Button logoutButton;
-    [SerializeField] private Button goToChangePassButton;
 
     [Header("Navigation Settings")]
     [SerializeField] private string mainMenuSceneName = "Main Menu Scene";
@@ -70,7 +59,6 @@ public class AccountUIController : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
     private List<Selectable> loginSelectables;
     private List<Selectable> signupSelectables;
-    private List<Selectable> changePassSelectables;
     private List<Selectable> forgotSelectables;
 
     private void Start()
@@ -85,10 +73,6 @@ public class AccountUIController : MonoBehaviour
             { signupEmail, signupPassword, signupConfirmPassword, signupButton, goToLoginButton };
         if (signupName != null) signupSelectables.Add(signupName);
 
-        changePassSelectables = new List<Selectable>
-            { changeCurrentPassword, changeNewPassword, changePasswordButton, changePassBackButton };
-        if (changeConfirmNewPassword != null) changePassSelectables.Add(changeConfirmNewPassword);
-
         forgotSelectables = new List<Selectable>
             { forgotEmail, forgotSendButton, backToLoginFromForgotPassButton };
 
@@ -102,15 +86,10 @@ public class AccountUIController : MonoBehaviour
         if (signupButton != null)           signupButton.onClick.AddListener(OnRegisterClicked);
         if (goToLoginButton != null)        goToLoginButton.onClick.AddListener(() => ShowPanel(loginPanel));
 
-        if (changePasswordButton != null)   changePasswordButton.onClick.AddListener(OnChangePassClicked);
-        if (changePassBackButton != null)   changePassBackButton.onClick.AddListener(ShowWelcomePanel);
-
         if (forgotSendButton != null)                  forgotSendButton.onClick.AddListener(OnForgotClicked);
         if (backToLoginFromForgotPassButton != null)   backToLoginFromForgotPassButton.onClick.AddListener(() => ShowPanel(loginPanel));
 
         if (startButton != null)            startButton.onClick.AddListener(OnStartGameClicked);
-        if (logoutButton != null)           logoutButton.onClick.AddListener(OnLogoutClicked);
-        if (goToChangePassButton != null)   goToChangePassButton.onClick.AddListener(() => ShowPanel(changePassPanel));
 
         // Kiểm tra trạng thái đăng nhập
         if (AuthManager.Instance != null && AuthManager.Instance.IsLoggedIn())
@@ -161,7 +140,6 @@ public class AccountUIController : MonoBehaviour
             // Nếu không có panel cũ, đảm bảo các panel khác được ẩn ngay lập tức
             if (loginPanel != null      && loginPanel != targetPanel)       loginPanel.SetActive(false);
             if (signupPanel != null     && signupPanel != targetPanel)      signupPanel.SetActive(false);
-            if (changePassPanel != null && changePassPanel != targetPanel)  changePassPanel.SetActive(false);
             if (forgotPassPanel != null && forgotPassPanel != targetPanel)  forgotPassPanel.SetActive(false);
             if (welcomePanel != null    && welcomePanel != targetPanel)     welcomePanel.SetActive(false);
         }
@@ -190,7 +168,6 @@ public class AccountUIController : MonoBehaviour
     {
         if (loginNofiText != null)      loginNofiText.text = "";
         if (signupNofiText != null)     signupNofiText.text = "";
-        if (changePassNofiText != null) changePassNofiText.text = "";
         if (forgotNofiText != null)     forgotNofiText.text = "";
     }
 
@@ -302,48 +279,6 @@ public class AccountUIController : MonoBehaviour
         ShowPanel(loginPanel);
     }
 
-    private async void OnChangePassClicked()
-    {
-        if (AuthManager.Instance == null) return;
-
-        string oldPass = changeCurrentPassword != null ? changeCurrentPassword.text : "";
-        string newPass = changeNewPassword     != null ? changeNewPassword.text     : "";
-        string confirmNewPass = changeConfirmNewPassword != null ? changeConfirmNewPassword.text : "";
-
-        if (newPass != confirmNewPass)
-        {
-            if (changePassNofiText != null)
-            {
-                changePassNofiText.color = Color.red;
-                changePassNofiText.text  = "Mật khẩu mới xác nhận không khớp!";
-            }
-            return;
-        }
-
-        SetSelectables(changePassSelectables, false);
-
-        var (success, error) = await AuthManager.Instance.ChangePasswordAsync(oldPass, newPass);
-
-        SetSelectables(changePassSelectables, true);
-
-        if (success)
-        {
-            if (changePassNofiText != null)
-            {
-                changePassNofiText.color = Color.green;
-                changePassNofiText.text  = "Đổi mật khẩu thành công!";
-            }
-            Invoke(nameof(ShowWelcomePanel), 1.5f);
-        }
-        else
-        {
-            if (changePassNofiText != null)
-            {
-                changePassNofiText.color = Color.red;
-                changePassNofiText.text  = error;
-            }
-        }
-    }
 
     private async void OnForgotClicked()
     {
@@ -375,14 +310,7 @@ public class AccountUIController : MonoBehaviour
         }
     }
 
-    private void OnLogoutClicked()
-    {
-        if (AuthManager.Instance != null)
-        {
-            AuthManager.Instance.Logout();
-        }
-        ShowPanel(loginPanel);
-    }
+
 
     private void OnStartGameClicked()
     {

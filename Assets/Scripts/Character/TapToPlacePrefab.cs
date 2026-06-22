@@ -163,9 +163,11 @@ public class TapToPlacePrefab : MonoBehaviour
     /// </summary>
     private void HandleSpawning(Pose hitPose)
     {
-        // ── Kiểm tra xem có ban nhạc nào đang được chọn và có Spawner trong scene hay không ──
+        // ── Kiểm tra xem có ban nhạc hoặc nhân vật custom nào được chọn và có Spawner trong scene hay không ──
         BandARSpawner bandSpawner = FindFirstObjectByType<BandARSpawner>();
-        if (BandSelectionManager.SelectedBand != null && bandSpawner != null)
+        bool hasSelectedBand = BandSelectionManager.SelectedBand != null;
+        bool hasCustomCast = MainMenuDataManager.Instance != null && MainMenuDataManager.Instance.castData != null;
+        if ((hasSelectedBand || hasCustomCast) && bandSpawner != null)
         {
             Quaternion spawnRot = hitPose.rotation;
             if (m_RotateTowardsCamera)

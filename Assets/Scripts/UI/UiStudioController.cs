@@ -245,11 +245,42 @@ public class UiStudioController : MonoBehaviour
                     Sprite avatar = GetAvatarSprite(charData.prefabName);
                     CastData castData = new CastData(charData.name, charData.prefabName, charData.instrumentId, charData.danceAnimId, charData.danceAnimIds);
                     castUI.Setup(castData, avatar);
+
+                    if (castUI.DeleteButton != null)
+                    {
+                        castUI.DeleteButton.gameObject.SetActive(true);
+                        castUI.DeleteButton.onClick.RemoveAllListeners();
+                        castUI.DeleteButton.onClick.AddListener(async () =>
+                        {
+                            bool success = await MainMenuDataManager.Instance.DeleteCharacterAsync(charData.characterId);
+                            if (success)
+                            {
+                                RefreshAll();
+                            }
+                        });
+                    }
                 }
                 else
                 {
                     var itemUI = itemObj.GetComponent<CharacterItemUI>();
-                    if (itemUI != null) itemUI.Setup(charData);
+                    if (itemUI != null)
+                    {
+                        itemUI.Setup(charData);
+
+                        if (itemUI.DeleteButton != null)
+                        {
+                            itemUI.DeleteButton.gameObject.SetActive(true);
+                            itemUI.DeleteButton.onClick.RemoveAllListeners();
+                            itemUI.DeleteButton.onClick.AddListener(async () =>
+                            {
+                                bool success = await MainMenuDataManager.Instance.DeleteCharacterAsync(charData.characterId);
+                                if (success)
+                                {
+                                    RefreshAll();
+                                }
+                            });
+                        }
+                    }
                 }
 
                 // Micro-animation entrance

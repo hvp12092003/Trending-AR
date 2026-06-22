@@ -1,0 +1,749 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+/// <summary>
+/// AudioPanelController quản lý việc hiển thị danh sách âm thanh / nhạc cụ trong ScrollView.
+/// Tự động lấy thông tin từ danh sách prefab nhạc cụ (chứa AudioConfig) để sinh các button tương ứng.
+/// Hỗ trợ thêm chức năng ghi âm (Record) giọng nói/âm thanh tùy chỉnh.
+/// </summary>
+[RequireComponent(typeof(AudioSource))]
+public class AudioPanelController : MonoBehaviour
+{
+    [Header("UI References")]
+    [Tooltip("Transform Content của ScrollView để chứa các nút chọn âm thanh")]
+    [SerializeField] private Transform scrollViewContent;
+
+    [Tooltip("Prefab của nút chọn âm thanh (hỗ trợ CustomCharacterItemUI hoặc Button tiêu chuẩn)")]
+    [SerializeField] private GameObject audioButtonPrefab;
+
+    [Tooltip("Danh sách prefab nhạc cụ chứa thông tin cấu hình AudioConfig")]
+    [SerializeField] private List<GameObject> audioPrefabs = new List<GameObject>();
+
+    [Header("Aesthetic Fallbacks (Optional)")]
+    [Tooltip("Sprite nền của nút khi được chọn (dành cho Button tiêu chuẩn)")]
+    [SerializeField] private Sprite selectedButtonSprite;
+
+    [Tooltip("Sprite nền của nút khi không được chọn (dành cho Button tiêu chuẩn)")]
+    [SerializeField] private Sprite unselectedButtonSprite;
+
+    [Header("Initialization Settings")]
+    [Tooltip("Tự động khởi tạo và sinh nút khi Start")]
+    [SerializeField] private bool initializeOnStart = true;
+
+    [Tooltip("Tự động chọn âm thanh đầu tiên sau khi khởi tạo thành công")]
+    [SerializeField] private bool selectFirstOnStart = true;
+
+    [Header("Audio Recording Optionals")]
+    [Tooltip("Cho phép hiển thị tính năng ghi âm trong ScrollView")]
+    [SerializeField] private bool enableRecording = true;
+
+    [Tooltip("Prefab của nút ghi âm (chứa component CustomAudioRecordItemUI)")]
+    [SerializeField] private GameObject audioRecordButtonPrefab;
+
+    [Tooltip("Text hiển thị trạng thái đang ghi âm / tải dữ liệu")]
+    [SerializeField] private TextMeshProUGUI recordingStatusText;
+
+    [Tooltip("Icon Micro dùng cho nút ghi âm")]
+    [SerializeField] private Sprite micIcon;
+
+    [Header("Events")]
+    [Tooltip("Sự kiện kích hoạt khi một âm thanh nhạc cụ được chọn (truyền vào prefab gốc)")]
+    public UnityEngine.Events.UnityEvent<GameObject> onAudioSelectedEvent;
+
+    [Tooltip("Sự kiện kích hoạt khi một âm thanh nhạc cụ được chọn (truyền vào component AudioConfig tương ứng)")]
+    public UnityEngine.Events.UnityEvent<AudioConfig> onAudioConfigSelectedEvent;
+
+    [Tooltip("Sự kiện kích hoạt khi một bản ghi âm tự thu được chọn (truyền vào ID bản ghi)")]
+    public UnityEngine.Events.UnityEvent<string> onCustomAudioSelectedEvent;
+
+    // Sự kiện C# Actions để dễ đăng ký từ mã nguồn khác
+    public event Action<GameObject> OnAudioSelected;
+    public event Action<AudioConfig> OnAudioConfigSelected;
+    public event Action<string> OnCustomAudioSelected;
+
+    // Trạng thái lưu trữ các nút đã sinh
+    private List<GameObject> _instantiatedButtons = new List<GameObject>();
+    private AudioSource _previewAudioSource;
+
+    // Trạng thái thu âm
+    private string _microphoneName;
+    private AudioClip _recordingClip;
+    private bool _isRecording = false;
+    private float _recordingStartTime;
+    private const int MaxRecordingDuration = 10; // Tối đa 10 giây
+
+    // Thuộc tính công khai để truy xuất dữ liệu đang chọn
+    public GameObject SelectedPrefab { get; private set; }
+    public AudioConfig SelectedAudioConfig { get; private set; }
+    public int SelectedIndex { get; private set; } = -1;
+    public string SelectedCustomAudioId { get; private set; }
+
+    /// <summary>
+    /// Cho phép bật/tắt tính năng ghi âm từ bên ngoài.
+    /// </summary>
+    public bool EnableRecording
+    {
+        get => enableRecording;
+        set => enableRecording = value;
+    }
+
+    /// <summary>
+    /// Chọn âm thanh / nhạc cụ dựa trên ID (tên nhạc cụ hoặc ID bản ghi âm rec_).
+    /// </summary>
+    public void SelectAudioById(string audioId)
+    {
+        if (string.IsNullOrEmpty(audioId)) return;
+
+        if (audioId.StartsWith("rec_"))
+        {
+            SelectedCustomAudioId = audioId;
+            SelectedIndex = -1;
+            SelectedPrefab = null;
+            SelectedAudioConfig = null;
+        }
+        else
+        {
+            SelectedCustomAudioId = null;
+            SelectedIndex = -1;
+            SelectedPrefab = null;
+            SelectedAudioConfig = null;
+
+            for (int i = 0; i < audioPrefabs.Count; i++)
+            {
+                if (audioPrefabs[i] != null)
+                {
+                    AudioConfig config = audioPrefabs[i].GetComponent<AudioConfig>();
+                    string name = (config != null && !string.IsNullOrEmpty(config.Name)) ? config.Name : audioPrefabs[i].name;
+                    if (name.Equals(audioId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        SelectedIndex = i;
+                        SelectedPrefab = audioPrefabs[i];
+                        SelectedAudioConfig = config;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private void Awake()
+    {
+        _previewAudioSource = GetComponent<AudioSource>();
+        if (_previewAudioSource == null)
+        {
+            _previewAudioSource = gameObject.AddComponent<AudioSource>();
+        }
+    }
+
+    private void Start()
+    {
+        if (initializeOnStart)
+        {
+            InitializePanel();
+        }
+    }
+
+    /// <summary>
+    /// Thiết lập ID bản ghi âm tùy chỉnh hiện tại (ví dụ khi load nhân vật có sẵn).
+    /// </summary>
+    public void SetCustomRecordingId(string recordingId)
+    {
+        SelectedCustomAudioId = recordingId;
+    }
+
+    /// <summary>
+    /// Thực hiện xóa các nút cũ và sinh lại các nút mới dựa trên danh sách audioPrefabs và trạng thái ghi âm.
+    /// </summary>
+    public void InitializePanel()
+    {
+        ClearPanel();
+
+        if (scrollViewContent == null)
+        {
+            Debug.LogError("[AudioPanelController] Chưa gán scrollViewContent!");
+            return;
+        }
+
+        // 1. Tạo nút Ghi âm ở đầu danh sách nếu tính năng được bật VÀ nhân vật đã có bản ghi âm
+        if (enableRecording && audioRecordButtonPrefab != null && !string.IsNullOrEmpty(SelectedCustomAudioId))
+        {
+            GameObject recordBtnObj = Instantiate(audioRecordButtonPrefab, scrollViewContent);
+            _instantiatedButtons.Add(recordBtnObj);
+
+            CustomAudioRecordItemUI recordItemUI = recordBtnObj.GetComponent<CustomAudioRecordItemUI>();
+            if (recordItemUI != null)
+            {
+                // Đã có ghi âm -> Hiển thị thẻ âm thanh đã ghi âm
+                recordBtnObj.name = "Btn_Audio_Record_Item";
+                recordItemUI.SetupRecordedItem("Record", micIcon, () =>
+                {
+                    SelectCustomRecording(SelectedCustomAudioId);
+                }, () =>
+                {
+                    DeleteCustomRecording(SelectedCustomAudioId);
+                });
+            }
+        }
+
+        // 2. Tạo các nút cho các prefab nhạc cụ mặc định
+        if (audioButtonPrefab == null)
+        {
+            Debug.LogError("[AudioPanelController] Chưa gán audioButtonPrefab!");
+            return;
+        }
+
+        if (audioPrefabs != null && audioPrefabs.Count > 0)
+        {
+            for (int i = 0; i < audioPrefabs.Count; i++)
+            {
+                GameObject prefab = audioPrefabs[i];
+                if (prefab == null) continue;
+
+                // Lấy thông tin cấu hình AudioConfig từ prefab nhạc cụ
+                AudioConfig config = prefab.GetComponent<AudioConfig>();
+                string displayName = (config != null && !string.IsNullOrEmpty(config.Name)) ? config.Name : prefab.name;
+                Sprite avatar = (config != null) ? config.avatar : null;
+
+                // Nếu avatar trống, thử load từ Resources làm dự phòng
+                if (avatar == null)
+                {
+                    avatar = Resources.Load<Sprite>("Avatars/" + prefab.name);
+                }
+
+                GameObject buttonObj = Instantiate(audioButtonPrefab, scrollViewContent);
+                _instantiatedButtons.Add(buttonObj);
+                buttonObj.name = $"Btn_Audio_{displayName}";
+
+                // Thiết lập hiển thị và gán sự kiện click
+                SetupButtonComponent(buttonObj, displayName, avatar, i);
+            }
+        }
+
+        // 3. Tự động chọn mặc định
+        if (selectFirstOnStart)
+        {
+            if (!string.IsNullOrEmpty(SelectedCustomAudioId))
+            {
+                // Ưu tiên chọn bản ghi âm tự thu trước nếu có
+                SelectCustomRecording(SelectedCustomAudioId);
+            }
+            else if (audioPrefabs != null && audioPrefabs.Count > 0)
+            {
+                // Ngược lại chọn prefab nhạc cụ đầu tiên
+                SelectAudio(0);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Xóa toàn bộ các nút đã được sinh ra trong ScrollView.
+    /// </summary>
+    public void ClearPanel()
+    {
+        if (_previewAudioSource != null)
+        {
+            _previewAudioSource.Stop();
+        }
+
+        if (scrollViewContent != null)
+        {
+            for (int i = scrollViewContent.childCount - 1; i >= 0; i--)
+            {
+                Destroy(scrollViewContent.GetChild(i).gameObject);
+            }
+        }
+
+        _instantiatedButtons.Clear();
+        SelectedPrefab = null;
+        SelectedAudioConfig = null;
+        SelectedIndex = -1;
+        // Chú ý: Không xóa SelectedCustomAudioId ở đây để bảo toàn ID âm thanh khi reload UI panel
+    }
+
+    /// <summary>
+    /// Chọn âm thanh nhạc cụ theo Index trong danh sách.
+    /// </summary>
+    public void SelectAudio(int index)
+    {
+        if (index < 0 || index >= audioPrefabs.Count)
+        {
+            Debug.LogWarning($"[AudioPanelController] Index {index} vượt quá giới hạn danh sách audio.");
+            return;
+        }
+
+        GameObject selectedPrefab = audioPrefabs[index];
+        if (selectedPrefab == null) return;
+
+        SelectedIndex = index;
+        SelectedPrefab = selectedPrefab;
+        SelectedAudioConfig = selectedPrefab.GetComponent<AudioConfig>();
+        SelectedCustomAudioId = null; // Bỏ chọn âm thanh tự thu
+
+        // Cập nhật trạng thái hiển thị được chọn/không được chọn trên UI
+        UpdateSelectionVisuals();
+
+        // Phát thử âm thanh (Preview)
+        PlayPreviewSound();
+
+        // Kích hoạt các sự kiện thông báo
+        OnAudioSelected?.Invoke(SelectedPrefab);
+        onAudioSelectedEvent?.Invoke(SelectedPrefab);
+
+        if (SelectedAudioConfig != null)
+        {
+            OnAudioConfigSelected?.Invoke(SelectedAudioConfig);
+            onAudioConfigSelectedEvent?.Invoke(SelectedAudioConfig);
+        }
+
+        Debug.Log($"[AudioPanelController] Đã chọn nhạc cụ/âm thanh: {displayNameForSelected()} (Index: {SelectedIndex})");
+    }
+
+    /// <summary>
+    /// Chọn âm thanh tự thu (Custom Audio) của người dùng.
+    /// </summary>
+    public void SelectCustomRecording(string recordingId)
+    {
+        if (string.IsNullOrEmpty(recordingId)) return;
+
+        SelectedCustomAudioId = recordingId;
+        SelectedIndex = -1;
+        SelectedPrefab = null;
+        SelectedAudioConfig = null;
+
+        // Cập nhật hiển thị các nút
+        UpdateSelectionVisuals();
+
+        // Preview âm thanh đã thu từ Firebase
+        PlayPreviewSound();
+
+        // Kích hoạt sự kiện
+        OnCustomAudioSelected?.Invoke(recordingId);
+        onCustomAudioSelectedEvent?.Invoke(recordingId);
+
+        // Kích hoạt sự kiện với prefab/config là null để thông báo chọn custom audio
+        OnAudioSelected?.Invoke(null);
+        onAudioSelectedEvent?.Invoke(null);
+        OnAudioConfigSelected?.Invoke(null);
+        onAudioConfigSelectedEvent?.Invoke(null);
+
+        Debug.Log($"[AudioPanelController] Đã chọn Audio tự thu: {recordingId}");
+    }
+
+    /// <summary>
+    /// Phát thử âm thanh của nhạc cụ hoặc bản ghi âm đang được chọn.
+    /// </summary>
+    private async void PlayPreviewSound()
+    {
+        if (_previewAudioSource == null) return;
+        _previewAudioSource.Stop();
+
+        // TH 1: Phát âm thanh tự thu (Tải & giải mã từ Firebase)
+        if (!string.IsNullOrEmpty(SelectedCustomAudioId))
+        {
+            ShowStatusText("Loading audio...");
+
+            try
+            {
+                var recordings = await MainMenuDataManager.Instance.GetRecordingsAsync();
+                var targetRec = recordings.Find(r => r.recordingId == SelectedCustomAudioId);
+
+                HideStatusText();
+
+                if (targetRec != null && !string.IsNullOrEmpty(targetRec.audioBase64))
+                {
+                    byte[] wavBytes = Convert.FromBase64String(targetRec.audioBase64);
+
+                    // Giải mã AES
+                    try
+                    {
+                        wavBytes = AudioEncryption.Decrypt(wavBytes);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning("[AudioPanelController] Giải mã âm thanh cũ không thành công, phát trực tiếp: " + ex.Message);
+                    }
+
+                    AudioClip clip = WavUtility.ToAudioClip(wavBytes, targetRec.name);
+                    if (clip != null)
+                    {
+                        _previewAudioSource.clip = clip;
+                        _previewAudioSource.Play();
+                        StartCoroutine(DestroyClipAfterPlay(clip));
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"[AudioPanelController] Không tìm thấy bản ghi ID {SelectedCustomAudioId} trên Firebase.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("[AudioPanelController] Lỗi khi tải preview bản thu âm: " + ex.Message);
+                HideStatusText();
+            }
+        }
+        // TH 2: Phát âm thanh từ Prefab nhạc cụ
+        else if (SelectedAudioConfig != null)
+        {
+            AudioClip audioClip = SelectedAudioConfig.clip;
+            if (audioClip != null)
+            {
+                _previewAudioSource.clip = audioClip;
+                _previewAudioSource.Play();
+            }
+            else
+            {
+                Debug.LogWarning($"[AudioPanelController] AudioConfig trên {SelectedPrefab.name} không chứa AudioClip hợp lệ!");
+            }
+        }
+    }
+
+    private IEnumerator DestroyClipAfterPlay(AudioClip clip)
+    {
+        yield return new WaitForSeconds(clip.length + 0.5f);
+        if (_previewAudioSource.clip == clip)
+        {
+            _previewAudioSource.clip = null;
+        }
+        Destroy(clip);
+        GC.Collect();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Microphone Recording Logic
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void StartRecording(CustomAudioRecordItemUI recordItem)
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Microphone))
+        {
+            UnityEngine.Android.Permission.RequestUserPermission(UnityEngine.Android.Permission.Microphone);
+            return;
+        }
+#endif
+
+        if (Microphone.devices.Length == 0)
+        {
+            Debug.LogError("[AudioPanelController] Không tìm thấy thiết bị Microphone nào!");
+            ShowStatusText("No Microphone Found!", 2f);
+            return;
+        }
+
+        _microphoneName = Microphone.devices[0];
+        _recordingClip = Microphone.Start(_microphoneName, false, MaxRecordingDuration, 44100);
+        _isRecording = true;
+        _recordingStartTime = Time.time;
+
+        ShowStatusText("Recording: 0s");
+
+        // Vô hiệu hóa panel trong khi ghi âm để tránh click loạn
+        SetPanelInteractive(false);
+
+        StartCoroutine(RecordingRoutine(recordItem));
+    }
+
+    private void SetPanelInteractive(bool interactive)
+    {
+        // Vô hiệu hóa click của tất cả các button trong ScrollView
+        foreach (var btnObj in _instantiatedButtons)
+        {
+            var btn = btnObj.GetComponent<Button>();
+            if (btn != null) btn.interactable = interactive;
+
+            var customUI = btnObj.GetComponent<CustomCharacterItemUI>();
+            if (customUI != null)
+            {
+                var b = customUI.GetComponent<Button>();
+                if (b != null) b.interactable = interactive;
+            }
+        }
+    }
+
+    private IEnumerator RecordingRoutine(CustomAudioRecordItemUI recordItem)
+    {
+        float duration = (float)MaxRecordingDuration;
+        float elapsed = 0f;
+
+        recordItem.SetRecordingState(true);
+
+        while (elapsed < duration)
+        {
+            yield return null;
+            elapsed = Time.time - _recordingStartTime;
+            float progress = Mathf.Clamp01(elapsed / duration);
+
+            recordItem.SetRadialFill(progress);
+
+            if (recordingStatusText != null)
+            {
+                recordingStatusText.text = $"Recording: {(int)elapsed}s";
+            }
+        }
+
+        recordItem.SetRadialFill(1f);
+        recordItem.SetRecordingState(false);
+
+        StopRecording();
+    }
+
+    private async void StopRecording()
+    {
+        if (!_isRecording) return;
+
+        int lastSamplePos = Microphone.GetPosition(_microphoneName);
+        Microphone.End(_microphoneName);
+        _isRecording = false;
+
+        SetPanelInteractive(true);
+
+        ShowStatusText("Processing...");
+
+        if (lastSamplePos <= 0)
+        {
+            Debug.LogWarning("[AudioPanelController] Ghi âm trống!");
+            HideStatusText();
+            if (_recordingClip != null) Destroy(_recordingClip);
+            InitializePanel();
+            return;
+        }
+
+        int channels = _recordingClip.channels;
+        int frequency = _recordingClip.frequency;
+        float[] samples = new float[lastSamplePos * channels];
+        _recordingClip.GetData(samples, 0);
+
+        AudioClip trimmedClip = AudioClip.Create("TempTrimmed", lastSamplePos, channels, frequency, false);
+        trimmedClip.SetData(samples, 0);
+
+        byte[] wavBytes = WavUtility.FromAudioClip(trimmedClip);
+
+        Destroy(_recordingClip);
+        Destroy(trimmedClip);
+
+        if (wavBytes == null)
+        {
+            Debug.LogError("[AudioPanelController] Lỗi mã hóa WAV bytes!");
+            HideStatusText();
+            InitializePanel();
+            return;
+        }
+
+        // Mã hóa AES
+        byte[] encryptedBytes;
+        try
+        {
+            encryptedBytes = AudioEncryption.Encrypt(wavBytes);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("[AudioPanelController] Lỗi mã hóa âm thanh: " + ex.Message);
+            encryptedBytes = wavBytes; // Fallback
+        }
+
+        string base64 = Convert.ToBase64String(encryptedBytes);
+        wavBytes = null;
+        encryptedBytes = null;
+        GC.Collect();
+
+        string recId = "rec_" + DateTime.UtcNow.Ticks;
+        string recName = "Rec " + DateTime.Now.ToString("HH:mm:ss");
+
+        ShowStatusText("Uploading to Firebase...");
+
+        bool success = await MainMenuDataManager.Instance.SaveRecordingAsync(recId, recName, base64);
+        base64 = null;
+        GC.Collect();
+
+        if (success)
+        {
+            ShowStatusText("Saved to Firebase!", 1.5f);
+            SelectedCustomAudioId = recId;
+            InitializePanel(); // Tải lại để hiển thị Recorded Item
+        }
+        else
+        {
+            ShowStatusText("Upload Failed!", 1.5f);
+            InitializePanel();
+        }
+    }
+
+    private async void DeleteCustomRecording(string recordingId)
+    {
+        if (string.IsNullOrEmpty(recordingId)) return;
+
+        ShowStatusText("Deleting recording...");
+
+        bool success = await MainMenuDataManager.Instance.DeleteRecordingAsync(recordingId);
+
+        if (success)
+        {
+            ShowStatusText("Deleted!", 1.5f);
+            SelectedCustomAudioId = null;
+
+            // Nếu âm thanh đang chọn là bản ghi âm bị xóa, tự động chọn nhạc cụ mặc định đầu tiên
+            if (audioPrefabs != null && audioPrefabs.Count > 0)
+            {
+                SelectAudio(0);
+            }
+            else
+            {
+                SelectedIndex = -1;
+                SelectedPrefab = null;
+                SelectedAudioConfig = null;
+                OnAudioSelected?.Invoke(null);
+            }
+            InitializePanel();
+        }
+        else
+        {
+            ShowStatusText("Delete Failed!", 1.5f);
+            InitializePanel();
+        }
+    }
+
+    private void ShowStatusText(string message, float duration = 0f)
+    {
+        if (recordingStatusText != null)
+        {
+            recordingStatusText.text = message;
+            recordingStatusText.gameObject.SetActive(true);
+
+            if (duration > 0f)
+            {
+                CancelInvoke(nameof(HideStatusText));
+                Invoke(nameof(HideStatusText), duration);
+            }
+        }
+    }
+
+    private void HideStatusText()
+    {
+        if (recordingStatusText != null)
+        {
+            recordingStatusText.gameObject.SetActive(false);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // UI Helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Thiết lập hiển thị và sự kiện click cho nút nhạc cụ mặc định.
+    /// </summary>
+    private void SetupButtonComponent(GameObject buttonObj, string displayName, Sprite avatar, int index)
+    {
+        // TH 1: Sử dụng CustomCharacterItemUI (khuyên dùng vì đồng bộ giao diện)
+        var customUI = buttonObj.GetComponent<CustomCharacterItemUI>();
+        if (customUI != null)
+        {
+            customUI.Setup(displayName, avatar, () => SelectAudio(index));
+            return;
+        }
+
+        // TH 2: Sử dụng Button tiêu chuẩn của Unity
+        Button standardBtn = buttonObj.GetComponent<Button>();
+        if (standardBtn != null)
+        {
+            standardBtn.onClick.RemoveAllListeners();
+            standardBtn.onClick.AddListener(() => SelectAudio(index));
+
+            // Tìm và gán text tên nhạc cụ
+            var nameText = buttonObj.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (nameText != null)
+            {
+                nameText.text = displayName;
+            }
+            else
+            {
+                var legacyText = buttonObj.GetComponentInChildren<Text>(true);
+                if (legacyText != null)
+                {
+                    legacyText.text = displayName;
+                }
+            }
+
+            // Tìm và gán ảnh đại diện (bỏ qua Image của chính nút)
+            Image[] images = buttonObj.GetComponentsInChildren<Image>(true);
+            foreach (var img in images)
+            {
+                if (img.gameObject != buttonObj)
+                {
+                    img.sprite = avatar;
+                    img.gameObject.SetActive(avatar != null);
+                    break;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Cập nhật trạng thái hiển thị của các nút trong danh sách.
+    /// </summary>
+    private void UpdateSelectionVisuals()
+    {
+        for (int i = 0; i < _instantiatedButtons.Count; i++)
+        {
+            GameObject buttonObj = _instantiatedButtons[i];
+            if (buttonObj == null) continue;
+
+            // TH 1: CustomCharacterItemUI (cho các prefab nhạc cụ thông thường)
+            var customUI = buttonObj.GetComponent<CustomCharacterItemUI>();
+            if (customUI != null)
+            {
+                int prefabOffset = (enableRecording && audioRecordButtonPrefab != null) ? 1 : 0;
+                int prefabIndex = i - prefabOffset;
+
+                bool isSelected = (prefabIndex == SelectedIndex);
+                customUI.SetSelected(isSelected);
+                continue;
+            }
+
+            // TH 2: CustomAudioRecordItemUI (cho nút ghi âm ở đầu danh sách)
+            var recordItemUI = buttonObj.GetComponent<CustomAudioRecordItemUI>();
+            if (recordItemUI != null)
+            {
+                bool isSelected = !string.IsNullOrEmpty(SelectedCustomAudioId) && recordItemUI.ItemId == "Record_Audio";
+                recordItemUI.SetSelected(isSelected);
+                continue;
+            }
+
+            // TH 3: Button tiêu chuẩn (dự phòng)
+            Button standardBtn = buttonObj.GetComponent<Button>();
+            if (standardBtn != null)
+            {
+                int prefabOffset = (enableRecording && audioRecordButtonPrefab != null) ? 1 : 0;
+                int prefabIndex = i - prefabOffset;
+                bool isSelected = (prefabIndex == SelectedIndex);
+
+                Image btnImage = standardBtn.image != null ? standardBtn.image : standardBtn.GetComponent<Image>();
+                if (btnImage != null)
+                {
+                    Sprite targetSprite = isSelected ? selectedButtonSprite : unselectedButtonSprite;
+                    if (targetSprite != null)
+                    {
+                        btnImage.sprite = targetSprite;
+                    }
+                }
+            }
+        }
+    }
+
+    private string displayNameForSelected()
+    {
+        if (!string.IsNullOrEmpty(SelectedCustomAudioId))
+        {
+            return "Custom Audio Recording";
+        }
+        if (SelectedAudioConfig != null && !string.IsNullOrEmpty(SelectedAudioConfig.Name))
+        {
+            return SelectedAudioConfig.Name;
+        }
+        return SelectedPrefab != null ? SelectedPrefab.name : "None";
+    }
+}

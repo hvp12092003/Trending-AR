@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -54,6 +55,10 @@ public class Move : MonoBehaviour
     private int m_MovingParamHash;
     private bool m_HasSpeedParam;
     private bool m_HasMovingParam;
+
+    // Temporary animation control variables
+    private Coroutine m_ReturnToIdleCoroutine;
+    private bool m_IsPlayingTempAnim = false;
 
     // State Machine & Sync Variables
     private CharacterState m_State = CharacterState.Idle;
@@ -122,6 +127,31 @@ public class Move : MonoBehaviour
 
     private void Update()
     {
+        // 0. Nếu đang chạy hoạt ảnh tạm thời (chạy 1 lần rồi về Idle), kiểm tra xem có ngắt bằng di chuyển không
+        if (m_IsPlayingTempAnim)
+        {
+            Vector2 joystickDir = Vector2.zero;
+            if (m_Joystick != null) joystickDir = m_Joystick.Direction;
+            else
+            {
+                m_Joystick = FindFirstObjectByType<Joystick>();
+                if (m_Joystick != null) joystickDir = m_Joystick.Direction;
+            }
+
+            if (joystickDir.sqrMagnitude > 0.001f)
+            {
+                if (m_ReturnToIdleCoroutine != null)
+                {
+                    StopCoroutine(m_ReturnToIdleCoroutine);
+                }
+                m_IsPlayingTempAnim = false;
+            }
+            else
+            {
+                return; // Đợi hoạt ảnh tạm thời kết thúc
+            }
+        }
+
         // 1. Chỉ nhận đầu vào và di chuyển nếu nhân vật này đang được chọn để điều khiển
         if (CharacterManager.Instance != null && CharacterManager.Instance.SelectedCharacter != gameObject)
         {
@@ -319,6 +349,45 @@ public class Move : MonoBehaviour
 
         m_Animator.CrossFade(stateName, transitionDuration);
         m_CurrentStateName = stateName;
+    }
+
+    /// <summary>
+    /// Phát một animation một lần duy nhất, sau đó tự động quay về trạng thái Idle.
+    /// </summary>
+    /// <param name="stateName">Tên State trong Animator Controller.</param>
+    /// <param name="transitionDuration">Thời gian chuyển cảnh mượt mà (mặc định 0.15 giây).</param>
+    public void PlayAnimationOnce(string stateName, float transitionDuration = 0.15f)
+    {
+        if (m_Animator == null || string.IsNullOrEmpty(stateName)) return;
+
+        if (m_ReturnToIdleCoroutine != null)
+        {
+            StopCoroutine(m_ReturnToIdleCoroutine);
+        }
+
+        m_IsPlayingTempAnim = true;
+        PlayAnimation(stateName, transitionDuration);
+        m_ReturnToIdleCoroutine = StartCoroutine(ReturnToIdleAfterPlay(stateName, transitionDuration));
+    }
+
+    private IEnumerator ReturnToIdleAfterPlay(string stateName, float transitionDuration)
+    {
+        // Đợi 1 frame để Animator bắt đầu chuyển sang trạng thái mới
+        yield return null;
+
+        // Lấy thông tin trạng thái hoạt ảnh hiện tại trên layer 0
+        var stateInfo = m_Animator.GetCurrentAnimatorStateInfo(0);
+        float duration = stateInfo.length;
+
+        // Đợi cho đến khi hoạt ảnh phát xong (trừ đi khoảng thời gian transition sang Idle để mượt mà)
+        float waitTime = Mathf.Max(0f, duration - transitionDuration);
+        yield return new WaitForSeconds(waitTime);
+
+        // Quay lại trạng thái Idle
+        m_IsPlayingTempAnim = false;
+        m_State = CharacterState.Idle;
+        m_IdleTimer = 0f;
+        PlayIdle();
     }
 
     /// <summary>

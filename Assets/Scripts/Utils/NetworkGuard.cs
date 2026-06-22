@@ -36,6 +36,7 @@ public static class NetworkGuard
                         {
                             await SceneTransitionManager.Instance.EnsureInternetConnectionAsync();
                         }
+                        await Task.Delay(2000); // Chờ 2 giây trước khi thử lại để tránh spam
                         continue; // Thử lại API call
                     }
                 }
@@ -49,6 +50,7 @@ public static class NetworkGuard
                 {
                     await SceneTransitionManager.Instance.EnsureInternetConnectionAsync();
                 }
+                await Task.Delay(2000); // Chờ 2 giây trước khi thử lại để tránh spam
             }
         }
     }
@@ -78,6 +80,7 @@ public static class NetworkGuard
                 {
                     await SceneTransitionManager.Instance.EnsureInternetConnectionAsync();
                 }
+                await Task.Delay(2000); // Chờ 2 giây trước khi thử lại để tránh spam
             }
         }
     }

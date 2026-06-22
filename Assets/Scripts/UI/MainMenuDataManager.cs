@@ -14,6 +14,11 @@ public class MainMenuDataManager : MonoBehaviour
 
     private FirebaseFirestore _db;
 
+    /// <summary>
+    /// Lưu trữ CastData của nhân vật tự thiết kế (Custom Character) được chọn để chuyển tiếp sang scene AR.
+    /// </summary>
+    public CastData castData;
+
     private void Awake()
     {
         if (Instance == null)
@@ -369,6 +374,67 @@ public class MainMenuDataManager : MonoBehaviour
         });
     }
 
+    /// <summary>
+    /// Cập nhật chuỗi Base64 của ảnh đại diện lên Firestore.
+    /// </summary>
+    public async Task<bool> UpdateAvatarAsync(string base64Data)
+    {
+        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
+        if (firebaseUser == null) return false;
+
+        return await NetworkGuard.RunAsync(async () =>
+        {
+            try
+            {
+                DocumentReference userDocRef = _db.Collection("users").Document(firebaseUser.UserId);
+                var updateData = new Dictionary<string, object> { { "avatarBase64", base64Data } };
+                await userDocRef.SetAsync(updateData, SetOptions.MergeAll);
+                Debug.Log("[MainMenuDataManager] Cập nhật avatar lên Firestore thành công.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogFirestoreError("Lỗi cập nhật avatar", ex);
+                if (NetworkGuard.IsNetworkException(ex))
+                {
+                    throw;
+                }
+                return false;
+            }
+        });
+    }
+
+    /// <summary>
+    /// Tải chuỗi ảnh đại diện Base64 của người dùng hiện tại từ Firestore.
+    /// </summary>
+    public async Task<string> GetUserAvatarBase64Async()
+    {
+        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
+        if (firebaseUser == null) return null;
+
+        return await NetworkGuard.RunAsync(async () =>
+        {
+            try
+            {
+                DocumentReference userDocRef = _db.Collection("users").Document(firebaseUser.UserId);
+                DocumentSnapshot snapshot = await userDocRef.GetSnapshotAsync();
+                if (snapshot.Exists && snapshot.TryGetValue("avatarBase64", out string base64))
+                {
+                    return base64;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogFirestoreError("Lỗi tải avatar từ Firestore", ex);
+                if (NetworkGuard.IsNetworkException(ex))
+                {
+                    throw;
+                }
+            }
+            return null;
+        });
+    }
+
     private void LogFirestoreError(string context, Exception ex)
     {
         bool isOffline = ex.Message.Contains("offline") || 
@@ -384,6 +450,163 @@ public class MainMenuDataManager : MonoBehaviour
             Debug.LogError($"[MainMenuDataManager] {context}: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Lưu bản ghi âm giọng nói lên Firestore.
+    /// </summary>
+    public async Task<bool> SaveRecordingAsync(string recordingId, string name, string audioBase64)
+    {
+        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
+        if (firebaseUser == null) return false;
+
+        return await NetworkGuard.RunAsync(async () =>
+        {
+            try
+            {
+                DocumentReference recDocRef = _db.Collection("users").Document(firebaseUser.UserId).Collection("recordings").Document(recordingId);
+
+                var recData = new Dictionary<string, object>
+                {
+                    { "recordingId", recordingId },
+                    { "name", name },
+                    { "audioBase64", audioBase64 },
+                    { "createdAt", FieldValue.ServerTimestamp }
+                };
+
+                await recDocRef.SetAsync(recData);
+                Debug.Log($"[MainMenuDataManager] Đã lưu bản ghi âm lên Firestore: {name} ({recordingId})");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogFirestoreError("Lỗi lưu bản ghi âm", ex);
+                if (NetworkGuard.IsNetworkException(ex))
+                {
+                    throw;
+                }
+                return false;
+            }
+        });
+    }
+
+    /// <summary>
+    /// Tải danh sách bản ghi âm của người dùng từ Firestore.
+    /// </summary>
+    public async Task<List<RecordingData>> GetRecordingsAsync()
+    {
+        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
+        if (firebaseUser == null) return new List<RecordingData>();
+
+        return await NetworkGuard.RunAsync(async () =>
+        {
+            var list = new List<RecordingData>();
+            try
+            {
+                CollectionReference recColRef = _db.Collection("users").Document(firebaseUser.UserId).Collection("recordings");
+                QuerySnapshot snapshot = await recColRef.OrderByDescending("createdAt").GetSnapshotAsync();
+
+                foreach (DocumentSnapshot doc in snapshot.Documents)
+                {
+                    RecordingData data = doc.ConvertTo<RecordingData>();
+                    data.recordingId = doc.Id;
+                    list.Add(data);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogFirestoreError("Lỗi tải danh sách bản ghi âm", ex);
+                if (NetworkGuard.IsNetworkException(ex))
+                {
+                    throw;
+                }
+            }
+            return list;
+        });
+    }
+
+    /// <summary>
+    /// Xóa một bản ghi âm khỏi Firestore.
+    /// </summary>
+    public async Task<bool> DeleteRecordingAsync(string recordingId)
+    {
+        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
+        if (firebaseUser == null) return false;
+
+        return await NetworkGuard.RunAsync(async () =>
+        {
+            try
+            {
+                DocumentReference recDocRef = _db.Collection("users").Document(firebaseUser.UserId).Collection("recordings").Document(recordingId);
+                await recDocRef.DeleteAsync();
+                Debug.Log($"[MainMenuDataManager] Đã xóa bản ghi âm khỏi Firestore: {recordingId}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogFirestoreError("Lỗi xóa bản ghi âm", ex);
+                if (NetworkGuard.IsNetworkException(ex))
+                {
+                    throw;
+                }
+                return false;
+            }
+        });
+    }
+
+    /// <summary>
+    /// Xóa một nhân vật khỏi Firestore, đồng thời tự động xóa bản ghi âm đi kèm nếu có.
+    /// </summary>
+    public async Task<bool> DeleteCharacterAsync(string characterId)
+    {
+        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
+        if (firebaseUser == null) return false;
+
+        return await NetworkGuard.RunAsync(async () =>
+        {
+            try
+            {
+                DocumentReference charDocRef = _db.Collection("users").Document(firebaseUser.UserId).Collection("characters").Document(characterId);
+                DocumentSnapshot snapshot = await charDocRef.GetSnapshotAsync();
+
+                if (snapshot.Exists)
+                {
+                    string instrumentId = "";
+                    if (snapshot.TryGetValue("instrumentId", out instrumentId))
+                    {
+                        // Nếu nhân vật sử dụng âm thanh tự thu, tự động xóa bản ghi âm tương ứng
+                        if (!string.IsNullOrEmpty(instrumentId) && instrumentId.StartsWith("rec_"))
+                        {
+                            await DeleteRecordingAsync(instrumentId);
+                        }
+                    }
+                    
+                    await charDocRef.DeleteAsync();
+                    Debug.Log($"[MainMenuDataManager] Đã xóa nhân vật khỏi Firestore: {characterId}");
+                    return true;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                LogFirestoreError("Lỗi xóa nhân vật", ex);
+                if (NetworkGuard.IsNetworkException(ex))
+                {
+                    throw;
+                }
+                return false;
+            }
+        });
+    }
+}
+
+[FirestoreData]
+public class RecordingData
+{
+    public string recordingId { get; set; } // Sẽ được điền thủ công từ doc.Id
+
+    [FirestoreProperty] public string name { get; set; }
+    [FirestoreProperty] public string audioBase64 { get; set; }
+    [FirestoreProperty] public Timestamp createdAt { get; set; }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -424,4 +647,5 @@ public class UserData
     [FirestoreProperty] public string displayName { get; set; }
     [FirestoreProperty] public string email { get; set; }
     [FirestoreProperty] public int points { get; set; }
+    [FirestoreProperty] public string avatarBase64 { get; set; }
 }
