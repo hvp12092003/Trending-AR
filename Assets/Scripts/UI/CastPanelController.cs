@@ -11,9 +11,6 @@ using TMPro;
 public class CastPanelController : MonoBehaviour
 {
     [Header("UI References")]
-    [Tooltip("Danh sách prefab nhân vật chứa thông tin cấu hình (CastAnimationConfig)")]
-    [SerializeField] private List<GameObject> characterPrefabs = new List<GameObject>();
-
     [Tooltip("Prefab của nút chọn nhân vật (hỗ trợ CustomCharacterItemUI, CastButtonUI hoặc Button tiêu chuẩn)")]
     [SerializeField] private GameObject characterButtonPrefab;
 
@@ -53,7 +50,17 @@ public class CastPanelController : MonoBehaviour
     public GameObject SelectedPrefab { get; private set; }
     public CastData SelectedCastData { get; private set; }
     public int SelectedIndex { get; private set; } = -1;
-    public List<GameObject> CharacterPrefabs => characterPrefabs;
+    public List<GameObject> CharacterPrefabs
+    {
+        get
+        {
+            if (MainMenuDataManager.Instance != null && MainMenuDataManager.Instance.CharacterPrefabs != null)
+            {
+                return MainMenuDataManager.Instance.CharacterPrefabs;
+            }
+            return new List<GameObject>();
+        }
+    }
 
     private void Start()
     {
@@ -82,19 +89,21 @@ public class CastPanelController : MonoBehaviour
             return;
         }
 
-        if (characterPrefabs == null || characterPrefabs.Count == 0)
+        List<GameObject> prefabs = CharacterPrefabs;
+
+        if (prefabs == null || prefabs.Count == 0)
         {
-            Debug.LogWarning("[CastPanelController] Danh sách characterPrefabs trống!");
+            Debug.LogWarning("[CastPanelController] Danh sách nhân vật từ MainMenuDataManager trống!");
             return;
         }
 
-        for (int i = 0; i < characterPrefabs.Count; i++)
+        for (int i = 0; i < prefabs.Count; i++)
         {
-            GameObject prefab = characterPrefabs[i];
+            GameObject prefab = prefabs[i];
             if (prefab == null) continue;
 
             // 1. Lấy thông tin từ prefab nhân vật
-            CastAnimationConfig config = prefab.GetComponent<CastAnimationConfig>();
+            CastPrefab config = prefab.GetComponent<CastPrefab>();
             string displayName = (config != null && !string.IsNullOrEmpty(config.Name)) ? config.Name : prefab.name;
             Sprite avatar = (config != null) ? config.characterAvatar : null;
 
@@ -146,13 +155,14 @@ public class CastPanelController : MonoBehaviour
     /// </summary>
     public void SelectCharacter(int index)
     {
-        if (index < 0 || index >= characterPrefabs.Count)
+        List<GameObject> prefabs = CharacterPrefabs;
+        if (index < 0 || index >= prefabs.Count)
         {
             Debug.LogWarning($"[CastPanelController] Index {index} vượt quá giới hạn danh sách nhân vật.");
             return;
         }
 
-        GameObject selectedPrefab = characterPrefabs[index];
+        GameObject selectedPrefab = prefabs[index];
         if (selectedPrefab == null) return;
 
         SelectedIndex = index;
@@ -284,7 +294,13 @@ public class CastPanelController : MonoBehaviour
     {
         if (prefab == null) return null;
 
-        CastAnimationConfig config = prefab.GetComponent<CastAnimationConfig>();
+        if (MainMenuDataManager.Instance != null)
+        {
+            CastData cast = MainMenuDataManager.Instance.CreateCastDataFromPrefab(prefab);
+            if (cast != null) return cast;
+        }
+
+        CastPrefab config = prefab.GetComponent<CastPrefab>();
         string displayName = (config != null && !string.IsNullOrEmpty(config.Name)) ? config.Name : prefab.name;
 
         List<string> danceAnimIds = new List<string>();

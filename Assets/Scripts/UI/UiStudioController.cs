@@ -242,7 +242,20 @@ public class UiStudioController : MonoBehaviour
                 var castUI = itemObj.GetComponent<CastButtonUI>();
                 if (castUI != null)
                 {
-                    Sprite avatar = GetAvatarSprite(charData.prefabName);
+                    Sprite avatar = null;
+                    if (charData.usePrefabAvatar)
+                    {
+                        avatar = MainMenuDataManager.Instance.GetCharacterAvatarSprite(charData.prefabName);
+                    }
+                    else
+                    {
+                        avatar = GetAvatarSprite(charData.prefabName);
+                        if (avatar == null)
+                        {
+                            avatar = MainMenuDataManager.Instance.GetCharacterAvatarSprite(charData.prefabName);
+                        }
+                    }
+
                     CastData castData = new CastData(charData.name, charData.prefabName, charData.instrumentId, charData.danceAnimId, charData.danceAnimIds);
                     castUI.Setup(castData, avatar);
 
@@ -298,42 +311,50 @@ public class UiStudioController : MonoBehaviour
         // Tải danh sách Ban nhạc (BandButtonUI)
         if (bandPrefab != null && createdContent != null)
         {
-            var characters = await MainMenuDataManager.Instance.GetCreatedCharactersAsync();
+            var bands = await MainMenuDataManager.Instance.GetCreatedBandsAsync();
             int bandCount = 0;
 
-            if (characters != null && characters.Count > 0)
+            if (bands != null && bands.Count > 0)
             {
-                // Nhóm các nhân vật đã tạo thành các ban nhạc (tối đa 4 nhân vật mỗi ban nhạc)
-                for (int i = 0; i < characters.Count; i += 4)
+                foreach (var bandData in bands)
                 {
-                    List<CastData> bandCasts = new List<CastData>();
                     List<Sprite> bandAvatars = new List<Sprite>();
 
-                    for (int j = 0; j < 4; j++)
+                    foreach (var cast in bandData.casts)
                     {
-                        int index = i + j;
-                        if (index < characters.Count)
+                        Sprite avatar = null;
+                        avatar = GetAvatarSprite(cast.prefabName);
+                        if (avatar == null)
                         {
-                            var charData = characters[index];
-                            bandCasts.Add(new CastData(charData.name, charData.prefabName, charData.instrumentId, charData.danceAnimId, charData.danceAnimIds));
-                            bandAvatars.Add(GetAvatarSprite(charData.prefabName));
+                            avatar = MainMenuDataManager.Instance.GetCharacterAvatarSprite(cast.prefabName);
+                        }
+                        bandAvatars.Add(avatar);
+                    }
+
+                    bandCount++;
+                    var itemObj = Instantiate(bandPrefab, createdContent);
+                    var bandUI = itemObj.GetComponent<BandButtonUI>();
+                    if (bandUI != null)
+                    {
+                        string displayName = string.IsNullOrEmpty(bandData.name) ? $"Ban nhạc của tôi {bandCount}" : bandData.name;
+                        bandUI.Setup(bandData, bandAvatars, displayName);
+
+                        if (bandUI.DeleteButton != null)
+                        {
+                            bandUI.DeleteButton.gameObject.SetActive(true);
+                            bandUI.DeleteButton.onClick.RemoveAllListeners();
+                            bandUI.DeleteButton.onClick.AddListener(async () =>
+                            {
+                                bool success = await MainMenuDataManager.Instance.DeleteBandAsync(bandData.bandId);
+                                if (success)
+                                {
+                                    RefreshAll();
+                                }
+                            });
                         }
                     }
 
-                    if (bandCasts.Count > 0)
-                    {
-                        bandCount++;
-                        BandData bandData = new BandData(bandCasts);
-                        
-                        var itemObj = Instantiate(bandPrefab, createdContent);
-                        var bandUI = itemObj.GetComponent<BandButtonUI>();
-                        if (bandUI != null)
-                        {
-                            bandUI.Setup(bandData, bandAvatars, $"Ban nhạc của tôi {bandCount}");
-                        }
-                        
-                        AnimateItemEntrance(itemObj);
-                    }
+                    AnimateItemEntrance(itemObj);
                 }
             }
 

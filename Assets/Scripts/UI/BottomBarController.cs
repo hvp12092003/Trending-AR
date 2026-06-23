@@ -48,6 +48,23 @@ public class BottomBarController : MonoBehaviour
 
     private int currentTabIndex = -1;
 
+    public int CurrentTabIndex => currentTabIndex;
+
+    /// <summary>
+    /// Ẩn lập tức toàn bộ các panel của các tab.
+    /// </summary>
+    public void DeactivateAllPanels()
+    {
+        if (tabs == null) return;
+        foreach (var tab in tabs)
+        {
+            if (tab != null && tab.panel != null)
+            {
+                tab.panel.SetActive(false);
+            }
+        }
+    }
+
     private void Start()
     {
         if (tabs == null || tabs.Length == 0) return;
@@ -62,8 +79,16 @@ public class BottomBarController : MonoBehaviour
             }
         }
 
-        // Kích hoạt tab mặc định ban đầu
-        SelectTab(defaultTabIndex, true);
+        // Kích hoạt tab mặc định ban đầu nếu có quyền hoặc nếu không dùng PermissionPanel
+        PermissionPanelController permissionPanel = FindObjectOfType<PermissionPanelController>();
+        if (permissionPanel == null || permissionPanel.AreAllPermissionsGranted())
+        {
+            SelectTab(defaultTabIndex, true);
+        }
+        else
+        {
+            DeactivateAllPanels();
+        }
     }
 
     /// <summary>

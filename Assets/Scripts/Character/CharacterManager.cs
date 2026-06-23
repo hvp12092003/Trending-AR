@@ -30,6 +30,11 @@ public class CharacterManager : MonoBehaviour
     [Tooltip("Prefab hiệu ứng vòng tròn lựa chọn dưới chân nhân vật (nếu có).")]
     private GameObject m_SelectionIndicatorPrefab;
 
+    [Header("Selection Indicator Offset Settings")]
+    [SerializeField] private Vector3 m_IndicatorLocalPosition = new Vector3(0f, -0.6f, 0f);
+    [SerializeField] private Vector3 m_IndicatorLocalRotation = new Vector3(90f, 0f, 0f);
+    [SerializeField] private Vector3 m_IndicatorLocalScale = new Vector3(0.6f, 0.6f, 0.6f);
+
     private GameObject m_ActiveIndicator;
 
     private void Awake()
@@ -109,6 +114,21 @@ public class CharacterManager : MonoBehaviour
         {
             moveScript.PlayAnimation(stateName, crossFadeTime);
         }
+        else
+        {
+            // Fallback: Phát hoạt ảnh trực tiếp trên Animator nếu thiếu Move
+            Animator animator = m_SelectedCharacter.GetComponent<Animator>();
+            if (animator == null)
+            {
+                animator = m_SelectedCharacter.GetComponentInChildren<Animator>();
+            }
+
+            if (animator != null && !string.IsNullOrEmpty(stateName))
+            {
+                string sanitizedStateName = stateName.Replace(".", "_");
+                animator.CrossFade(sanitizedStateName, crossFadeTime);
+            }
+        }
     }
 
     /// <summary>
@@ -134,11 +154,11 @@ public class CharacterManager : MonoBehaviour
 
         // Tạo vòng chỉ báo và gán làm con của nhân vật để nó di chuyển theo
         m_ActiveIndicator = Instantiate(m_SelectionIndicatorPrefab, m_SelectedCharacter.transform);
-        m_ActiveIndicator.transform.localPosition = new Vector3(0, 0.01f, 0); // Đặt hơi cao hơn chân một chút tránh z-fighting
-        m_ActiveIndicator.transform.localRotation = m_SelectionIndicatorPrefab.transform.localRotation;
+        m_ActiveIndicator.transform.localPosition = m_IndicatorLocalPosition; // Đặt đúng dưới chân nhân vật
+        m_ActiveIndicator.transform.localRotation = Quaternion.Euler(m_IndicatorLocalRotation); // Xoay nằm ngang
         
         // Hoạt ảnh xuất hiện vòng tròn chọn dùng DOTween
-        Vector3 targetScale = m_SelectionIndicatorPrefab.transform.localScale;
+        Vector3 targetScale = m_IndicatorLocalScale;
         m_ActiveIndicator.transform.localScale = Vector3.zero;
         m_ActiveIndicator.transform.DOKill();
         m_ActiveIndicator.transform.DOScale(targetScale, 0.3f).SetEase(Ease.OutBack);
@@ -156,7 +176,7 @@ public class CharacterManager : MonoBehaviour
                 if (!m_ActiveIndicator.activeSelf)
                 {
                     m_ActiveIndicator.SetActive(true);
-                    Vector3 targetScale = m_SelectionIndicatorPrefab != null ? m_SelectionIndicatorPrefab.transform.localScale : Vector3.one;
+                    Vector3 targetScale = m_IndicatorLocalScale;
                     m_ActiveIndicator.transform.localScale = Vector3.zero;
                     m_ActiveIndicator.transform.DOKill();
                     m_ActiveIndicator.transform.DOScale(targetScale, 0.3f).SetEase(Ease.OutBack);

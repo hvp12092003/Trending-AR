@@ -29,8 +29,15 @@ public class AuthManager : MonoBehaviour
 
     private void InitializeFirebase()
     {
-        _auth = FirebaseAuth.DefaultInstance;
-        Debug.Log("[AuthManager] Firebase Auth đã khởi tạo thành công.");
+        try
+        {
+            _auth = FirebaseAuth.DefaultInstance;
+            Debug.Log("[AuthManager] Firebase Auth đã khởi tạo (chế độ offline).");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning("[AuthManager] Bỏ qua lỗi khởi tạo Firebase Auth ở chế độ offline: " + ex.Message);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -42,7 +49,7 @@ public class AuthManager : MonoBehaviour
     /// </summary>
     public bool IsLoggedIn()
     {
-        return _auth?.CurrentUser != null;
+        return true;
     }
 
     /// <summary>
@@ -50,13 +57,34 @@ public class AuthManager : MonoBehaviour
     /// </summary>
     public string GetLoggedInUser()
     {
-        if (_auth?.CurrentUser != null)
+        string username = PlayerPrefs.GetString("OfflineUserName", "");
+        if (string.IsNullOrEmpty(username) || username == "Offline User")
         {
-            return !string.IsNullOrEmpty(_auth.CurrentUser.DisplayName) 
-                ? _auth.CurrentUser.DisplayName 
-                : _auth.CurrentUser.Email;
+            System.DateTime now = System.DateTime.Now;
+            string day = now.Day.ToString();
+            string month = now.Month.ToString();
+            string year = now.Year.ToString();
+            string hour = now.Hour.ToString("D2");
+            string minute = now.Minute.ToString("D2");
+            string second = now.Second.ToString("D2");
+            username = $"Player{day}{month}{year}{hour}{minute}{second}";
+            
+            PlayerPrefs.SetString("OfflineUserName", username);
+            PlayerPrefs.Save();
         }
-        return "";
+        return username;
+    }
+
+    /// <summary>
+    /// Cập nhật tên hiển thị của người chơi offline.
+    /// </summary>
+    public void UpdateOfflineUserName(string newDisplayName)
+    {
+        if (!string.IsNullOrEmpty(newDisplayName))
+        {
+            PlayerPrefs.SetString("OfflineUserName", newDisplayName);
+            PlayerPrefs.Save();
+        }
     }
 
     /// <summary>
@@ -64,8 +92,7 @@ public class AuthManager : MonoBehaviour
     /// </summary>
     public void Logout()
     {
-        _auth?.SignOut();
-        Debug.Log("[AuthManager] Đã đăng xuất tài khoản.");
+        Debug.Log("[AuthManager] Đã gọi đăng xuất (Offline Mode - No-op).");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -77,37 +104,12 @@ public class AuthManager : MonoBehaviour
     /// </summary>
     public async Task<(bool success, string errorMessage)> RegisterAsync(string email, string password, string displayName = "")
     {
-        email = email?.Trim().ToLower();
-
-        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
-            return (false, "Email và mật khẩu không được để trống!");
-
-        if (password.Length < 6)
-            return (false, "Mật khẩu phải có tối thiểu 6 ký tự!");
-
-        return await NetworkGuard.RunAsync(async () =>
+        if (!string.IsNullOrEmpty(displayName))
         {
-            try
-            {
-                var authResult = await _auth.CreateUserWithEmailAndPasswordAsync(email, password);
-                
-                // Cập nhật tên hiển thị nếu có
-                if (authResult.User != null && !string.IsNullOrEmpty(displayName))
-                {
-                    UserProfile profile = new UserProfile { DisplayName = displayName };
-                    await authResult.User.UpdateUserProfileAsync(profile);
-                }
-
-                Debug.Log($"[AuthManager] Đăng ký thành công tài khoản: {email}");
-                return (true, "");
-            }
-            catch (FirebaseException ex)
-            {
-                string msg = MapFirebaseError((AuthError)ex.ErrorCode);
-                Debug.LogWarning($"[AuthManager] Lỗi đăng ký: {ex.ErrorCode} – {ex.Message}");
-                return (false, msg);
-            }
-        });
+            PlayerPrefs.SetString("OfflineUserName", displayName);
+            PlayerPrefs.Save();
+        }
+        return await Task.FromResult((true, ""));
     }
 
     /// <summary>
@@ -115,70 +117,15 @@ public class AuthManager : MonoBehaviour
     /// </summary>
     public async Task<(bool success, string errorMessage)> LoginAsync(string email, string password)
     {
-        email = email?.Trim().ToLower();
-
-        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
-            return (false, "Email và mật khẩu không được để trống!");
-
-        return await NetworkGuard.RunAsync(async () =>
-        {
-            try
-            {
-                await _auth.SignInWithEmailAndPasswordAsync(email, password);
-                Debug.Log($"[AuthManager] Đăng nhập thành công: {email}");
-                return (true, "");
-            }
-            catch (FirebaseException ex)
-            {
-                string msg = MapFirebaseError((AuthError)ex.ErrorCode);
-                Debug.LogWarning($"[AuthManager] Lỗi đăng nhập: {ex.ErrorCode} – {ex.Message}");
-                return (false, msg);
-            }
-        });
+        return await Task.FromResult((true, ""));
     }
 
     /// <summary>
     /// Đổi mật khẩu cho người dùng hiện tại.
-    /// Tự động xác thực lại (ReAuthenticate) trước khi đổi mật khẩu theo chuẩn bảo mật Firebase.
     /// </summary>
     public async Task<(bool success, string errorMessage)> ChangePasswordAsync(string oldPassword, string newPassword)
     {
-        if (!IsLoggedIn())
-            return (false, "Vui lòng đăng nhập để thực hiện chức năng này!");
-
-        if (string.IsNullOrEmpty(newPassword) || newPassword.Length < 6)
-            return (false, "Mật khẩu mới phải từ 6 ký tự trở lên!");
-
-        FirebaseUser user = _auth.CurrentUser;
-
-        return await NetworkGuard.RunAsync(async () =>
-        {
-            // 1. Xác thực lại để đảm bảo phiên đăng nhập còn hiệu lực
-            try
-            {
-                Credential credential = EmailAuthProvider.GetCredential(user.Email, oldPassword);
-                await user.ReauthenticateAsync(credential);
-            }
-            catch (FirebaseException ex)
-            {
-                Debug.LogWarning($"[AuthManager] Xác thực lại thất bại: {ex.Message}");
-                return (false, "Mật khẩu cũ không chính xác!");
-            }
-
-            // 2. Cập nhật mật khẩu mới
-            try
-            {
-                await user.UpdatePasswordAsync(newPassword);
-                Debug.Log($"[AuthManager] Đổi mật khẩu thành công cho user: {user.Email}");
-                return (true, "");
-            }
-            catch (FirebaseException ex)
-            {
-                string msg = MapFirebaseError((AuthError)ex.ErrorCode);
-                Debug.LogWarning($"[AuthManager] Lỗi đổi mật khẩu: {ex.ErrorCode} – {ex.Message}");
-                return (false, msg);
-            }
-        });
+        return await Task.FromResult((true, ""));
     }
 
     /// <summary>
@@ -186,26 +133,7 @@ public class AuthManager : MonoBehaviour
     /// </summary>
     public async Task<(bool success, string errorMessage)> ForgotPasswordAsync(string email)
     {
-        email = email?.Trim().ToLower();
-
-        if (string.IsNullOrEmpty(email))
-            return (false, "Vui lòng nhập Email để khôi phục mật khẩu!");
-
-        return await NetworkGuard.RunAsync(async () =>
-        {
-            try
-            {
-                await _auth.SendPasswordResetEmailAsync(email);
-                Debug.Log($"[AuthManager] Đã gửi email đặt lại mật khẩu tới: {email}");
-                return (true, "");
-            }
-            catch (FirebaseException ex)
-            {
-                string msg = MapFirebaseError((AuthError)ex.ErrorCode);
-                Debug.LogWarning($"[AuthManager] Lỗi gửi email reset: {ex.ErrorCode} – {ex.Message}");
-                return (false, msg);
-            }
-        });
+        return await Task.FromResult((true, ""));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

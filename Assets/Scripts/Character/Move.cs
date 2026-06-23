@@ -47,6 +47,25 @@ public class Move : MonoBehaviour
     private string m_AnimatorMovingParam = "IsMoving";
 
     public Animator m_Animator;
+
+    public string IdleStateName
+    {
+        get => m_IdleStateName;
+        set => m_IdleStateName = value;
+    }
+
+    public string WalkStateName
+    {
+        get => m_WalkStateName;
+        set => m_WalkStateName = value;
+    }
+
+    public string Pose1StateName
+    {
+        get => m_Pose1StateName;
+        set => m_Pose1StateName = value;
+    }
+
     private string m_CurrentStateName;
     private Joystick m_Joystick;
 
@@ -344,11 +363,14 @@ public class Move : MonoBehaviour
     {
         if (m_Animator == null || string.IsNullOrEmpty(stateName)) return;
 
-        // Tránh chạy lại animation nếu đang chạy đúng animation đó
-        if (m_CurrentStateName == stateName) return;
+        // Chuẩn hóa tên state (thay thế dấu chấm bằng dấu gạch dưới vì Unity tự động chuyển đổi tên clip .fbx khi tạo State)
+        string sanitizedStateName = stateName.Replace(".", "_");
 
-        m_Animator.CrossFade(stateName, transitionDuration);
-        m_CurrentStateName = stateName;
+        // Tránh chạy lại animation nếu đang chạy đúng animation đó
+        if (m_CurrentStateName == sanitizedStateName) return;
+
+        m_Animator.CrossFade(sanitizedStateName, transitionDuration);
+        m_CurrentStateName = sanitizedStateName;
     }
 
     /// <summary>

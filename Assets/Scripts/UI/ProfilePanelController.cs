@@ -16,6 +16,7 @@ public class ProfilePanelController : MonoBehaviour
 {
     [Header("Main Profile UI Elements")]
     [SerializeField] private TextMeshProUGUI userNameText;
+    [SerializeField] private TMP_InputField userNameInputField;
     [SerializeField] private Image avatarImage;
     [SerializeField] private Button backButton;
     [SerializeField] private Button changeAvatarBtn;
@@ -93,6 +94,23 @@ public class ProfilePanelController : MonoBehaviour
         if (changePassPanel != null)
             changePassPanel.SetActive(false);
 
+        // Tự động tìm kiếm userNameInputField nếu chưa được gán
+        if (userNameInputField == null)
+        {
+            Transform inputFieldTrans = transform.Find("UserNameInputField");
+            if (inputFieldTrans == null) inputFieldTrans = transform.Find("NameInputField");
+            if (inputFieldTrans != null)
+            {
+                userNameInputField = inputFieldTrans.GetComponent<TMP_InputField>();
+            }
+        }
+
+        if (userNameInputField != null)
+        {
+            userNameInputField.onSubmit.AddListener(OnRenameSubmit);
+            userNameInputField.onEndEdit.AddListener(OnRenameEndEdit);
+        }
+
         ClearNotifications();
     }
 
@@ -148,19 +166,13 @@ public class ProfilePanelController : MonoBehaviour
     public void RefreshProfileData()
     {
         // Lấy thông tin cơ bản từ Auth
-        string userName = "User";
-        if (AuthManager.Instance != null)
-        {
-            userName = AuthManager.Instance.GetLoggedInUser();
-        }
-        else if (FirebaseAuth.DefaultInstance.CurrentUser != null)
-        {
-            var user = FirebaseAuth.DefaultInstance.CurrentUser;
-            userName = !string.IsNullOrEmpty(user.DisplayName) ? user.DisplayName : user.Email;
-        }
+        string userName = GetCurrentUserName();
 
         if (userNameText != null)
             userNameText.text = userName;
+
+        if (userNameInputField != null)
+            userNameInputField.text = userName;
 
         // Kiểm tra và dọn dẹp cache của tài khoản cũ
         ValidateAndCleanAvatarCache();
@@ -322,11 +334,7 @@ public class ProfilePanelController : MonoBehaviour
 
     private void ValidateAndCleanAvatarCache()
     {
-        string currentUserId = "";
-        if (FirebaseAuth.DefaultInstance.CurrentUser != null)
-        {
-            currentUserId = FirebaseAuth.DefaultInstance.CurrentUser.UserId;
-        }
+        string currentUserId = "offline_user_id";
 
         string cachedUserId = PlayerPrefs.GetString("CachedAvatarUserId", "");
         if (cachedUserId != currentUserId)
@@ -482,11 +490,7 @@ public class ProfilePanelController : MonoBehaviour
             File.WriteAllBytes(localPath, bytes);
             
             // Lưu userId vào PlayerPrefs của tệp cache mới này
-            string currentUserId = "";
-            if (FirebaseAuth.DefaultInstance.CurrentUser != null)
-            {
-                currentUserId = FirebaseAuth.DefaultInstance.CurrentUser.UserId;
-            }
+            string currentUserId = "offline_user_id";
             PlayerPrefs.SetString("CachedAvatarUserId", currentUserId);
             PlayerPrefs.Save();
         }
@@ -522,5 +526,66 @@ public class ProfilePanelController : MonoBehaviour
     {
         if (mainNofiText != null) mainNofiText.text = "";
         if (changePassNofiText != null) changePassNofiText.text = "";
+    }
+
+    private void OnRenameSubmit(string newName)
+    {
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            ShowMainNotification("Tên người chơi không được để trống!");
+            if (userNameInputField != null)
+            {
+                userNameInputField.text = GetCurrentUserName();
+            }
+            return;
+        }
+
+        if (AuthManager.Instance != null)
+        {
+            AuthManager.Instance.UpdateOfflineUserName(newName);
+        }
+        else
+        {
+            PlayerPrefs.SetString("OfflineUserName", newName);
+            PlayerPrefs.Save();
+        }
+
+        ShowMainNotification("Đổi tên thành công!");
+        RefreshProfileData();
+    }
+
+    private void OnRenameEndEdit(string text)
+    {
+        if (userNameInputField != null)
+        {
+            userNameInputField.text = GetCurrentUserName();
+        }
+    }
+
+    private string GetCurrentUserName()
+    {
+        string userName = "";
+        if (AuthManager.Instance != null)
+        {
+            userName = AuthManager.Instance.GetLoggedInUser();
+        }
+        else
+        {
+            userName = PlayerPrefs.GetString("OfflineUserName", "");
+            if (string.IsNullOrEmpty(userName) || userName == "Offline User")
+            {
+                System.DateTime now = System.DateTime.Now;
+                string day = now.Day.ToString();
+                string month = now.Month.ToString();
+                string year = now.Year.ToString();
+                string hour = now.Hour.ToString("D2");
+                string minute = now.Minute.ToString("D2");
+                string second = now.Second.ToString("D2");
+                userName = $"Player{day}{month}{year}{hour}{minute}{second}";
+                PlayerPrefs.SetString("OfflineUserName", userName);
+                PlayerPrefs.Save();
+            }
+        }
+        return userName;
     }
 }

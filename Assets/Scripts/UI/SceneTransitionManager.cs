@@ -433,33 +433,7 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     public async Task<bool> CheckInternetConnectionAsync()
     {
-        return await RunOnMainThreadAsync(async () =>
-        {
-            if (Application.internetReachability == NetworkReachability.NotReachable)
-            {
-                return false;
-            }
-
-            try
-            {
-                using (var request = UnityEngine.Networking.UnityWebRequest.Get("https://clients3.google.com/generate_204"))
-                {
-                    request.timeout = 2; // Giới hạn thời gian chờ 2 giây
-                    var operation = request.SendWebRequest();
-                    
-                    while (!operation.isDone)
-                    {
-                        await Task.Yield();
-                    }
-
-                    return request.result == UnityEngine.Networking.UnityWebRequest.Result.Success;
-                }
-            }
-            catch
-            {
-                return false;
-            }
-        });
+        return await Task.FromResult(true);
     }
 
     /// <summary>
@@ -467,35 +441,7 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     public async Task EnsureInternetConnectionAsync()
     {
-        if (await CheckInternetConnectionAsync())
-        {
-            return;
-        }
-
-        await RunOnMainThreadAsync(() =>
-        {
-            if (!_isInternetWarningActive)
-            {
-                _isInternetWarningActive = true;
-                ShowInternetWarningUI();
-            }
-        });
-
-        // Chờ đến khi có mạng lại
-        while (true)
-        {
-            await Task.Delay(1000);
-            if (await CheckInternetConnectionAsync())
-            {
-                break;
-            }
-        }
-
-        await RunOnMainThreadAsync(() =>
-        {
-            HideInternetWarningUI();
-            _isInternetWarningActive = false;
-        });
+        await Task.CompletedTask;
     }
 
     private void ShowInternetWarningUI()

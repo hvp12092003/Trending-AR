@@ -490,8 +490,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.02, y: 0.02, z: 0.02}
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 4760527434885145361}
   - {fileID: 1144220577308467016}
@@ -530,13 +530,34 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1428b946b85182b44907d6f8170bc85c, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CastAnimationConfig
+  m_EditorClassIdentifier: Assembly-CSharp::CastPrefab
   Name: REX
   characterAvatar: {fileID: 21300000, guid: a358eeb828528b14ebb671abfd7a9995, type: 3}
   animations:
-  - animation: {fileID: -203655887218126122, guid: e3b7da1bf4a606f47947b6c855be4af5, type: 3}
+  - animation: {fileID: 7400000, guid: 0c4c9dc4b0235804f906057431e056de, type: 2}
     sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
-    animName: Walk
+    animName: Idle
+  - animation: {fileID: 7400000, guid: 4f390ebcb6369584bbf45fc31ca0874b, type: 2}
+    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    animName: Dance1
+  - animation: {fileID: 7400000, guid: 5a8a38e511412ed4db8b1feba9568bba, type: 2}
+    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    animName: Dance2
+  - animation: {fileID: 7400000, guid: d9740604a110a2e4eb9b50231c89e178, type: 2}
+    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    animName: Dance4
+  - animation: {fileID: 7400000, guid: 45aa5a517dd159849821e9e54ae6375f, type: 2}
+    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    animName: Dance5
+  - animation: {fileID: 7400000, guid: 85ebf06dffbc22e46aaa52e07477ab1d, type: 2}
+    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    animName: Dance6
+  - animation: {fileID: 7400000, guid: 543bc8ba58dbf054195213e846532757, type: 2}
+    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    animName: Dance7
+  - animation: {fileID: 7400000, guid: 1f0c75b645a202045acc4bb43011b6ee, type: 2}
+    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    animName: Dance8
 --- !u!1 &4755325377870578848
 GameObject:
   m_ObjectHideFlags: 0

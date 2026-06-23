@@ -230,8 +230,24 @@ public class ARFallbackManager : MonoBehaviour
             }
             else
             {
-                Debug.LogError("ARFallbackManager: Không thể khởi tạo XR Loader.");
+#if UNITY_EDITOR
+                Debug.LogWarning("ARFallbackManager: Không thể khởi tạo XR Loader trong Editor. Chuyển sang chế độ giả lập.");
+#else
+                Debug.LogError("ARFallbackManager: Không thể khởi tạo XR Loader trên thiết bị. Chuyển sang chế độ giả lập.");
+#endif
+                ActivateFallbackMode();
+                yield break;
             }
+        }
+        else
+        {
+#if UNITY_EDITOR
+            Debug.LogWarning("ARFallbackManager: XRGeneralSettings hoặc XR Manager chưa sẵn sàng trong Editor. Chuyển sang chế độ giả lập.");
+#else
+            Debug.LogError("ARFallbackManager: XRGeneralSettings hoặc XR Manager chưa sẵn sàng. Chuyển sang chế độ giả lập.");
+#endif
+            ActivateFallbackMode();
+            yield break;
         }
 
         if (m_ARSession != null)
@@ -297,15 +313,15 @@ public class ARFallbackManager : MonoBehaviour
             m_TapToPlacePrefab.useFallbackMode = true;
         }
 
-        // 3. Yêu cầu cấp quyền camera và khởi chạy luồng hình ảnh Camera di động làm phông nền (Chỉ chạy ở AR Scene)
+        // 3. Yêu cầu cấp quyền camera và khởi chạy luồng hình ảnh Camera di động làm phông nền (Chỉ chạy ở Non-AR Scene)
         string activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        if (activeScene == "AR Scene")
+        if (activeScene == "Non-AR Scene")
         {
             StartCoroutine(RequestCameraPermissionAndStartWebCam());
         }
         else
         {
-            // Ở Non-AR Scene: Chỉ hiển thị hình nền giả lập màu tối, không bật camera phông nền
+            // Ở AR Scene khi chạy giả lập: Chỉ hiển thị hình nền giả lập màu tối, không bật camera phông nền
             StartFallbackWithoutCamera();
         }
     }

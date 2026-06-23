@@ -12,7 +12,11 @@ public class FirebaseBootstrap : MonoBehaviour
 {
     [Header("Scene Navigation")]
     [Tooltip("Tên của Scene tài khoản cần chuyển sang sau khi khởi tạo.")]
-    [SerializeField] private string nextSceneName = "Account Scene";
+    [SerializeField] private string nextSceneName = "Main Menu Scene";
+
+    [Header("Offline Mode")]
+    [Tooltip("Nếu tích chọn, game sẽ chạy hoàn toàn offline không qua Firebase.")]
+    [SerializeField] private bool isOfflineMode = true;
 
     [Header("UI Progress Bar")]
     [Tooltip("Image hiển thị thanh loading (Image Type phải cấu hình là Filled).")]
@@ -35,6 +39,43 @@ public class FirebaseBootstrap : MonoBehaviour
 
         // Reset UI ban đầu
         UpdateLoadingUI(0f);
+
+        if (isOfflineMode)
+        {
+            Debug.Log("[FirebaseBootstrap] Chế độ offline được kích hoạt. Đang bỏ qua khởi tạo Firebase...");
+            // Chạy giả lập loading mượt mà từ 0% đến 100%
+            while (currentProgress < 1f)
+            {
+                currentProgress = Mathf.MoveTowards(currentProgress, 1f, Time.deltaTime * fillSpeed);
+                UpdateLoadingUI(currentProgress);
+                yield return null;
+            }
+            yield return new WaitForSeconds(0.3f);
+            
+            Debug.Log($"[FirebaseBootstrap] Đang tải không đồng bộ scene (Offline): {nextSceneName}");
+            AsyncOperation asyncLoadOffline = null;
+            try
+            {
+                asyncLoadOffline = SceneManager.LoadSceneAsync(nextSceneName);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[FirebaseBootstrap] Lỗi khi load scene '{nextSceneName}': {e.Message}");
+            }
+
+            if (asyncLoadOffline != null)
+            {
+                while (!asyncLoadOffline.isDone)
+                {
+                    yield return null;
+                }
+            }
+            else
+            {
+                SceneManager.LoadScene(nextSceneName);
+            }
+            yield break;
+        }
 
         Debug.Log("[FirebaseBootstrap] Đang kiểm tra phụ thuộc Firebase...");
         

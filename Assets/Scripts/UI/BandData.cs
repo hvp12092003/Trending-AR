@@ -7,6 +7,9 @@ using System.Collections.Generic;
 [Serializable]
 public class BandData
 {
+    public string bandId;
+    public string name;
+
     /// <summary>
     /// Danh sách tối đa 4 cast thành viên trong ban nhạc.
     /// </summary>
@@ -18,6 +21,16 @@ public class BandData
 
     public BandData(List<CastData> casts)
     {
+        if (casts != null)
+        {
+            this.casts = new List<CastData>(casts);
+        }
+    }
+
+    public BandData(string bandId, string name, List<CastData> casts)
+    {
+        this.bandId = bandId;
+        this.name = name;
         if (casts != null)
         {
             this.casts = new List<CastData>(casts);

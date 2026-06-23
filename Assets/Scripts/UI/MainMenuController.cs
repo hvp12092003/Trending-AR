@@ -40,6 +40,19 @@ public class MainMenuController : MonoBehaviour
     [Header("Permission Panel")]
     [SerializeField] private PermissionPanelController permissionPanel;
 
+    private void Awake()
+    {
+        // Ẩn nhanh Bottom Bar và các panels của tab khi chưa được cấp quyền
+        if (permissionPanel != null && !permissionPanel.AreAllPermissionsGranted())
+        {
+            if (bottomBarController != null)
+            {
+                bottomBarController.SetVisible(false, true);
+                bottomBarController.DeactivateAllPanels();
+            }
+        }
+    }
+
     private async void Start()
     {
         // 1. Reset trạng thái loading overlay
@@ -75,7 +88,7 @@ public class MainMenuController : MonoBehaviour
                 // Nếu chưa đủ quyền, tạm thời ẩn Bottom Bar và hiển thị Panel yêu cầu quyền
                 if (bottomBarController != null)
                 {
-                    bottomBarController.SetVisible(false);
+                    bottomBarController.SetVisible(false, true);
                 }
                 permissionPanel.OpenPanel();
             }
@@ -123,6 +136,10 @@ public class MainMenuController : MonoBehaviour
         if (bottomBarController != null)
         {
             bottomBarController.SetVisible(true);
+            if (bottomBarController.CurrentTabIndex < 0)
+            {
+                bottomBarController.SelectTab(0, true);
+            }
         }
     }
 
@@ -159,7 +176,7 @@ public class MainMenuController : MonoBehaviour
 
         ClearChildren(leaderboardContent);
 
-        string currentUserId = Firebase.Auth.FirebaseAuth.DefaultInstance.CurrentUser?.UserId ?? "";
+        string currentUserId = "offline_user_id";
 
         var leaderboard = await MainMenuDataManager.Instance.GetLeaderboardAsync();
         if (leaderboardPrefab != null && leaderboardContent != null)
@@ -234,10 +251,22 @@ public class MainMenuController : MonoBehaviour
         {
             userDisplayName = AuthManager.Instance.GetLoggedInUser();
         }
-        else if (Firebase.Auth.FirebaseAuth.DefaultInstance.CurrentUser != null)
+        else
         {
-            var user = Firebase.Auth.FirebaseAuth.DefaultInstance.CurrentUser;
-            userDisplayName = !string.IsNullOrEmpty(user.DisplayName) ? user.DisplayName : user.Email;
+            userDisplayName = PlayerPrefs.GetString("OfflineUserName", "");
+            if (string.IsNullOrEmpty(userDisplayName) || userDisplayName == "Offline User")
+            {
+                System.DateTime now = System.DateTime.Now;
+                string day = now.Day.ToString();
+                string month = now.Month.ToString();
+                string year = now.Year.ToString();
+                string hour = now.Hour.ToString("D2");
+                string minute = now.Minute.ToString("D2");
+                string second = now.Second.ToString("D2");
+                userDisplayName = $"Player{day}{month}{year}{hour}{minute}{second}";
+                PlayerPrefs.SetString("OfflineUserName", userDisplayName);
+                PlayerPrefs.Save();
+            }
         }
 
         if (userName != null)
@@ -256,11 +285,7 @@ public class MainMenuController : MonoBehaviour
 
     private void ValidateAndCleanAvatarCache()
     {
-        string currentUserId = "";
-        if (Firebase.Auth.FirebaseAuth.DefaultInstance.CurrentUser != null)
-        {
-            currentUserId = Firebase.Auth.FirebaseAuth.DefaultInstance.CurrentUser.UserId;
-        }
+        string currentUserId = "offline_user_id";
 
         string cachedUserId = PlayerPrefs.GetString("CachedAvatarUserId", "");
         if (cachedUserId != currentUserId)

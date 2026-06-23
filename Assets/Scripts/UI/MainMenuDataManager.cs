@@ -6,18 +6,148 @@ using Firebase.Auth;
 using UnityEngine;
 
 /// <summary>
-/// Quản lý việc đọc/ghi dữ liệu thực tế lên Firebase Firestore cho màn hình Menu chính.
+/// Quản lý việc đọc/ghi dữ liệu thực tế cho màn hình Menu chính (phiên bản đã rút gọn).
 /// </summary>
 public class MainMenuDataManager : MonoBehaviour
 {
     public static MainMenuDataManager Instance { get; private set; }
 
-    private FirebaseFirestore _db;
+    [Header("Character Catalog")]
+    [Tooltip("Danh sach prefab nhan vat. Keo cac prefab Cast vao day de MainMenuDataManager tu doc CastPrefab.")]
+    [SerializeField] private List<GameObject> characterPrefabs = new List<GameObject>();
 
+    public List<GameObject> CharacterPrefabs => characterPrefabs;
+
+    private const string LAST_SELECTED_CAST_KEY = "LastSelectedCastJSON";
+    private const string SAVED_CASTS_PREFS_KEY = "SavedCastsDataJSON";
+    private const string SAVED_RECORDINGS_PREFS_KEY = "SavedRecordingsDataJSON";
+    private const string SAVED_BANDS_PREFS_KEY = "SavedBandsDataJSON";
+
+    private CastData _castData;
     /// <summary>
     /// Lưu trữ CastData của nhân vật tự thiết kế (Custom Character) được chọn để chuyển tiếp sang scene AR.
     /// </summary>
-    public CastData castData;
+    public CastData castData
+    {
+        get
+        {
+            if (_castData == null)
+            {
+                string json = PlayerPrefs.GetString(LAST_SELECTED_CAST_KEY, "");
+                if (!string.IsNullOrEmpty(json))
+                {
+                    try
+                    {
+                        _castData = JsonUtility.FromJson<CastData>(json);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError("[MainMenuDataManager] Lỗi load LastSelectedCastJSON: " + ex.Message);
+                    }
+                }
+            }
+            return _castData;
+        }
+        set
+        {
+            _castData = value;
+            if (_castData != null)
+            {
+                try
+                {
+                    string json = JsonUtility.ToJson(_castData);
+                    PlayerPrefs.SetString(LAST_SELECTED_CAST_KEY, json);
+                    PlayerPrefs.Save();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError("[MainMenuDataManager] Lỗi save LastSelectedCastJSON: " + ex.Message);
+                }
+            }
+            else
+            {
+                PlayerPrefs.DeleteKey(LAST_SELECTED_CAST_KEY);
+                PlayerPrefs.Save();
+            }
+        }
+    }
+
+    private List<SerializableCharacterData> LoadSavedCastsFromPrefs()
+    {
+        string json = PlayerPrefs.GetString(SAVED_CASTS_PREFS_KEY, "");
+        if (string.IsNullOrEmpty(json))
+        {
+            return new List<SerializableCharacterData>();
+        }
+
+        try
+        {
+            SerializableCharacterDataList wrapper = JsonUtility.FromJson<SerializableCharacterDataList>(json);
+            return wrapper != null && wrapper.characters != null ? wrapper.characters : new List<SerializableCharacterData>();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("[MainMenuDataManager] Lỗi load JSON casts: " + ex.Message);
+            return new List<SerializableCharacterData>();
+        }
+    }
+
+    private void SaveCastsToPrefs(List<SerializableCharacterData> list)
+    {
+        try
+        {
+            SerializableCharacterDataList wrapper = new SerializableCharacterDataList { characters = list };
+            string json = JsonUtility.ToJson(wrapper);
+            PlayerPrefs.SetString(SAVED_CASTS_PREFS_KEY, json);
+            PlayerPrefs.Save();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("[MainMenuDataManager] Lỗi save JSON casts: " + ex.Message);
+        }
+    }
+
+    public int GetSavedCastsCount()
+    {
+        List<SerializableCharacterData> list = LoadSavedCastsFromPrefs();
+        return list != null ? list.Count : 0;
+    }
+
+    private List<SerializableRecordingData> LoadSavedRecordingsFromPrefs()
+    {
+        string json = PlayerPrefs.GetString(SAVED_RECORDINGS_PREFS_KEY, "");
+        if (string.IsNullOrEmpty(json))
+        {
+            return new List<SerializableRecordingData>();
+        }
+
+        try
+        {
+            SerializableRecordingDataList wrapper = JsonUtility.FromJson<SerializableRecordingDataList>(json);
+            return wrapper != null && wrapper.recordings != null ? wrapper.recordings : new List<SerializableRecordingData>();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("[MainMenuDataManager] Lỗi load JSON recordings: " + ex.Message);
+            return new List<SerializableRecordingData>();
+        }
+    }
+
+    private void SaveRecordingsToPrefs(List<SerializableRecordingData> list)
+    {
+        try
+        {
+            SerializableRecordingDataList wrapper = new SerializableRecordingDataList { recordings = list };
+            string json = JsonUtility.ToJson(wrapper);
+            PlayerPrefs.SetString(SAVED_RECORDINGS_PREFS_KEY, json);
+            PlayerPrefs.Save();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("[MainMenuDataManager] Lỗi save JSON recordings: " + ex.Message);
+        }
+    }
+
 
     private void Awake()
     {
@@ -25,7 +155,6 @@ public class MainMenuDataManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            InitializeFirestore();
         }
         else
         {
@@ -33,570 +162,556 @@ public class MainMenuDataManager : MonoBehaviour
         }
     }
 
-    private void InitializeFirestore()
+    // ─────────────────────────────────────────────────────────────────────────
+    // Chức năng chính: Đọc CastPrefab từ danh sách Prefab truyền vào
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Truyền vào danh sách các Cast (Prefab) và đọc ra danh sách Component CastPrefab của từng prefab.
+    /// </summary>
+    public List<CastPrefab> GetCastPrefabList(List<GameObject> prefabs)
     {
-        _db = FirebaseFirestore.DefaultInstance;
-        Debug.Log("[MainMenuDataManager] Firebase Firestore đã kết nối thành công.");
+        List<CastPrefab> castPrefabList = new List<CastPrefab>();
+        if (prefabs == null) return castPrefabList;
+
+        foreach (GameObject prefab in prefabs)
+        {
+            if (prefab != null)
+            {
+                CastPrefab castPrefab = prefab.GetComponent<CastPrefab>();
+                if (castPrefab != null)
+                {
+                    castPrefabList.Add(castPrefab);
+                }
+            }
+        }
+        return castPrefabList;
     }
 
     /// <summary>
-    /// Đảm bảo document của user hiện tại luôn tồn tại trong Firestore.
-    /// Nếu chưa có (sau khi đăng ký mới), hệ thống sẽ tạo mới với điểm số bằng 0.
+    /// Truyền vào danh sách các Cast (Prefab) và đọc ra danh sách CastData tương ứng.
     /// </summary>
-    public async Task EnsureUserDocumentExistsAsync()
+    public List<CastData> GetCastDataList(List<GameObject> prefabs)
     {
-        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
-        if (firebaseUser == null)
+        List<CastData> castDataList = new List<CastData>();
+        if (prefabs == null) return castDataList;
+
+        foreach (GameObject prefab in prefabs)
         {
-            Debug.LogWarning("[MainMenuDataManager] Không tìm thấy người dùng đăng nhập.");
-            return;
+            if (prefab != null)
+            {
+                CastData data = CreateCastDataFromPrefab(prefab);
+                if (data != null)
+                {
+                    castDataList.Add(data);
+                }
+            }
+        }
+        return castDataList;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Các hàm phụ trợ Quản lý Prefab Nhân vật
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public void SetCharacterPrefabs(IEnumerable<GameObject> prefabs)
+    {
+        characterPrefabs.Clear();
+        AddCharacterPrefabs(prefabs);
+    }
+
+    public void AddCharacterPrefabs(IEnumerable<GameObject> prefabs)
+    {
+        if (prefabs == null) return;
+
+        foreach (GameObject prefab in prefabs)
+        {
+            if (prefab != null && !characterPrefabs.Contains(prefab))
+            {
+                characterPrefabs.Add(prefab);
+            }
+        }
+    }
+
+    public GameObject GetCharacterPrefab(string prefabName)
+    {
+        if (string.IsNullOrEmpty(prefabName)) return null;
+
+        if (characterPrefabs != null)
+        {
+            foreach (GameObject prefab in characterPrefabs)
+            {
+                if (prefab != null && prefab.name.Equals(prefabName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return prefab;
+                }
+            }
         }
 
-        await NetworkGuard.RunAsync(async () =>
-        {
-            try
-            {
-                DocumentReference userDocRef = _db.Collection("users").Document(firebaseUser.UserId);
-                DocumentSnapshot snapshot = await userDocRef.GetSnapshotAsync();
-
-                if (!snapshot.Exists)
-                {
-                    string email = firebaseUser.Email ?? "";
-                    string displayName = email.Split('@')[0]; // Lấy phần trước dấu @ làm nickname tạm thời
-
-                    var userData = new Dictionary<string, object>
-                    {
-                        { "userId", firebaseUser.UserId },
-                        { "displayName", displayName },
-                        { "email", email },
-                        { "points", 0 }
-                    };
-
-                    await userDocRef.SetAsync(userData);
-                    Debug.Log($"[MainMenuDataManager] Đã tạo document người dùng mới cho: {email}");
-                }
-            }
-            catch (Exception ex)
-            {
-                LogFirestoreError("Lỗi kiểm tra document người dùng", ex);
-                if (NetworkGuard.IsNetworkException(ex))
-                {
-                    throw;
-                }
-            }
-        });
-    }
-    /// <summary>
-    /// Tải danh sách nhân vật đã tạo của người dùng hiện tại từ users/{myUID}/characters.
-    /// </summary>
-    public async Task<List<CharacterData>> GetCreatedCharactersAsync()
-    {
-        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
-        if (firebaseUser == null) return new List<CharacterData>();
-
-        return await NetworkGuard.RunAsync(async () =>
-        {
-            var list = new List<CharacterData>();
-            try
-            {
-                CollectionReference charColRef = _db.Collection("users").Document(firebaseUser.UserId).Collection("characters");
-                QuerySnapshot snapshot = await charColRef.GetSnapshotAsync();
-
-                foreach (DocumentSnapshot doc in snapshot.Documents)
-                {
-                    CharacterData data = doc.ConvertTo<CharacterData>();
-                    data.characterId = doc.Id;
-                    list.Add(data);
-                }
-            }
-            catch (Exception ex)
-            {
-                LogFirestoreError("Lỗi tải danh sách nhân vật", ex);
-                if (NetworkGuard.IsNetworkException(ex))
-                {
-                    throw;
-                }
-            }
-            return list;
-        });
+        GameObject resPrefab = Resources.Load<GameObject>("Prefabs/Cast/" + prefabName);
+        if (resPrefab == null) resPrefab = Resources.Load<GameObject>("Prefabs/" + prefabName);
+        if (resPrefab == null) resPrefab = Resources.Load<GameObject>(prefabName);
+        return resPrefab;
     }
 
-    /// <summary>
-    /// Tải danh sách mẫu nhạc (Band Template) toàn cục mà người dùng đã mua.
-    /// (Lọc các templates có chứa UID của mình trong danh sách buyerIds).
-    /// </summary>
-    public async Task<List<BandTemplateData>> GetPurchasedTemplatesAsync()
+    public Sprite GetCharacterAvatarSprite(string prefabName)
     {
-        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
-        if (firebaseUser == null) return new List<BandTemplateData>();
+        GameObject prefab = GetCharacterPrefab(prefabName);
+        if (prefab == null) return null;
 
-        return await NetworkGuard.RunAsync(async () =>
-        {
-            var list = new List<BandTemplateData>();
-            try
-            {
-                Query query = _db.Collection("templates").WhereArrayContains("buyerIds", firebaseUser.UserId);
-                QuerySnapshot snapshot = await query.GetSnapshotAsync();
-
-                foreach (DocumentSnapshot doc in snapshot.Documents)
-                {
-                    BandTemplateData data = doc.ConvertTo<BandTemplateData>();
-                    data.templateId = doc.Id;
-                    list.Add(data);
-                }
-            }
-            catch (Exception ex)
-            {
-                LogFirestoreError("Lỗi tải danh sách templates đã mua", ex);
-                if (NetworkGuard.IsNetworkException(ex))
-                {
-                    throw;
-                }
-            }
-            return list;
-        });
+        CastPrefab config = prefab.GetComponent<CastPrefab>();
+        return config != null ? config.characterAvatar : null;
     }
 
-    /// <summary>
-    /// Tải danh sách mẫu nhạc do chính người dùng hiện tại tạo ra.
-    /// (Lọc các templates có creatorId trùng với UID của mình).
-    /// </summary>
-    public async Task<List<BandTemplateData>> GetMyCreatedTemplatesAsync()
+    public CastData CreateCastDataFromPrefab(GameObject prefab, string audioId = "", string selectedDanceAnimId = "")
     {
-        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
-        if (firebaseUser == null) return new List<BandTemplateData>();
+        if (prefab == null) return null;
 
-        return await NetworkGuard.RunAsync(async () =>
+        CastPrefab config = prefab.GetComponent<CastPrefab>();
+        string displayName = (config != null && !string.IsNullOrEmpty(config.Name)) ? config.Name : prefab.name;
+        List<string> danceAnimIds = GetDanceAnimationIds(config);
+        string danceAnimId = !string.IsNullOrEmpty(selectedDanceAnimId)
+            ? selectedDanceAnimId
+            : (danceAnimIds.Count > 0 ? danceAnimIds[0] : "");
+
+        if (!string.IsNullOrEmpty(danceAnimId) && !danceAnimIds.Contains(danceAnimId))
         {
-            var list = new List<BandTemplateData>();
-            try
-            {
-                Query query = _db.Collection("templates").WhereEqualTo("creatorId", firebaseUser.UserId);
-                QuerySnapshot snapshot = await query.GetSnapshotAsync();
+            danceAnimIds.Add(danceAnimId);
+        }
 
-                foreach (DocumentSnapshot doc in snapshot.Documents)
-                {
-                    BandTemplateData data = doc.ConvertTo<BandTemplateData>();
-                    data.templateId = doc.Id;
-                    list.Add(data);
-                }
-            }
-            catch (Exception ex)
-            {
-                LogFirestoreError("Lỗi tải danh sách templates tự tạo", ex);
-                if (NetworkGuard.IsNetworkException(ex))
-                {
-                    throw;
-                }
-            }
-            return list;
-        });
+        return new CastData(displayName, prefab.name, audioId ?? "", danceAnimId, danceAnimIds);
     }
 
-    /// <summary>
-    /// Tải danh sách bảng xếp hạng (Top 50 người dùng có điểm points cao nhất).
-    /// </summary>
-    public async Task<List<UserData>> GetLeaderboardAsync()
+    public CastData CreateCastDataFromPrefabName(string prefabName, string audioId = "", string selectedDanceAnimId = "")
     {
-        return await NetworkGuard.RunAsync(async () =>
+        GameObject prefab = GetCharacterPrefab(prefabName);
+        if (prefab != null)
         {
-            var list = new List<UserData>();
-            try
-            {
-                Query query = _db.Collection("users").OrderByDescending("points").Limit(50);
-                QuerySnapshot snapshot = await query.GetSnapshotAsync();
+            return CreateCastDataFromPrefab(prefab, audioId, selectedDanceAnimId);
+        }
 
-                foreach (DocumentSnapshot doc in snapshot.Documents)
-                {
-                    UserData data = doc.ConvertTo<UserData>();
-                    data.userId = doc.Id;
-                    list.Add(data);
-                }
-            }
-            catch (Exception ex)
-            {
-                LogFirestoreError("Lỗi tải bảng xếp hạng", ex);
-                if (NetworkGuard.IsNetworkException(ex))
-                {
-                    throw;
-                }
-            }
-            return list;
-        });
+        List<string> danceAnimIds = new List<string>();
+        if (!string.IsNullOrEmpty(selectedDanceAnimId))
+        {
+            danceAnimIds.Add(selectedDanceAnimId);
+        }
+
+        string displayName = string.IsNullOrEmpty(prefabName) ? "Custom Character" : prefabName;
+        return new CastData(displayName, prefabName, audioId ?? "", selectedDanceAnimId, danceAnimIds);
     }
 
-    /// <summary>
-    /// Thực hiện giao dịch mua Band Template.
-    /// Thêm người dùng vào danh sách buyerIds của template và cộng 1 điểm (points) cho người tạo (creator).
-    /// </summary>
-    public async Task<(bool success, string error)> BuyTemplateAsync(string templateId)
+    private List<string> GetDanceAnimationIds(CastPrefab config)
     {
-        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
-        if (firebaseUser == null) return (false, "Người dùng chưa đăng nhập!");
+        List<string> danceAnimIds = new List<string>();
+        if (config == null || config.animations == null) return danceAnimIds;
 
-        return await NetworkGuard.RunAsync(async () =>
+        foreach (CastAnimation anim in config.animations)
         {
-            try
+            if (anim.animation == null || string.IsNullOrEmpty(anim.animation.name)) continue;
+
+            if (!danceAnimIds.Contains(anim.animation.name))
             {
-                DocumentReference templateDocRef = _db.Collection("templates").Document(templateId);
+                danceAnimIds.Add(anim.animation.name);
+            }
+        }
 
-                bool transactionSuccess = await _db.RunTransactionAsync(async transaction =>
+        return danceAnimIds;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Các hàm Stub / Mock để giữ an toàn cho việc compile ở các Class khác
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public Task EnsureUserDocumentExistsAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    public Task<List<CharacterData>> GetCreatedCharactersAsync()
+    {
+        List<CharacterData> list = new List<CharacterData>();
+        List<SerializableCharacterData> savedList = LoadSavedCastsFromPrefs();
+
+        if (savedList != null && savedList.Count > 0)
+        {
+            foreach (var saved in savedList)
+            {
+                list.Add(new CharacterData
                 {
-                    DocumentSnapshot templateSnapshot = await transaction.GetSnapshotAsync(templateDocRef);
-                    if (!templateSnapshot.Exists) return false;
-
-                    BandTemplateData template = templateSnapshot.ConvertTo<BandTemplateData>();
-
-                    // Kiểm tra xem đã mua chưa
-                    if (template.buyerIds != null && template.buyerIds.Contains(firebaseUser.UserId))
-                    {
-                        return true; // Đã mua từ trước, giao dịch thành công (no-op)
-                    }
-
-                    // Cập nhật danh sách người mua
-                    if (template.buyerIds == null) template.buyerIds = new List<string>();
-                    template.buyerIds.Add(firebaseUser.UserId);
-
-                    transaction.Update(templateDocRef, new Dictionary<string, object>
-                    {
-                        { "buyerIds", template.buyerIds },
-                        { "downloadCount", FieldValue.Increment(1) }
-                    });
-
-                    // Cộng điểm cho tác giả (creator) của template đó
-                    if (!string.IsNullOrEmpty(template.creatorId))
-                    {
-                        DocumentReference creatorDocRef = _db.Collection("users").Document(template.creatorId);
-                        transaction.Update(creatorDocRef, new Dictionary<string, object>
-                        {
-                            { "points", FieldValue.Increment(1) }
-                        });
-                    }
-
-                    return true;
+                    characterId = saved.characterId,
+                    name = saved.name,
+                    prefabName = saved.prefabName,
+                    instrumentId = saved.instrumentId,
+                    danceAnimId = saved.danceAnimId,
+                    danceAnimIds = saved.danceAnimIds != null ? new List<string>(saved.danceAnimIds) : new List<string>(),
+                    createdAt = Timestamp.FromDateTime(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(saved.createdAtSeconds)),
+                    usePrefabAvatar = saved.usePrefabAvatar
                 });
-
-                return (transactionSuccess, transactionSuccess ? "" : "Giao dịch bị từ chối.");
             }
-            catch (Exception ex)
-            {
-                LogFirestoreError("Lỗi trong Transaction mua template", ex);
-                if (NetworkGuard.IsNetworkException(ex))
-                {
-                    throw;
-                }
-                return (false, ex.Message);
-            }
-        });
+        }
+        return Task.FromResult(list);
     }
 
-    /// <summary>
-    /// Hàm tiện ích: Tạo mới một template nhạc để thử nghiệm hoặc do người dùng tạo.
-    /// </summary>
-    public async Task<bool> CreateTemplateAsync(string templateName, int price)
+    public Task<List<BandTemplateData>> GetPurchasedTemplatesAsync()
     {
-        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
-        if (firebaseUser == null) return false;
+        return Task.FromResult(new List<BandTemplateData>());
+    }
 
-        return await NetworkGuard.RunAsync(async () =>
+    public Task<List<BandTemplateData>> GetMyCreatedTemplatesAsync()
+    {
+        return Task.FromResult(new List<BandTemplateData>());
+    }
+
+    private List<SerializableBandData> LoadSavedBandsFromPrefs()
+    {
+        string json = PlayerPrefs.GetString(SAVED_BANDS_PREFS_KEY, "");
+        if (string.IsNullOrEmpty(json))
         {
-            try
-            {
-                DocumentReference templateDocRef = _db.Collection("templates").Document(); // Tự sinh ID ngẫu nhiên
-                string email = firebaseUser.Email ?? "";
-                string displayName = email.Split('@')[0];
+            return new List<SerializableBandData>();
+        }
 
-                var templateData = new Dictionary<string, object>
-                {
-                    { "templateId", templateDocRef.Id },
-                    { "name", templateName },
-                    { "creatorId", firebaseUser.UserId },
-                    { "creatorName", displayName },
-                    { "price", price },
-                    { "buyerIds", new List<string>() },
-                    { "downloadCount", 0 }
-                };
-
-                await templateDocRef.SetAsync(templateData);
-                Debug.Log($"[MainMenuDataManager] Đã tạo template nhạc thành công: {templateName}");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                LogFirestoreError("Lỗi tạo template", ex);
-                if (NetworkGuard.IsNetworkException(ex))
-                {
-                    throw;
-                }
-                return false;
-            }
-        });
-    }
-
-    /// <summary>
-    /// Hàm tiện ích: Tạo mới một nhân vật do người dùng thiết kế.
-    /// </summary>
-    public async Task<bool> CreateCharacterAsync(string name, string prefabName, string instrumentId = "", string danceAnimId = "", List<string> danceAnimIds = null)
-    {
-        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
-        if (firebaseUser == null) return false;
-
-        return await NetworkGuard.RunAsync(async () =>
+        try
         {
-            try
-            {
-                DocumentReference charDocRef = _db.Collection("users").Document(firebaseUser.UserId).Collection("characters").Document();
+            SerializableBandDataList wrapper = JsonUtility.FromJson<SerializableBandDataList>(json);
+            List<SerializableBandData> bands = wrapper != null && wrapper.bands != null ? wrapper.bands : new List<SerializableBandData>();
 
-                var characterData = new Dictionary<string, object>
-                {
-                    { "characterId", charDocRef.Id },
-                    { "name", name },
-                    { "prefabName", prefabName },
-                    { "createdAt", FieldValue.ServerTimestamp },
-                    { "instrumentId", instrumentId },
-                    { "danceAnimId", danceAnimId },
-                    { "danceAnimIds", danceAnimIds ?? new List<string>() }
-                };
-
-                await charDocRef.SetAsync(characterData);
-                Debug.Log($"[MainMenuDataManager] Đã tạo nhân vật thành công: {name}");
-                return true;
-            }
-            catch (Exception ex)
+            // Quét và loại bỏ ban nhạc mặc định nếu tồn tại
+            bool hasDefaultBand = false;
+            for (int i = bands.Count - 1; i >= 0; i--)
             {
-                LogFirestoreError("Lỗi tạo nhân vật", ex);
-                if (NetworkGuard.IsNetworkException(ex))
+                if (bands[i].name == "Ban nhạc mặc định" || bands[i].name == "Default Band" || bands[i].bandId == "default_band")
                 {
-                    throw;
+                    bands.RemoveAt(i);
+                    hasDefaultBand = true;
                 }
-                return false;
             }
-        });
-    }
 
-    /// <summary>
-    /// Cập nhật chuỗi Base64 của ảnh đại diện lên Firestore.
-    /// </summary>
-    public async Task<bool> UpdateAvatarAsync(string base64Data)
-    {
-        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
-        if (firebaseUser == null) return false;
+            if (hasDefaultBand)
+            {
+                Debug.Log("[MainMenuDataManager] Đã phát hiện và loại bỏ Ban nhạc mặc định khỏi dữ liệu cục bộ.");
+                SaveBandsToPrefs(bands);
+            }
 
-        return await NetworkGuard.RunAsync(async () =>
+            return bands;
+        }
+        catch (Exception ex)
         {
-            try
-            {
-                DocumentReference userDocRef = _db.Collection("users").Document(firebaseUser.UserId);
-                var updateData = new Dictionary<string, object> { { "avatarBase64", base64Data } };
-                await userDocRef.SetAsync(updateData, SetOptions.MergeAll);
-                Debug.Log("[MainMenuDataManager] Cập nhật avatar lên Firestore thành công.");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                LogFirestoreError("Lỗi cập nhật avatar", ex);
-                if (NetworkGuard.IsNetworkException(ex))
-                {
-                    throw;
-                }
-                return false;
-            }
-        });
+            Debug.LogError("[MainMenuDataManager] Lỗi load JSON bands: " + ex.Message);
+            return new List<SerializableBandData>();
+        }
     }
 
-    /// <summary>
-    /// Tải chuỗi ảnh đại diện Base64 của người dùng hiện tại từ Firestore.
-    /// </summary>
-    public async Task<string> GetUserAvatarBase64Async()
+    private void SaveBandsToPrefs(List<SerializableBandData> list)
     {
-        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
-        if (firebaseUser == null) return null;
-
-        return await NetworkGuard.RunAsync(async () =>
+        try
         {
-            try
-            {
-                DocumentReference userDocRef = _db.Collection("users").Document(firebaseUser.UserId);
-                DocumentSnapshot snapshot = await userDocRef.GetSnapshotAsync();
-                if (snapshot.Exists && snapshot.TryGetValue("avatarBase64", out string base64))
-                {
-                    return base64;
-                }
-            }
-            catch (Exception ex)
-            {
-                LogFirestoreError("Lỗi tải avatar từ Firestore", ex);
-                if (NetworkGuard.IsNetworkException(ex))
-                {
-                    throw;
-                }
-            }
-            return null;
-        });
+            SerializableBandDataList wrapper = new SerializableBandDataList { bands = list };
+            string json = JsonUtility.ToJson(wrapper);
+            PlayerPrefs.SetString(SAVED_BANDS_PREFS_KEY, json);
+            PlayerPrefs.Save();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("[MainMenuDataManager] Lỗi save JSON bands: " + ex.Message);
+        }
     }
 
-    private void LogFirestoreError(string context, Exception ex)
+    public Task<List<BandData>> GetCreatedBandsAsync()
     {
-        bool isOffline = ex.Message.Contains("offline") || 
-                         ex.Message.Contains("client is offline") || 
-                         (ex.InnerException != null && (ex.InnerException.Message.Contains("offline") || ex.InnerException.Message.Contains("client is offline")));
+        List<BandData> list = new List<BandData>();
+        List<SerializableBandData> savedList = LoadSavedBandsFromPrefs();
+
+        if (savedList != null && savedList.Count > 0)
+        {
+            foreach (var saved in savedList)
+            {
+                List<CastData> casts = new List<CastData>();
+                foreach (var c in saved.casts)
+                {
+                    casts.Add(new CastData(c.name, c.prefabName, c.instrumentId, c.danceAnimId, c.danceAnimIds));
+                }
+
+                BandData band = new BandData(casts);
+                band.bandId = saved.bandId;
+                band.name = saved.name;
+                list.Add(band);
+            }
+        }
+        return Task.FromResult(list);
+    }
+
+    public Task<bool> CreateBandAsync(string name, List<CastData> casts)
+    {
+        List<SerializableBandData> list = LoadSavedBandsFromPrefs();
+
+        string newId = "band_" + DateTime.UtcNow.Ticks;
+
+        List<SerializableCharacterData> serializableCasts = new List<SerializableCharacterData>();
+        if (casts != null)
+        {
+            foreach (var cast in casts)
+            {
+                serializableCasts.Add(new SerializableCharacterData
+                {
+                    characterId = "char_" + DateTime.UtcNow.Ticks + "_" + UnityEngine.Random.Range(0, 1000),
+                    name = cast.name,
+                    prefabName = cast.prefabName,
+                    instrumentId = cast.audioId,
+                    danceAnimId = cast.danceAnimId,
+                    danceAnimIds = cast.danceAnimIds != null ? new List<string>(cast.danceAnimIds) : new List<string>(),
+                    createdAtSeconds = DateTime.UtcNow.Ticks / 10000000,
+                    usePrefabAvatar = true
+                });
+            }
+        }
+
+        SerializableBandData newBand = new SerializableBandData
+        {
+            bandId = newId,
+            name = name,
+            casts = serializableCasts,
+            createdAtSeconds = DateTime.UtcNow.Ticks / 10000000
+        };
+
+        list.Add(newBand);
+        SaveBandsToPrefs(list);
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> DeleteBandAsync(string bandId)
+    {
+        if (string.IsNullOrEmpty(bandId)) return Task.FromResult(false);
+        List<SerializableBandData> list = LoadSavedBandsFromPrefs();
+        int index = list.FindIndex(b => b.bandId == bandId);
+        if (index >= 0)
+        {
+            list.RemoveAt(index);
+            SaveBandsToPrefs(list);
+            return Task.FromResult(true);
+        }
+        return Task.FromResult(false);
+    }
+
+    public Task<List<UserData>> GetLeaderboardAsync()
+    {
+        return Task.FromResult(new List<UserData>());
+    }
+
+    public Task<(bool success, string error)> BuyTemplateAsync(string templateId)
+    {
+        return Task.FromResult((true, ""));
+    }
+
+    public Task<bool> CreateTemplateAsync(string templateName, int price)
+    {
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> CreateCharacterAsync(string name, string prefabName, string instrumentId = "", string danceAnimId = "", List<string> danceAnimIds = null)
+    {
+        List<SerializableCharacterData> list = LoadSavedCastsFromPrefs();
+        if (list.Count >= 7)
+        {
+            Debug.LogWarning("[MainMenuDataManager] Đã đạt giới hạn tối đa 7 nhân vật. Không thể tạo thêm.");
+            return Task.FromResult(false);
+        }
+
+        string newId = "char_" + DateTime.UtcNow.Ticks;
         
-        if (isOffline)
+        Sprite localResAvatar = Resources.Load<Sprite>("Avatars/" + prefabName);
+        bool usePrefab = (localResAvatar == null);
+
+        SerializableCharacterData newData = new SerializableCharacterData
         {
-            Debug.LogWarning($"[MainMenuDataManager] {context} (Ngoại tuyến): {ex.Message}");
+            characterId = newId,
+            name = name,
+            prefabName = prefabName,
+            instrumentId = instrumentId,
+            danceAnimId = danceAnimId,
+            danceAnimIds = danceAnimIds != null ? new List<string>(danceAnimIds) : new List<string>(),
+            createdAtSeconds = DateTime.UtcNow.Ticks / 10000000,
+            usePrefabAvatar = usePrefab
+        };
+        list.Add(newData);
+        SaveCastsToPrefs(list);
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> CreateCharacterAsync(CastData cast)
+    {
+        if (cast == null) return Task.FromResult(false);
+        List<SerializableCharacterData> list = LoadSavedCastsFromPrefs();
+        if (list.Count >= 7)
+        {
+            Debug.LogWarning("[MainMenuDataManager] Đã đạt giới hạn tối đa 7 nhân vật. Không thể tạo thêm.");
+            return Task.FromResult(false);
         }
-        else
+
+        string newId = "char_" + DateTime.UtcNow.Ticks;
+
+        Sprite localResAvatar = Resources.Load<Sprite>("Avatars/" + cast.prefabName);
+        bool usePrefab = (localResAvatar == null);
+
+        SerializableCharacterData newData = new SerializableCharacterData
         {
-            Debug.LogError($"[MainMenuDataManager] {context}: {ex.Message}");
+            characterId = newId,
+            name = cast.name,
+            prefabName = cast.prefabName,
+            instrumentId = cast.audioId,
+            danceAnimId = cast.danceAnimId,
+            danceAnimIds = cast.danceAnimIds != null ? new List<string>(cast.danceAnimIds) : new List<string>(),
+            createdAtSeconds = DateTime.UtcNow.Ticks / 10000000,
+            usePrefabAvatar = usePrefab
+        };
+        list.Add(newData);
+        SaveCastsToPrefs(list);
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> CreateCharacterAsync(GameObject characterPrefab, string instrumentId = "", string danceAnimId = "", string customName = "")
+    {
+        if (characterPrefab == null) return Task.FromResult(false);
+
+        CastPrefab config = characterPrefab.GetComponent<CastPrefab>();
+        string displayName = !string.IsNullOrEmpty(customName)
+            ? customName
+            : ((config != null && !string.IsNullOrEmpty(config.Name)) ? config.Name : characterPrefab.name);
+
+        List<string> danceAnimIds = GetDanceAnimationIds(config);
+        if (!string.IsNullOrEmpty(danceAnimId) && !danceAnimIds.Contains(danceAnimId))
+        {
+            danceAnimIds.Add(danceAnimId);
+        }
+
+        return CreateCharacterAsync(displayName, characterPrefab.name, instrumentId, danceAnimId, danceAnimIds);
+    }
+
+    public Task<bool> UpdateAvatarAsync(string base64Data)
+    {
+        return Task.FromResult(true);
+    }
+
+    public Task<string> GetUserAvatarBase64Async()
+    {
+        return Task.FromResult("");
+    }
+
+    public Task<bool> SaveRecordingAsync(string recordingId, string name, string audioBase64)
+    {
+        try
+        {
+            List<SerializableRecordingData> list = LoadSavedRecordingsFromPrefs();
+            list.Add(new SerializableRecordingData
+            {
+                recordingId = recordingId,
+                name = name,
+                audioBase64 = audioBase64,
+                createdAtSeconds = DateTime.UtcNow.Ticks / 10000000
+            });
+            SaveRecordingsToPrefs(list);
+            return Task.FromResult(true);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("[MainMenuDataManager] SaveRecordingAsync failed: " + ex.Message);
+            return Task.FromResult(false);
         }
     }
 
-    /// <summary>
-    /// Lưu bản ghi âm giọng nói lên Firestore.
-    /// </summary>
-    public async Task<bool> SaveRecordingAsync(string recordingId, string name, string audioBase64)
+    public Task<List<RecordingData>> GetRecordingsAsync()
     {
-        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
-        if (firebaseUser == null) return false;
+        List<RecordingData> list = new List<RecordingData>();
+        List<SerializableRecordingData> savedList = LoadSavedRecordingsFromPrefs();
 
-        return await NetworkGuard.RunAsync(async () =>
+        foreach (var saved in savedList)
         {
-            try
+            list.Add(new RecordingData
             {
-                DocumentReference recDocRef = _db.Collection("users").Document(firebaseUser.UserId).Collection("recordings").Document(recordingId);
-
-                var recData = new Dictionary<string, object>
-                {
-                    { "recordingId", recordingId },
-                    { "name", name },
-                    { "audioBase64", audioBase64 },
-                    { "createdAt", FieldValue.ServerTimestamp }
-                };
-
-                await recDocRef.SetAsync(recData);
-                Debug.Log($"[MainMenuDataManager] Đã lưu bản ghi âm lên Firestore: {name} ({recordingId})");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                LogFirestoreError("Lỗi lưu bản ghi âm", ex);
-                if (NetworkGuard.IsNetworkException(ex))
-                {
-                    throw;
-                }
-                return false;
-            }
-        });
+                recordingId = saved.recordingId,
+                name = saved.name,
+                audioBase64 = saved.audioBase64,
+                createdAt = Timestamp.FromDateTime(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(saved.createdAtSeconds))
+            });
+        }
+        return Task.FromResult(list);
     }
 
-    /// <summary>
-    /// Tải danh sách bản ghi âm của người dùng từ Firestore.
-    /// </summary>
-    public async Task<List<RecordingData>> GetRecordingsAsync()
+    public Task<bool> DeleteRecordingAsync(string recordingId)
     {
-        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
-        if (firebaseUser == null) return new List<RecordingData>();
-
-        return await NetworkGuard.RunAsync(async () =>
+        if (string.IsNullOrEmpty(recordingId)) return Task.FromResult(false);
+        List<SerializableRecordingData> list = LoadSavedRecordingsFromPrefs();
+        int index = list.FindIndex(r => r.recordingId == recordingId);
+        if (index >= 0)
         {
-            var list = new List<RecordingData>();
-            try
-            {
-                CollectionReference recColRef = _db.Collection("users").Document(firebaseUser.UserId).Collection("recordings");
-                QuerySnapshot snapshot = await recColRef.OrderByDescending("createdAt").GetSnapshotAsync();
-
-                foreach (DocumentSnapshot doc in snapshot.Documents)
-                {
-                    RecordingData data = doc.ConvertTo<RecordingData>();
-                    data.recordingId = doc.Id;
-                    list.Add(data);
-                }
-            }
-            catch (Exception ex)
-            {
-                LogFirestoreError("Lỗi tải danh sách bản ghi âm", ex);
-                if (NetworkGuard.IsNetworkException(ex))
-                {
-                    throw;
-                }
-            }
-            return list;
-        });
+            list.RemoveAt(index);
+            SaveRecordingsToPrefs(list);
+            return Task.FromResult(true);
+        }
+        return Task.FromResult(false);
     }
 
-    /// <summary>
-    /// Xóa một bản ghi âm khỏi Firestore.
-    /// </summary>
-    public async Task<bool> DeleteRecordingAsync(string recordingId)
+    public Task<bool> DeleteCharacterAsync(string characterId)
     {
-        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
-        if (firebaseUser == null) return false;
-
-        return await NetworkGuard.RunAsync(async () =>
+        if (string.IsNullOrEmpty(characterId)) return Task.FromResult(false);
+        List<SerializableCharacterData> list = LoadSavedCastsFromPrefs();
+        int index = list.FindIndex(c => c.characterId == characterId);
+        if (index >= 0)
         {
-            try
-            {
-                DocumentReference recDocRef = _db.Collection("users").Document(firebaseUser.UserId).Collection("recordings").Document(recordingId);
-                await recDocRef.DeleteAsync();
-                Debug.Log($"[MainMenuDataManager] Đã xóa bản ghi âm khỏi Firestore: {recordingId}");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                LogFirestoreError("Lỗi xóa bản ghi âm", ex);
-                if (NetworkGuard.IsNetworkException(ex))
-                {
-                    throw;
-                }
-                return false;
-            }
-        });
+            list.RemoveAt(index);
+            SaveCastsToPrefs(list);
+            return Task.FromResult(true);
+        }
+        return Task.FromResult(false);
     }
+}
 
-    /// <summary>
-    /// Xóa một nhân vật khỏi Firestore, đồng thời tự động xóa bản ghi âm đi kèm nếu có.
-    /// </summary>
-    public async Task<bool> DeleteCharacterAsync(string characterId)
-    {
-        var firebaseUser = FirebaseAuth.DefaultInstance.CurrentUser;
-        if (firebaseUser == null) return false;
+[System.Serializable]
+public class SerializableCharacterData
+{
+    public string characterId;
+    public string name;
+    public string prefabName;
+    public string instrumentId;
+    public string danceAnimId;
+    public List<string> danceAnimIds = new List<string>();
+    public long createdAtSeconds;
+    public bool usePrefabAvatar;
+}
 
-        return await NetworkGuard.RunAsync(async () =>
-        {
-            try
-            {
-                DocumentReference charDocRef = _db.Collection("users").Document(firebaseUser.UserId).Collection("characters").Document(characterId);
-                DocumentSnapshot snapshot = await charDocRef.GetSnapshotAsync();
+[System.Serializable]
+public class SerializableCharacterDataList
+{
+    public List<SerializableCharacterData> characters = new List<SerializableCharacterData>();
+}
 
-                if (snapshot.Exists)
-                {
-                    string instrumentId = "";
-                    if (snapshot.TryGetValue("instrumentId", out instrumentId))
-                    {
-                        // Nếu nhân vật sử dụng âm thanh tự thu, tự động xóa bản ghi âm tương ứng
-                        if (!string.IsNullOrEmpty(instrumentId) && instrumentId.StartsWith("rec_"))
-                        {
-                            await DeleteRecordingAsync(instrumentId);
-                        }
-                    }
-                    
-                    await charDocRef.DeleteAsync();
-                    Debug.Log($"[MainMenuDataManager] Đã xóa nhân vật khỏi Firestore: {characterId}");
-                    return true;
-                }
-                return false;
-            }
-            catch (Exception ex)
-            {
-                LogFirestoreError("Lỗi xóa nhân vật", ex);
-                if (NetworkGuard.IsNetworkException(ex))
-                {
-                    throw;
-                }
-                return false;
-            }
-        });
-    }
+[System.Serializable]
+public class SerializableBandData
+{
+    public string bandId;
+    public string name;
+    public List<SerializableCharacterData> casts = new List<SerializableCharacterData>();
+    public long createdAtSeconds;
+}
+
+[System.Serializable]
+public class SerializableBandDataList
+{
+    public List<SerializableBandData> bands = new List<SerializableBandData>();
+}
+
+[System.Serializable]
+public class SerializableRecordingData
+{
+    public string recordingId;
+    public string name;
+    public string audioBase64;
+    public long createdAtSeconds;
+}
+
+[System.Serializable]
+public class SerializableRecordingDataList
+{
+    public List<SerializableRecordingData> recordings = new List<SerializableRecordingData>();
 }
 
 [FirestoreData]
@@ -609,10 +724,6 @@ public class RecordingData
     [FirestoreProperty] public Timestamp createdAt { get; set; }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Cấu trúc dữ liệu ánh xạ sang Firestore
-// ─────────────────────────────────────────────────────────────────────────
-
 [FirestoreData]
 public class CharacterData
 {
@@ -624,6 +735,7 @@ public class CharacterData
     [FirestoreProperty] public string instrumentId { get; set; }
     [FirestoreProperty] public string danceAnimId { get; set; }
     [FirestoreProperty] public List<string> danceAnimIds { get; set; } = new List<string>();
+    [FirestoreProperty] public bool usePrefabAvatar { get; set; }
 }
 
 [FirestoreData]

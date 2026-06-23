@@ -29,6 +29,11 @@ public class BandButtonUI : MonoBehaviour
     [Tooltip("Nút bấm chính để mở thông tin ban nhạc này")]
     [SerializeField] private Button button;
 
+    [Tooltip("Nút bấm để xóa ban nhạc này")]
+    [SerializeField] private Button deleteButton;
+
+    public Button DeleteButton => deleteButton;
+
     // ─────────────────────────────────────────────────────────────────────────
     // Dữ liệu ban nhạc đi kèm
     // ─────────────────────────────────────────────────────────────────────────

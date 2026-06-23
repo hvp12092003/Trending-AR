@@ -13,76 +13,12 @@ public static class NetworkGuard
     /// </summary>
     public static async Task<T> RunAsync<T>(Func<Task<T>> apiCall)
     {
-        if (SceneTransitionManager.Instance != null)
-        {
-            await SceneTransitionManager.Instance.EnsureInternetConnectionAsync();
-        }
-
-        while (true)
-        {
-            try
-            {
-                var result = await apiCall();
-
-                // Kiểm tra nếu kết quả trả về là Tuple báo lỗi mạng của Firebase Auth
-                if (result is ValueTuple<bool, string> tupleResult)
-                {
-                    bool success = tupleResult.Item1;
-                    string error = tupleResult.Item2;
-                    if (!success && IsNetworkError(error))
-                    {
-                        Debug.LogWarning($"[NetworkGuard] API trả về lỗi mạng: '{error}'. Đang chờ kết nối lại...");
-                        if (SceneTransitionManager.Instance != null)
-                        {
-                            await SceneTransitionManager.Instance.EnsureInternetConnectionAsync();
-                        }
-                        await Task.Delay(2000); // Chờ 2 giây trước khi thử lại để tránh spam
-                        continue; // Thử lại API call
-                    }
-                }
-
-                return result;
-            }
-            catch (Exception ex) when (IsNetworkException(ex))
-            {
-                Debug.LogWarning($"[NetworkGuard] Bắt được exception lỗi mạng: {ex.Message}. Đang chờ kết nối lại...");
-                if (SceneTransitionManager.Instance != null)
-                {
-                    await SceneTransitionManager.Instance.EnsureInternetConnectionAsync();
-                }
-                await Task.Delay(2000); // Chờ 2 giây trước khi thử lại để tránh spam
-            }
-        }
+        return await apiCall();
     }
 
-    /// <summary>
-    /// Chạy một API task bất đồng bộ không có giá trị trả về, kiểm tra và chờ mạng trước khi chạy,
-    /// và tự động bắt lỗi mạng để chờ có mạng lại và thử lại.
-    /// </summary>
     public static async Task RunAsync(Func<Task> apiCall)
     {
-        if (SceneTransitionManager.Instance != null)
-        {
-            await SceneTransitionManager.Instance.EnsureInternetConnectionAsync();
-        }
-
-        while (true)
-        {
-            try
-            {
-                await apiCall();
-                return;
-            }
-            catch (Exception ex) when (IsNetworkException(ex))
-            {
-                Debug.LogWarning($"[NetworkGuard] Bắt được exception lỗi mạng: {ex.Message}. Đang chờ kết nối lại...");
-                if (SceneTransitionManager.Instance != null)
-                {
-                    await SceneTransitionManager.Instance.EnsureInternetConnectionAsync();
-                }
-                await Task.Delay(2000); // Chờ 2 giây trước khi thử lại để tránh spam
-            }
-        }
+        await apiCall();
     }
 
     /// <summary>

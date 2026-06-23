@@ -6,7 +6,7 @@ using TMPro;
 
 /// <summary>
 /// AnimPanelController quản lý hiển thị danh sách các hoạt ảnh (animation) của nhân vật (Cast) trong ScrollView.
-/// Tự động lấy các hoạt ảnh từ cấu hình CastAnimationConfig trên prefab của nhân vật được chọn và tạo các nút bấm tương ứng.
+/// Tự động lấy các hoạt ảnh từ cấu hình CastPrefab trên prefab của nhân vật được chọn và tạo các nút bấm tương ứng.
 /// Nếu không có cấu hình, component sẽ sử dụng danh sách hoạt ảnh mặc định (defaultPresets).
 /// </summary>
 public class AnimPanelController : MonoBehaviour
@@ -38,26 +38,26 @@ public class AnimPanelController : MonoBehaviour
     [SerializeField] private bool selectFirstOnStart = true;
 
     [Header("Default Presets (Fallback)")]
-    [Tooltip("Danh sách hoạt ảnh mặc định khi nhân vật không có cấu hình CastAnimationConfig")]
+    [Tooltip("Danh sách hoạt ảnh mặc định khi nhân vật không có cấu hình CastPrefab")]
     [SerializeField] private List<AnimationPreset> defaultPresets = new List<AnimationPreset>();
 
     [Header("Events")]
     [Tooltip("Sự kiện kích hoạt khi một hoạt ảnh được chọn (truyền vào ID/tên clip hoạt ảnh)")]
     public UnityEngine.Events.UnityEvent<string> onAnimationSelectedEvent;
 
-    [Tooltip("Sự kiện kích hoạt khi một hoạt ảnh được chọn (truyền vào CastAnimationItem tương ứng)")]
-    public UnityEngine.Events.UnityEvent<CastAnimationItem> onAnimationItemSelectedEvent;
+    [Tooltip("Sự kiện kích hoạt khi một hoạt ảnh được chọn (truyền vào CastAnimation tương ứng)")]
+    public UnityEngine.Events.UnityEvent<CastAnimation> onAnimationItemSelectedEvent;
 
     // Sự kiện C# Actions để dễ đăng ký từ code
     public event Action<string> OnAnimationSelected;
-    public event Action<CastAnimationItem> OnAnimationItemSelected;
+    public event Action<CastAnimation> OnAnimationItemSelected;
 
     // Trạng thái lưu trữ
     private List<GameObject> _instantiatedButtons = new List<GameObject>();
-    private List<CastAnimationItem> _availableAnimations = new List<CastAnimationItem>();
+    private List<CastAnimation> _availableAnimations = new List<CastAnimation>();
 
     public string SelectedAnimationId { get; private set; }
-    public CastAnimationItem SelectedAnimationItem { get; private set; }
+    public CastAnimation SelectedAnimationItem { get; private set; }
     public int SelectedIndex { get; private set; } = -1;
 
     private void Awake()
@@ -105,14 +105,14 @@ public class AnimPanelController : MonoBehaviour
             return;
         }
 
-        CastAnimationConfig config = characterPrefab.GetComponent<CastAnimationConfig>();
+        CastPrefab config = characterPrefab.GetComponent<CastPrefab>();
         InitializePanel(config);
     }
 
     /// <summary>
-    /// Khởi tạo danh sách nút hoạt ảnh dựa trên cấu hình CastAnimationConfig.
+    /// Khởi tạo danh sách nút hoạt ảnh dựa trên cấu hình CastPrefab.
     /// </summary>
-    public void InitializePanel(CastAnimationConfig config)
+    public void InitializePanel(CastPrefab config)
     {
         ClearPanel();
 
@@ -144,7 +144,7 @@ public class AnimPanelController : MonoBehaviour
             for (int i = 0; i < defaultPresets.Count; i++)
             {
                 var preset = defaultPresets[i];
-                CastAnimationItem fallbackItem = new CastAnimationItem
+                CastAnimation fallbackItem = new CastAnimation
                 {
                     animation = null,
                     sprite = preset.icon,
@@ -157,7 +157,7 @@ public class AnimPanelController : MonoBehaviour
         // 3. Sinh các nút trong ScrollView
         for (int i = 0; i < _availableAnimations.Count; i++)
         {
-            CastAnimationItem animItem = _availableAnimations[i];
+            CastAnimation animItem = _availableAnimations[i];
             
             // Xác định ID hoạt ảnh (ưu tiên lấy tên clip thực tế, nếu không lấy ID preset hoặc tên hiển thị)
             string animId = animItem.animation != null 
