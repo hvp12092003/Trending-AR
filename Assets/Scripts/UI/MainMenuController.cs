@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
@@ -53,7 +52,7 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
-    private async void Start()
+    private void Start()
     {
         // 1. Reset trạng thái loading overlay
         if (loadingOverlay != null) 
@@ -116,18 +115,9 @@ public class MainMenuController : MonoBehaviour
         // Cập nhật tên hiển thị người dùng ban đầu và avatar
         UpdateUserNameUI();
         UpdateUserAvatarUI();
-        // Không cần sync avatar từ Firestore ở chế độ offline
 
         // Đăng ký sự kiện thay đổi avatar
         ProfilePanelController.OnAvatarChanged += UpdateUserAvatarUI;
-
-        // 4. Đảm bảo người dùng hiện tại đã có document cấu hình trong Firestore
-        if (MainMenuDataManager.Instance != null)
-        {
-            await MainMenuDataManager.Instance.EnsureUserDocumentExistsAsync();
-            // Cập nhật lại sau khi đảm bảo thông tin Firestore tồn tại
-            UpdateUserNameUI();
-        }
     }
 
     private void OnPermissionsGrantedCallback()
@@ -349,8 +339,6 @@ public class MainMenuController : MonoBehaviour
             mainAvatarImage.sprite = _defaultAvatarSprite;
         }
     }
-
-    // Đã loại bỏ các hàm đồng bộ avatar Firestore ở phiên bản Offline 100%
 
     private void OnDestroy()
     {

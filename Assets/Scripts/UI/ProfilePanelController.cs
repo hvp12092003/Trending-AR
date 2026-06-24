@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -214,7 +213,7 @@ public class ProfilePanelController : MonoBehaviour
             });
     }
 
-    private async void OnChangePasswordSubmit()
+    private void OnChangePasswordSubmit()
     {
         if (AuthManager.Instance == null)
         {
@@ -223,8 +222,8 @@ public class ProfilePanelController : MonoBehaviour
         }
 
         string currentPass = currentPasswordInput != null ? currentPasswordInput.text : "";
-        string newPass = newPasswordInput != null ? newPasswordInput.text : "";
-        string confirmPass = confirmPasswordInput != null ? confirmPasswordInput.text : "";
+        string newPass     = newPasswordInput     != null ? newPasswordInput.text     : "";
+        string confirmPass = confirmPasswordInput != null ? confirmPasswordInput.text  : "";
 
         if (string.IsNullOrEmpty(currentPass) || string.IsNullOrEmpty(newPass) || string.IsNullOrEmpty(confirmPass))
         {
@@ -244,24 +243,9 @@ public class ProfilePanelController : MonoBehaviour
             return;
         }
 
-        // Vô hiệu hóa nút và input trong lúc xử lý
-        SetChangePassInteractable(false);
-        ShowChangePassNotification("Đang xử lý đổi mật khẩu...", Color.yellow);
-
-        var (success, error) = await AuthManager.Instance.ChangePasswordAsync(currentPass, newPass);
-
-        SetChangePassInteractable(true);
-
-        if (success)
-        {
-            ShowChangePassNotification("Đổi mật khẩu thành công!", Color.green);
-            // Quay lại màn hình chính sau 1.5s
-            Invoke(nameof(CloseChangePasswordPanel), 1.5f);
-        }
-        else
-        {
-            ShowChangePassNotification(error, Color.red);
-        }
+        // Offline mode: đổi mật khẩu luôn thành công
+        ShowChangePassNotification("Đổi mật khẩu thành công!", Color.green);
+        Invoke(nameof(CloseChangePasswordPanel), 1.5f);
     }
 
     private void SetChangePassInteractable(bool interactable)

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -7,8 +6,7 @@ using UnityEngine.SceneManagement;
 using DG.Tweening;
 
 /// <summary>
-/// Quản lý việc hiển thị, ẩn các Panel UI trong Account Scene và kết nối trực tiếp với AuthManager.
-/// Các click handler sử dụng async void để await tác vụ Firebase bất đồng bộ.
+/// Quản lý việc hiển thị, ẩn các Panel UI trong Account Scene và kết nối với AuthManager.
 /// </summary>
 public class AccountUIController : MonoBehaviour
 {
@@ -54,28 +52,8 @@ public class AccountUIController : MonoBehaviour
     [Header("Navigation Settings")]
     [SerializeField] private string mainMenuSceneName = "Main Menu Scene";
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Interactive elements grouped per panel for easy lock/unlock
-    // ─────────────────────────────────────────────────────────────────────────
-    private List<Selectable> loginSelectables;
-    private List<Selectable> signupSelectables;
-    private List<Selectable> forgotSelectables;
-
     private void Start()
     {
-        // Cache interactable element lists per panel
-        loginSelectables = new List<Selectable>
-            { loginEmail, loginPassword, loginButton, signUpButton, goToForgotPassButton };
-        if (googleButton != null) loginSelectables.Add(googleButton);
-        if (facebookButton != null) loginSelectables.Add(facebookButton);
-
-        signupSelectables = new List<Selectable>
-            { signupEmail, signupPassword, signupConfirmPassword, signupButton, goToLoginButton };
-        if (signupName != null) signupSelectables.Add(signupName);
-
-        forgotSelectables = new List<Selectable>
-            { forgotEmail, forgotSendButton, backToLoginFromForgotPassButton };
-
         // Gán sự kiện cho các Button
         if (loginButton != null)            loginButton.onClick.AddListener(OnLoginClicked);
         if (signUpButton != null)           signUpButton.onClick.AddListener(() => ShowPanel(signupPanel));
@@ -91,15 +69,8 @@ public class AccountUIController : MonoBehaviour
 
         if (startButton != null)            startButton.onClick.AddListener(OnStartGameClicked);
 
-        // Kiểm tra trạng thái đăng nhập
-        if (AuthManager.Instance != null && AuthManager.Instance.IsLoggedIn())
-        {
-            ShowWelcomePanel();
-        }
-        else
-        {
-            ShowPanel(loginPanel);
-        }
+        // Offline mode: người dùng luôn được coi là đã đăng nhập
+        ShowWelcomePanel();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -114,16 +85,13 @@ public class AccountUIController : MonoBehaviour
         GameObject previousPanel = currentActivePanel;
         currentActivePanel = targetPanel;
 
-        // Xóa log lỗi cũ
         ClearErrors();
 
-        // Ẩn panel cũ (nếu có)
         if (previousPanel != null)
         {
-            // Tắt tương tác ngay lập tức
             CanvasGroup prevCg = previousPanel.GetComponent<CanvasGroup>();
             if (prevCg == null) prevCg = previousPanel.AddComponent<CanvasGroup>();
-            prevCg.interactable = false;
+            prevCg.interactable    = false;
             prevCg.blocksRaycasts = false;
 
             previousPanel.transform.DOKill();
@@ -137,103 +105,59 @@ public class AccountUIController : MonoBehaviour
         }
         else
         {
-            // Nếu không có panel cũ, đảm bảo các panel khác được ẩn ngay lập tức
-            if (loginPanel != null      && loginPanel != targetPanel)       loginPanel.SetActive(false);
-            if (signupPanel != null     && signupPanel != targetPanel)      signupPanel.SetActive(false);
-            if (forgotPassPanel != null && forgotPassPanel != targetPanel)  forgotPassPanel.SetActive(false);
-            if (welcomePanel != null    && welcomePanel != targetPanel)     welcomePanel.SetActive(false);
+            if (loginPanel      != null && loginPanel      != targetPanel) loginPanel.SetActive(false);
+            if (signupPanel     != null && signupPanel     != targetPanel) signupPanel.SetActive(false);
+            if (forgotPassPanel != null && forgotPassPanel != targetPanel) forgotPassPanel.SetActive(false);
+            if (welcomePanel    != null && welcomePanel    != targetPanel) welcomePanel.SetActive(false);
         }
 
-        // Hiện panel mới
         targetPanel.SetActive(true);
         CanvasGroup targetCg = targetPanel.GetComponent<CanvasGroup>();
         if (targetCg == null) targetCg = targetPanel.AddComponent<CanvasGroup>();
 
-        targetCg.interactable = true;
+        targetCg.interactable    = true;
         targetCg.blocksRaycasts = true;
-
-        // Reset state trước khi animate in
-        targetCg.alpha = 0f;
+        targetCg.alpha           = 0f;
         targetPanel.transform.localScale = Vector3.one * 0.95f;
 
         targetPanel.transform.DOKill();
         targetCg.DOKill();
 
-        // Animate in
         targetPanel.transform.DOScale(1f, panelTransitionDuration).SetEase(Ease.OutBack);
         targetCg.DOFade(1f, panelTransitionDuration).SetEase(Ease.OutQuad);
     }
 
     private void ClearErrors()
     {
-        if (loginNofiText != null)      loginNofiText.text = "";
-        if (signupNofiText != null)     signupNofiText.text = "";
-        if (forgotNofiText != null)     forgotNofiText.text = "";
+        if (loginNofiText  != null) loginNofiText.text  = "";
+        if (signupNofiText != null) signupNofiText.text = "";
+        if (forgotNofiText != null) forgotNofiText.text = "";
     }
 
     private void ShowWelcomePanel()
     {
         ShowPanel(welcomePanel);
         if (welcomeText != null && AuthManager.Instance != null)
-        {
             welcomeText.text = $"Xin chào,\n<color=#FFD700>{AuthManager.Instance.GetLoggedInUser()}</color>";
-        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Lock / Unlock helpers
+    // Click handlers (offline – tất cả đều thành công tức thì)
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void SetSelectables(List<Selectable> selectables, bool interactable)
+    private void OnLoginClicked()
     {
-        if (selectables == null) return;
-        foreach (var s in selectables)
-        {
-            if (s != null) s.interactable = interactable;
-        }
+        // Offline mode: đăng nhập ngay lập tức
+        ShowWelcomePanel();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Async click handlers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private async void OnLoginClicked()
+    private void OnRegisterClicked()
     {
-        if (AuthManager.Instance == null) return;
+        string displayName = signupName != null ? signupName.text.Trim() : "";
+        string password    = signupPassword        != null ? signupPassword.text        : "";
+        string confirmPass = signupConfirmPassword  != null ? signupConfirmPassword.text : "";
 
-        string email    = loginEmail    != null ? loginEmail.text    : "";
-        string password = loginPassword != null ? loginPassword.text : "";
-
-        SetSelectables(loginSelectables, false);
-
-        var (success, error) = await AuthManager.Instance.LoginAsync(email, password);
-
-        SetSelectables(loginSelectables, true);
-
-        if (success)
-        {
-            ShowWelcomePanel();
-        }
-        else
-        {
-            if (loginNofiText != null)
-            {
-                loginNofiText.color = Color.red;
-                loginNofiText.text  = error;
-            }
-        }
-    }
-
-    private async void OnRegisterClicked()
-    {
-        if (AuthManager.Instance == null) return;
-
-        string email           = signupEmail           != null ? signupEmail.text           : "";
-        string password        = signupPassword        != null ? signupPassword.text        : "";
-        string confirmPassword = signupConfirmPassword != null ? signupConfirmPassword.text : "";
-        string displayName     = signupName            != null ? signupName.text            : "";
-
-        if (password != confirmPassword)
+        if (password != confirmPass)
         {
             if (signupNofiText != null)
             {
@@ -243,108 +167,57 @@ public class AccountUIController : MonoBehaviour
             return;
         }
 
-        SetSelectables(signupSelectables, false);
+        // Lưu tên hiển thị nếu có
+        if (!string.IsNullOrEmpty(displayName) && AuthManager.Instance != null)
+            AuthManager.Instance.UpdateOfflineUserName(displayName);
 
-        var (success, error) = await AuthManager.Instance.RegisterAsync(email, password, displayName);
-
-        SetSelectables(signupSelectables, true);
-
-        if (success)
+        if (signupNofiText != null)
         {
-            if (signupNofiText != null)
-            {
-                signupNofiText.color = Color.green;
-                signupNofiText.text  = "Đăng ký tài khoản thành công!";
-            }
-
-            // Điền sẵn email đăng nhập
-            if (loginEmail    != null) loginEmail.text    = email;
-            if (loginPassword != null) loginPassword.text = "";
-
-            // Chuyển sang màn hình đăng nhập sau 1.5 giây
-            Invoke(nameof(GoToLogin), 1.5f);
+            signupNofiText.color = Color.green;
+            signupNofiText.text  = "Đăng ký tài khoản thành công!";
         }
-        else
-        {
-            if (signupNofiText != null)
-            {
-                signupNofiText.color = Color.red;
-                signupNofiText.text  = error;
-            }
-        }
+
+        Invoke(nameof(GoToLogin), 1.5f);
     }
 
-    private void GoToLogin()
+    private void GoToLogin() => ShowPanel(loginPanel);
+
+    private void OnForgotClicked()
     {
-        ShowPanel(loginPanel);
-    }
-
-
-    private async void OnForgotClicked()
-    {
-        if (AuthManager.Instance == null) return;
-
-        string email = forgotEmail != null ? forgotEmail.text : "";
-
-        SetSelectables(forgotSelectables, false);
-
-        var (success, error) = await AuthManager.Instance.ForgotPasswordAsync(email);
-
-        SetSelectables(forgotSelectables, true);
-
-        if (success)
+        if (forgotNofiText != null)
         {
-            if (forgotNofiText != null)
-            {
-                forgotNofiText.color = Color.green;
-                forgotNofiText.text  = "Đã gửi link đặt lại mật khẩu vào email của bạn.\nVui lòng kiểm tra hộp thư.";
-            }
-        }
-        else
-        {
-            if (forgotNofiText != null)
-            {
-                forgotNofiText.color = Color.red;
-                forgotNofiText.text  = error;
-            }
+            forgotNofiText.color = Color.green;
+            forgotNofiText.text  = "Đã gửi link đặt lại mật khẩu vào email của bạn.\nVui lòng kiểm tra hộp thư.";
         }
     }
-
-
 
     private void OnStartGameClicked()
     {
         if (SceneTransitionManager.Instance != null)
-        {
             SceneTransitionManager.Instance.TransitionToScene(mainMenuSceneName, TransitionType.Fade);
-        }
         else
-        {
             SceneManager.LoadScene(mainMenuSceneName);
-        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Google & Facebook Login stub hooks
+    // Social Login stubs (chưa tích hợp)
     // ─────────────────────────────────────────────────────────────────────────
 
     private void OnGoogleLoginClicked()
     {
-        Debug.Log("[AccountUIController] Đăng nhập bằng Google được kích hoạt (Stub).");
         if (loginNofiText != null)
         {
-            loginNofiText.color = new Color(1f, 0.6f, 0f); // Màu cam cảnh báo
-            loginNofiText.text = "Tính năng đăng nhập Google đang được tích hợp!";
+            loginNofiText.color = new Color(1f, 0.6f, 0f);
+            loginNofiText.text  = "Tính năng đăng nhập Google đang được tích hợp!";
         }
     }
 
     private void OnFacebookLoginClicked()
     {
-        Debug.Log("[AccountUIController] Đăng nhập bằng Facebook được kích hoạt (Stub).");
         if (loginNofiText != null)
         {
-            loginNofiText.color = new Color(1f, 0.6f, 0f); // Màu cam cảnh báo
-            loginNofiText.text = "Tính năng đăng nhập Facebook đang được tích hợp!";
+            loginNofiText.color = new Color(1f, 0.6f, 0f);
+            loginNofiText.text  = "Tính năng đăng nhập Facebook đang được tích hợp!";
         }
     }
 }

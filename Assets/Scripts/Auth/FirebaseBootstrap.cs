@@ -5,10 +5,9 @@ using System.Collections;
 using TMPro;
 
 /// <summary>
-/// Chạy màn hình loading và chuyển sang Scene tiếp theo.
-/// Dự án hoàn toàn offline – không có Firebase dependency.
+/// Chạy màn hình loading và chuyển sang Scene tiếp theo (offline, không Firebase).
 /// </summary>
-public class FirebaseBootstrap : MonoBehaviour
+public class LoadingBootstrap : MonoBehaviour
 {
     [Header("Scene Navigation")]
     [Tooltip("Tên của Scene cần chuyển sang sau khi loading xong.")]
@@ -32,9 +31,9 @@ public class FirebaseBootstrap : MonoBehaviour
         // Reset UI ban đầu
         UpdateLoadingUI(0f);
 
-        Debug.Log("[FirebaseBootstrap] Khởi động chế độ offline. Đang load scene...");
+        Debug.Log("[LoadingBootstrap] Đang load scene...");
 
-        // Chạy loading giả lập mượt mà từ 0% đến 40%
+        // Chạy loading mượt mà từ 0% đến 40%
         while (currentProgress < 0.4f)
         {
             currentProgress = Mathf.MoveTowards(currentProgress, 0.4f, Time.deltaTime * fillSpeed);
@@ -50,7 +49,7 @@ public class FirebaseBootstrap : MonoBehaviour
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"[FirebaseBootstrap] Lỗi khi load scene '{nextSceneName}': {e.Message}");
+            Debug.LogError($"[LoadingBootstrap] Lỗi khi load scene '{nextSceneName}': {e.Message}");
         }
 
         if (asyncLoad != null)
@@ -60,7 +59,7 @@ public class FirebaseBootstrap : MonoBehaviour
             while (!asyncLoad.isDone)
             {
                 // Quy đổi progress load scene (0→0.9) thành khoảng (40%→100%)
-                float loadProgress = Mathf.Clamp01(asyncLoad.progress / 0.9f);
+                float loadProgress  = Mathf.Clamp01(asyncLoad.progress / 0.9f);
                 float targetProgress = 0.4f + loadProgress * 0.6f;
 
                 currentProgress = Mathf.MoveTowards(currentProgress, targetProgress, Time.deltaTime * fillSpeed);
@@ -79,7 +78,7 @@ public class FirebaseBootstrap : MonoBehaviour
         else
         {
             // Fallback: load đồng bộ nếu có lỗi async
-            Debug.LogWarning("[FirebaseBootstrap] Chuyển sang load đồng bộ dự phòng.");
+            Debug.LogWarning("[LoadingBootstrap] Chuyển sang load đồng bộ dự phòng.");
             while (currentProgress < 1f)
             {
                 currentProgress = Mathf.MoveTowards(currentProgress, 1f, Time.deltaTime * fillSpeed);
@@ -91,9 +90,7 @@ public class FirebaseBootstrap : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Cập nhật tiến độ lên UI Image và Text phần trăm.
-    /// </summary>
+    /// <summary>Cập nhật tiến độ lên UI Image và Text phần trăm.</summary>
     private void UpdateLoadingUI(float progress)
     {
         if (loadingFillImage != null)

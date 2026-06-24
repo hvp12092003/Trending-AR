@@ -88,6 +88,18 @@ public class MusicSyncManager : MonoBehaviour
         UpdateBeatInterval();
     }
 
+    /// <summary>
+    /// Cho phép set lại AudioSource mà MusicSyncManager theo dõi để fire OnBeat.
+    /// Dùng khi AudioPanelController phát preview nhạc qua AudioSource riêng của nó.
+    /// Truyền null để reset về AudioSource gốc (nếu có).
+    /// </summary>
+    public void SetAudioSource(AudioSource source)
+    {
+        audioSource = source;
+        beatTimer = 0f;
+        Debug.Log($"[MusicSyncManager] AudioSource đã được cập nhật: {(source != null ? source.gameObject.name : "null")}");
+    }
+
     private void UpdateBeatInterval()
     {
         beatInterval = 60f / bpm;

@@ -23,8 +23,10 @@ public class CharacterItemUI : MonoBehaviour
 
         if (dateText != null)
         {
-            // Chuyển đổi Firestore Timestamp sang System.DateTime
-            System.DateTime date = data.createdAt.ToDateTime().ToLocalTime();
+            // Chuyển đổi Unix timestamp (seconds) sang System.DateTime
+            System.DateTime date = System.DateTimeOffset
+                .FromUnixTimeSeconds(data.createdAtSeconds)
+                .LocalDateTime;
             dateText.text = $"Tạo ngày: {date:dd/MM/yyyy}";
         }
     }

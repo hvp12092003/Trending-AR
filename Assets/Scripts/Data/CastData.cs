@@ -8,34 +8,25 @@ using System.Collections.Generic;
 [Serializable]
 public class CastData
 {
-    /// <summary>
-    /// Tên của nhân vật (cast).
-    /// </summary>
+    /// <summary>Tên của nhân vật (cast).</summary>
     public string name;
 
-    /// <summary>
-    /// Tên Prefab đại diện cho nhân vật (dùng để load avatar và spawn model 3D).
-    /// </summary>
+    /// <summary>Tên Prefab đại diện cho nhân vật (dùng để load avatar và spawn model 3D).</summary>
     public string prefabName;
 
     /// <summary>
-    /// ID nhạc cụ / audio được chọn cho nhân vật này (ví dụ: "guitar", "drum", "piano" hoặc ID audio tự thu).
+    /// ID nhạc cụ / audio được chọn cho nhân vật này
+    /// (ví dụ: "guitar", "drum", "piano" hoặc ID audio tự thu).
     /// </summary>
     public string audioId;
 
-    /// <summary>
-    /// ID animation nhảy hiện tại đang được chọn hoặc hoạt động.
-    /// </summary>
+    /// <summary>ID animation nhảy hiện tại đang được chọn hoặc hoạt động.</summary>
     public string danceAnimId;
 
-    /// <summary>
-    /// Danh sách các ID animation nhảy mà nhân vật này sở hữu.
-    /// </summary>
+    /// <summary>Danh sách các ID animation nhảy mà nhân vật này sở hữu.</summary>
     public List<string> danceAnimIds = new List<string>();
 
-    public CastData()
-    {
-    }
+    public CastData() { }
 
     public CastData(string name, string audioId, string danceAnimId, List<string> danceAnimIds = null)
         : this(name, "", audioId, danceAnimId, danceAnimIds)
@@ -44,9 +35,9 @@ public class CastData
 
     public CastData(string name, string prefabName, string audioId, string danceAnimId, List<string> danceAnimIds = null)
     {
-        this.name = name;
+        this.name       = name;
         this.prefabName = prefabName;
-        this.audioId = audioId;
+        this.audioId    = audioId;
         this.danceAnimId = danceAnimId;
 
         if (danceAnimIds != null)
@@ -57,9 +48,7 @@ public class CastData
         {
             this.danceAnimIds.Clear();
             if (!string.IsNullOrEmpty(danceAnimId))
-            {
                 this.danceAnimIds.Add(danceAnimId);
-            }
         }
     }
 }

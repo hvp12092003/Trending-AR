@@ -979,8 +979,11 @@ public class CustomCharacterPanelController : MonoBehaviour
 
     private void SpawnInstrumentPreview(GameObject instrumentPrefab)
     {
+        // Dừng nhạc trên instance cũ trước khi xóa
         if (_previewInstrumentInstance != null)
         {
+            AudioSource oldSrc = _previewInstrumentInstance.GetComponentInChildren<AudioSource>(true);
+            if (oldSrc != null) oldSrc.Stop();
             Destroy(_previewInstrumentInstance);
         }
 
@@ -991,15 +994,73 @@ public class CustomCharacterPanelController : MonoBehaviour
             _previewInstrumentInstance.transform.localRotation = Quaternion.identity;
             _previewInstrumentInstance.transform.localScale = Vector3.one;
 
-            // Tắt AudioSource trên nhạc cụ preview để tránh phát tiếng ồn không mong muốn
-            AudioSource[] sources = _previewInstrumentInstance.GetComponentsInChildren<AudioSource>(true);
-            foreach (var src in sources)
+            SetLayerRecursively(_previewInstrumentInstance, previewContainer.gameObject.layer);
+
+            // Lấy AudioConfig để lấy clip và AudioSource của model nhạc cụ
+            AudioConfig audioConfig = _previewInstrumentInstance.GetComponentInChildren<AudioConfig>(true);
+            AudioSource instrumentAudioSource = null;
+
+            if (audioConfig != null && audioConfig.audioSource != null)
             {
-                src.enabled = false;
+                instrumentAudioSource = audioConfig.audioSource;
+            }
+            else
+            {
+                // Fallback: lấy AudioSource bất kỳ trên model
+                instrumentAudioSource = _previewInstrumentInstance.GetComponentInChildren<AudioSource>(true);
             }
 
-            SetLayerRecursively(_previewInstrumentInstance, previewContainer.gameObject.layer);
+            // Phát nhạc từ AudioSource của model nhạc cụ để ModelLoopEffects nhận tín hiệu âm lượng
+            if (instrumentAudioSource != null)
+            {
+                instrumentAudioSource.enabled = true;
+                instrumentAudioSource.loop = true;
+                instrumentAudioSource.spatialBlend = 0f; // 2D để nghe rõ trong preview
+                if (instrumentAudioSource.clip != null)
+                {
+                    instrumentAudioSource.Play();
+                    Debug.Log($"[CustomCharacterPanelController] Đang phát nhạc preview từ AudioSource của model: {instrumentPrefab.name}");
+                }
+                else
+                {
+                    // Thử lấy clip từ AudioSource trên prefab gốc (trước khi instantiate)
+                    AudioConfig srcConfig = instrumentPrefab.GetComponentInChildren<AudioConfig>(true);
+                    if (srcConfig != null && srcConfig.audioSource != null && srcConfig.audioSource.clip != null)
+                    {
+                        instrumentAudioSource.clip = srcConfig.audioSource.clip;
+                        instrumentAudioSource.Play();
+                        Debug.Log($"[CustomCharacterPanelController] Đang phát nhạc preview (từ prefab config): {instrumentPrefab.name}");
+                    }
+                }
+
+                // Gán AudioSource vào ModelLoopEffects để VFX phản ứng theo âm lượng nhạc
+                ModelLoopEffects[] loopEffects = _previewInstrumentInstance.GetComponentsInChildren<ModelLoopEffects>(true);
+                foreach (var fx in loopEffects)
+                {
+                    fx.TargetAudioSource = instrumentAudioSource;
+                    Debug.Log($"[CustomCharacterPanelController] Gán AudioSource vào ModelLoopEffects: {fx.gameObject.name}");
+                }
+
+                // Cũng cập nhật MusicSyncManager để các effect khác (như nhân vật chính) cũng nhảy theo
+                if (MusicSyncManager.Instance != null)
+                {
+                    MusicSyncManager.Instance.SetAudioSource(instrumentAudioSource);
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[CustomCharacterPanelController] Không tìm thấy AudioSource trên model nhạc cụ: {instrumentPrefab.name}");
+            }
+
             Debug.Log($"[CustomCharacterPanelController] Spawned 3D instrument preview: {instrumentPrefab.name}");
+        }
+        else if (instrumentPrefab == null)
+        {
+            // Khi không có instrument (custom recording), dừng nhạc và reset MusicSyncManager
+            if (MusicSyncManager.Instance != null)
+            {
+                MusicSyncManager.Instance.SetAudioSource(null);
+            }
         }
     }
 

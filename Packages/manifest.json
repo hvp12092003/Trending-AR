@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "com.yasirkula.nativegallery": "https://github.com/yasirkula/UnityNativeGallery.git",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.feature.development": "1.0.2",
     "com.unity.inputsystem": "1.19.0",

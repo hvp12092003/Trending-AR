@@ -1,10 +1,8 @@
-using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
-/// Quản lý xác thực người dùng – phiên bản Offline 100%.
+/// Quản lý danh tính người dùng – phiên bản Offline.
 /// Tất cả dữ liệu được lưu cục bộ bằng PlayerPrefs.
-/// (Firebase Authentication sẽ được tích hợp lại sau.)
 /// </summary>
 public class AuthManager : MonoBehaviour
 {
@@ -24,12 +22,10 @@ public class AuthManager : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Synchronous helpers
+    // Public API
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Kiểm tra người dùng hiện tại đã đăng nhập hay chưa (luôn true ở chế độ offline).
-    /// </summary>
+    /// <summary>Luôn trả về true ở chế độ offline.</summary>
     public bool IsLoggedIn() => true;
 
     /// <summary>
@@ -48,9 +44,7 @@ public class AuthManager : MonoBehaviour
         return username;
     }
 
-    /// <summary>
-    /// Cập nhật tên hiển thị của người chơi offline.
-    /// </summary>
+    /// <summary>Cập nhật tên hiển thị của người chơi offline.</summary>
     public void UpdateOfflineUserName(string newDisplayName)
     {
         if (!string.IsNullOrEmpty(newDisplayName))
@@ -60,46 +54,9 @@ public class AuthManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Đăng xuất (No-op ở chế độ offline).
-    /// </summary>
+    /// <summary>Đăng xuất (no-op ở chế độ offline).</summary>
     public void Logout()
     {
-        Debug.Log("[AuthManager] Đã gọi đăng xuất (Offline Mode – No-op).");
+        Debug.Log("[AuthManager] Đã gọi đăng xuất (Offline Mode).");
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Async stubs – sẽ kết nối Firebase Authentication sau
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Đăng ký tài khoản mới (offline stub – luôn thành công).
-    /// </summary>
-    public async Task<(bool success, string errorMessage)> RegisterAsync(string email, string password, string displayName = "")
-    {
-        if (!string.IsNullOrEmpty(displayName))
-        {
-            PlayerPrefs.SetString("OfflineUserName", displayName);
-            PlayerPrefs.Save();
-        }
-        return await Task.FromResult((true, ""));
-    }
-
-    /// <summary>
-    /// Đăng nhập bằng Email và Mật khẩu (offline stub – luôn thành công).
-    /// </summary>
-    public async Task<(bool success, string errorMessage)> LoginAsync(string email, string password)
-        => await Task.FromResult((true, ""));
-
-    /// <summary>
-    /// Đổi mật khẩu (offline stub – luôn thành công).
-    /// </summary>
-    public async Task<(bool success, string errorMessage)> ChangePasswordAsync(string oldPassword, string newPassword)
-        => await Task.FromResult((true, ""));
-
-    /// <summary>
-    /// Gửi email đặt lại mật khẩu (offline stub – luôn thành công).
-    /// </summary>
-    public async Task<(bool success, string errorMessage)> ForgotPasswordAsync(string email)
-        => await Task.FromResult((true, ""));
 }

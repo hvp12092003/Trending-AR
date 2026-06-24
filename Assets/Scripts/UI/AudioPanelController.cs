@@ -306,6 +306,12 @@ public class AudioPanelController : MonoBehaviour
             _previewAudioSource.Stop();
         }
 
+        // Reset AudioSource trên MusicSyncManager để tránh theo dõi AudioSource đã dừng phát
+        if (MusicSyncManager.Instance != null)
+        {
+            MusicSyncManager.Instance.SetAudioSource(null);
+        }
+
         if (scrollViewContent != null)
         {
             for (int i = scrollViewContent.childCount - 1; i >= 0; i--)
@@ -429,6 +435,9 @@ public class AudioPanelController : MonoBehaviour
                     {
                         _previewAudioSource.clip = clip;
                         _previewAudioSource.Play();
+                        // Thông báo MusicSyncManager phát VFX theo âm thanh preview này
+                        if (MusicSyncManager.Instance != null)
+                            MusicSyncManager.Instance.SetAudioSource(_previewAudioSource);
                         StartCoroutine(DestroyClipAfterPlay(clip));
                     }
                 }
@@ -444,18 +453,12 @@ public class AudioPanelController : MonoBehaviour
             }
         }
         // TH 2: Phát âm thanh từ Prefab nhạc cụ
+        // Nhạc cụ preset được phát trực tiếp từ AudioSource trên model nhạc cụ (SpawnInstrumentPreview)
+        // nên AudioPanelController không cần phát duplicate — chỉ dừng audio cũ nếu có
         else if (SelectedAudioConfig != null)
         {
-            AudioClip audioClip = SelectedAudioConfig.clip;
-            if (audioClip != null)
-            {
-                _previewAudioSource.clip = audioClip;
-                _previewAudioSource.Play();
-            }
-            else
-            {
-                Debug.LogWarning($"[AudioPanelController] AudioConfig trên {SelectedPrefab.name} không chứa AudioClip hợp lệ!");
-            }
+            // AudioSource trên model đã phát (xem SpawnInstrumentPreview), không cần phát thêm
+            Debug.Log($"[AudioPanelController] Nhạc cụ preset '{SelectedPrefab?.name}' đang phát từ AudioSource của model.");
         }
     }
 

@@ -4,9 +4,9 @@ using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
-/// Quản lý việc đọc/ghi dữ liệu cục bộ cho màn hình Menu chính – phiên bản Offline 100%.
+/// Quản lý việc đọc/ghi dữ liệu cục bộ cho màn hình Menu chính – phiên bản Offline.
 /// Tất cả dữ liệu được lưu bằng PlayerPrefs + JsonUtility.
-/// (Firebase Firestore sẽ được tích hợp lại sau.)
+/// Data classes được định nghĩa tập trung trong Assets/Scripts/Data/.
 /// </summary>
 public class MainMenuDataManager : MonoBehaviour
 {
@@ -83,7 +83,7 @@ public class MainMenuDataManager : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Chức năng chính: Đọc CastPrefab từ danh sách Prefab truyền vào
+    // Đọc CastPrefab từ danh sách Prefab
     // ─────────────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -262,14 +262,14 @@ public class MainMenuDataManager : MonoBehaviour
         {
             result.Add(new CharacterData
             {
-                characterId    = saved.characterId,
-                name           = saved.name,
-                prefabName     = saved.prefabName,
-                instrumentId   = saved.instrumentId,
-                danceAnimId    = saved.danceAnimId,
-                danceAnimIds   = saved.danceAnimIds != null ? new List<string>(saved.danceAnimIds) : new List<string>(),
+                characterId      = saved.characterId,
+                name             = saved.name,
+                prefabName       = saved.prefabName,
+                instrumentId     = saved.instrumentId,
+                danceAnimId      = saved.danceAnimId,
+                danceAnimIds     = saved.danceAnimIds != null ? new List<string>(saved.danceAnimIds) : new List<string>(),
                 createdAtSeconds = saved.createdAtSeconds,
-                usePrefabAvatar = saved.usePrefabAvatar
+                usePrefabAvatar  = saved.usePrefabAvatar
             });
         }
         return Task.FromResult(result);
@@ -562,134 +562,20 @@ public class MainMenuDataManager : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Offline Stubs cho Leaderboard, Avatar & User Profile
+    // Leaderboard – Offline Data
     // ─────────────────────────────────────────────────────────────────────────
-
-    public Task EnsureUserDocumentExistsAsync()
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task<string> GetUserAvatarBase64Async()
-    {
-        return Task.FromResult("");
-    }
-
-    public Task<bool> UpdateAvatarAsync(string base64)
-    {
-        return Task.FromResult(true);
-    }
 
     public Task<List<UserData>> GetLeaderboardAsync()
     {
         List<UserData> list = new List<UserData>();
         string currentUserName = PlayerPrefs.GetString("OfflineUserName", "");
         if (string.IsNullOrEmpty(currentUserName) || currentUserName == "Offline User")
-        {
             currentUserName = "Offline Player";
-        }
+
         list.Add(new UserData { userId = "offline_user_id", displayName = currentUserName, points = 1200 });
-        list.Add(new UserData { userId = "bot_1", displayName = "Sunny Beats", points = 950 });
-        list.Add(new UserData { userId = "bot_2", displayName = "Neon Dancer", points = 720 });
-        list.Add(new UserData { userId = "bot_3", displayName = "AR Groover", points = 510 });
+        list.Add(new UserData { userId = "bot_1", displayName = "Sunny Beats",  points = 950 });
+        list.Add(new UserData { userId = "bot_2", displayName = "Neon Dancer",  points = 720 });
+        list.Add(new UserData { userId = "bot_3", displayName = "AR Groover",   points = 510 });
         return Task.FromResult(list);
     }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Data classes – Serializable (dùng PlayerPrefs + JsonUtility)
-// ─────────────────────────────────────────────────────────────────────────────
-
-[System.Serializable]
-public class SerializableCharacterData
-{
-    public string characterId;
-    public string name;
-    public string prefabName;
-    public string instrumentId;
-    public string danceAnimId;
-    public List<string> danceAnimIds = new List<string>();
-    public long createdAtSeconds;
-    public bool usePrefabAvatar;
-}
-
-[System.Serializable]
-public class SerializableCharacterDataList
-{
-    public List<SerializableCharacterData> characters = new List<SerializableCharacterData>();
-}
-
-[System.Serializable]
-public class SerializableBandData
-{
-    public string bandId;
-    public string name;
-    public List<SerializableCharacterData> casts = new List<SerializableCharacterData>();
-    public long createdAtSeconds;
-}
-
-[System.Serializable]
-public class SerializableBandDataList
-{
-    public List<SerializableBandData> bands = new List<SerializableBandData>();
-}
-
-[System.Serializable]
-public class SerializableRecordingData
-{
-    public string recordingId;
-    public string name;
-    public string audioBase64;
-    public long createdAtSeconds;
-}
-
-[System.Serializable]
-public class SerializableRecordingDataList
-{
-    public List<SerializableRecordingData> recordings = new List<SerializableRecordingData>();
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Runtime Data classes – dùng trong code, không cần Firestore attributes
-// (Firebase Firestore attributes sẽ được thêm lại khi tích hợp)
-// ─────────────────────────────────────────────────────────────────────────────
-
-public class RecordingData
-{
-    public string recordingId      { get; set; }
-    public string name             { get; set; }
-    public string audioBase64      { get; set; }
-    public long   createdAtSeconds { get; set; }
-}
-
-public class CharacterData
-{
-    public string       characterId      { get; set; }
-    public string       name             { get; set; }
-    public string       prefabName       { get; set; }
-    public long         createdAtSeconds { get; set; }
-    public string       instrumentId     { get; set; }
-    public string       danceAnimId      { get; set; }
-    public List<string> danceAnimIds     { get; set; } = new List<string>();
-    public bool         usePrefabAvatar  { get; set; }
-}
-
-public class BandTemplateData
-{
-    public string       templateId    { get; set; }
-    public string       name          { get; set; }
-    public string       creatorId     { get; set; }
-    public string       creatorName   { get; set; }
-    public int          price         { get; set; }
-    public List<string> buyerIds      { get; set; } = new List<string>();
-    public int          downloadCount { get; set; }
-}
-
-public class UserData
-{
-    public string userId       { get; set; }
-    public string displayName  { get; set; }
-    public string email        { get; set; }
-    public int    points       { get; set; }
-    public string avatarBase64 { get; set; }
 }
