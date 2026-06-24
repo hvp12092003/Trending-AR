@@ -6,7 +6,6 @@ using UnityEngine.UI;
 using TMPro;
 using DG.Tweening;
 using UnityEngine.SceneManagement;
-using Firebase.Auth;
 
 /// <summary>
 /// Quản lý giao diện và chức năng của Profile Panel, bao gồm hiển thị thông tin người dùng
@@ -179,7 +178,6 @@ public class ProfilePanelController : MonoBehaviour
 
         // Tải ảnh đại diện
         LoadLocalAvatar();
-        SyncAvatarFromFirestore();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -386,62 +384,6 @@ public class ProfilePanelController : MonoBehaviour
         }
     }
 
-    private async void SyncAvatarFromFirestore()
-    {
-        if (MainMenuDataManager.Instance == null) return;
-
-        // Chỉ đồng bộ khi thiết bị đang trực tuyến
-        if (SceneTransitionManager.Instance != null)
-        {
-            bool hasInternet = await SceneTransitionManager.Instance.CheckInternetConnectionAsync();
-            if (!hasInternet)
-            {
-                Debug.Log("[ProfilePanelController] Thiết bị ngoại tuyến, sử dụng avatar từ cache cục bộ.");
-                return;
-            }
-        }
-
-        string base64 = await MainMenuDataManager.Instance.GetUserAvatarBase64Async();
-        if (!string.IsNullOrEmpty(base64))
-        {
-            try
-            {
-                byte[] bytes = Convert.FromBase64String(base64);
-                string localPath = GetLocalAvatarPath();
-
-                if (File.Exists(localPath))
-                {
-                    byte[] localBytes = File.ReadAllBytes(localPath);
-                    if (AreByteArraysEqual(bytes, localBytes))
-                    {
-                        return;
-                    }
-                }
-
-                File.WriteAllBytes(localPath, bytes);
-                Texture2D tex = new Texture2D(2, 2);
-                if (tex.LoadImage(bytes))
-                {
-                    UpdateAvatarUIFromTexture(tex);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ProfilePanelController] Lỗi đồng bộ avatar từ Firestore: {ex.Message}");
-            }
-        }
-    }
-
-    private bool AreByteArraysEqual(byte[] a, byte[] b)
-    {
-        if (a == null || b == null) return false;
-        if (a.Length != b.Length) return false;
-        for (int i = 0; i < a.Length; i++)
-        {
-            if (a[i] != b[i]) return false;
-        }
-        return true;
-    }
 
     private Sprite _dynamicAvatarSprite;
 
@@ -472,7 +414,7 @@ public class ProfilePanelController : MonoBehaviour
         }, "Chọn ảnh đại diện", "image/*");
     }
 
-    private async void HandlePickedImage(string path)
+    private void HandlePickedImage(string path)
     {
         // 1. Tải và tự động xoay ảnh dựa trên EXIF
         Texture2D texture = NativeGallery.LoadImageAtPath(path, maxSize: 256, markTextureNonReadable: false);
@@ -505,21 +447,7 @@ public class ProfilePanelController : MonoBehaviour
         // Kích hoạt sự kiện đổi ảnh đại diện
         OnAvatarChanged?.Invoke();
 
-        // 4. Đồng bộ lên Firestore
-        ShowMainNotification("Đang tải ảnh đại diện lên máy chủ...");
-        string base64 = Convert.ToBase64String(bytes);
-        if (MainMenuDataManager.Instance != null)
-        {
-            bool success = await MainMenuDataManager.Instance.UpdateAvatarAsync(base64);
-            if (success)
-            {
-                ShowMainNotification("Cập nhật ảnh đại diện thành công!");
-            }
-            else
-            {
-                ShowMainNotification("Lưu ảnh lên máy chủ thất bại.");
-            }
-        }
+        ShowMainNotification("Cập nhật ảnh đại diện thành công!");
     }
 
     private void ClearNotifications()

@@ -31,11 +31,16 @@ public class CharacterManager : MonoBehaviour
     private GameObject m_SelectionIndicatorPrefab;
 
     [Header("Selection Indicator Offset Settings")]
-    [SerializeField] private Vector3 m_IndicatorLocalPosition = new Vector3(0f, -0.6f, 0f);
+    [SerializeField] private Vector3 m_IndicatorLocalPosition = new Vector3(0f, -0.2f, 0f);
     [SerializeField] private Vector3 m_IndicatorLocalRotation = new Vector3(90f, 0f, 0f);
     [SerializeField] private Vector3 m_IndicatorLocalScale = new Vector3(0.6f, 0.6f, 0.6f);
 
     private GameObject m_ActiveIndicator;
+
+    [Header("Persistence Settings")]
+    [SerializeField]
+    [Tooltip("Nếu true, đối tượng này sẽ không bị hủy khi chuyển scene.")]
+    private bool m_DontDestroyOnLoad = false;
 
     private void Awake()
     {
@@ -43,7 +48,10 @@ public class CharacterManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            if (m_DontDestroyOnLoad)
+            {
+                DontDestroyOnLoad(gameObject);
+            }
         }
         else
         {
@@ -193,6 +201,14 @@ public class CharacterManager : MonoBehaviour
                     });
                 }
             }
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
         }
     }
 }

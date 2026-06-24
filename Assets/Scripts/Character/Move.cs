@@ -27,15 +27,15 @@ public class Move : MonoBehaviour
     [Header("Animation State Names (Direct Play)")]
     [SerializeField]
     [Tooltip("Tên State trong Animator cho trạng thái đứng yên.")]
-    private string m_IdleStateName = "root_Girl_Idle";
+    private string m_IdleStateName = "Idle";
 
     [SerializeField]
-    [Tooltip("Tên State trong Animator cho trạng thái đi bộ.")]
-    private string m_WalkStateName = "root_Girl_walk";
+    [Tooltip("Tên State trong Animator cho trạng thái chạy/đi bộ.")]
+    private string m_WalkStateName = "Run";
 
     [SerializeField]
-    [Tooltip("Tên State trong Animator cho trạng thái tạo dáng (Pose 1).")]
-    private string m_Pose1StateName = "root_Girl_pose1";
+    [Tooltip("Tên State trong Animator cho trạng thái nhảy mặc định (Dance1–Dance8).")]
+    private string m_Pose1StateName = "Dance1";
 
     [Header("Animation Settings (Optional Parameters)")]
     [SerializeField]
@@ -91,6 +91,10 @@ public class Move : MonoBehaviour
     {
         // Lấy Animator để điều khiển animation chạy/đi bộ nếu có
         m_Animator = GetComponentInChildren<Animator>();
+        if (m_Animator != null)
+        {
+            m_Animator.applyRootMotion = false;
+        }
 
         // Tìm kiếm Joystick từ Joystick Pack trong Scene
         m_Joystick = FindFirstObjectByType<Joystick>();
@@ -116,10 +120,13 @@ public class Move : MonoBehaviour
             }
         }
 
-        // Bắt đầu với Animation Idle mặc định
-        m_State = CharacterState.Idle;
-        m_IdleTimer = 0f;
-        PlayIdle();
+        // Bắt đầu với Animation Idle mặc định nếu chưa ở trạng thái Dancing
+        if (m_State != CharacterState.Dancing)
+        {
+            m_State = CharacterState.Idle;
+            m_IdleTimer = 0f;
+            PlayIdle();
+        }
 
         // Đăng ký sự kiện beat nhạc toàn cục
         if (MusicSyncManager.Instance != null)
@@ -254,6 +261,13 @@ public class Move : MonoBehaviour
                 Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, m_RotationSpeed * Time.deltaTime);
 
+                // Nếu đang ở trạng thái Dancing, reset cache tên state để buộc
+                // animation Walk được phát (tránh bị chặn do tên state giống Dance)
+                if (m_State == CharacterState.Dancing)
+                {
+                    m_CurrentStateName = null;
+                }
+
                 m_State = CharacterState.Walking;
                 m_IdleTimer = 0f;
                 PlayWalk();
@@ -265,10 +279,13 @@ public class Move : MonoBehaviour
             // Không có di chuyển
             if (m_State == CharacterState.Walking)
             {
-                m_State = CharacterState.Idle;
-                m_IdleTimer = 0f;
-                PlayIdle();
+                // Sau khi di chuyển xong → quay về anim nhảy đã set (không về Idle)
                 UpdateAnimatorParams(0f);
+                PlayDance();
+            }
+            else if (m_State == CharacterState.Dancing)
+            {
+                // Đang nhảy, giữ nguyên
             }
             else if (m_State == CharacterState.Idle)
             {
@@ -286,7 +303,6 @@ public class Move : MonoBehaviour
                 PlayIdle();
                 UpdateAnimatorParams(0f);
             }
-            // Nếu ở trạng thái Dancing, giữ nguyên animation nhảy không bị đè bởi Idle
         }
     }
 
@@ -334,17 +350,33 @@ public class Move : MonoBehaviour
     }
 
     /// <summary>
-    /// Reset điệu nhảy của nhân vật về đầu và đồng bộ hóa lại nhạc toàn cục.
+    /// Reset điệu nhảy của tất cả nhân vật về đầu và đồng bộ hóa lại nhạc toàn cục.
     /// </summary>
     public void ResetToDance()
     {
-        Debug.Log($"[Move] {gameObject.name}: Reset điệu nhảy và nhạc.");
+        Debug.Log($"[Move] {gameObject.name}: Reset điệu nhảy và nhạc cho tất cả nhân vật.");
         
         if (MusicSyncManager.Instance != null)
         {
             MusicSyncManager.Instance.ResetPlayback();
         }
 
+        // Tìm tất cả các đối tượng Move hoạt động trong Scene và reset animation của chúng nếu đã được thả ra
+        Move[] allCharacters = FindObjectsByType<Move>(FindObjectsSortMode.None);
+        foreach (var character in allCharacters)
+        {
+            if (character != null && character.transform.parent == null)
+            {
+                character.ResetLocalDanceState();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Chỉ reset trạng thái nhảy cục bộ của nhân vật này (không reset nhạc toàn cục).
+    /// </summary>
+    public void ResetLocalDanceState()
+    {
         m_State = CharacterState.Dancing;
         m_IdleTimer = 0f;
 
@@ -352,6 +384,16 @@ public class Move : MonoBehaviour
         {
             m_Animator.Play(m_Pose1StateName, 0, 0f);
         }
+    }
+
+    /// <summary>
+    /// Phát điệu nhảy được chọn và chuyển trạng thái thành Dancing để tránh bị đè bởi Idle.
+    /// </summary>
+    public void PlayDance(float transitionDuration = 0.15f)
+    {
+        m_State = CharacterState.Dancing;
+        m_IdleTimer = 0f;
+        PlayAnimation(m_Pose1StateName, transitionDuration);
     }
 
     /// <summary>

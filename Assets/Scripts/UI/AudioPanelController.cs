@@ -20,8 +20,20 @@ public class AudioPanelController : MonoBehaviour
     [Tooltip("Prefab của nút chọn âm thanh (hỗ trợ CustomCharacterItemUI hoặc Button tiêu chuẩn)")]
     [SerializeField] private GameObject audioButtonPrefab;
 
-    [Tooltip("Danh sách prefab nhạc cụ chứa thông tin cấu hình AudioConfig")]
-    [SerializeField] private List<GameObject> audioPrefabs = new List<GameObject>();
+    [Tooltip("Danh sách prefab nhạc cụ chứa thông tin cấu hình AudioConfig local làm fallback")]
+    [SerializeField] private List<GameObject> localAudioPrefabs = new List<GameObject>();
+
+    private List<GameObject> audioPrefabs
+    {
+        get
+        {
+            if (MainMenuDataManager.Instance != null && MainMenuDataManager.Instance.InstrumentPrefabs != null && MainMenuDataManager.Instance.InstrumentPrefabs.Count > 0)
+            {
+                return MainMenuDataManager.Instance.InstrumentPrefabs;
+            }
+            return localAudioPrefabs;
+        }
+    }
 
     [Header("Aesthetic Fallbacks (Optional)")]
     [Tooltip("Sprite nền của nút khi được chọn (dành cho Button tiêu chuẩn)")]
@@ -362,7 +374,7 @@ public class AudioPanelController : MonoBehaviour
         // Cập nhật hiển thị các nút
         UpdateSelectionVisuals();
 
-        // Preview âm thanh đã thu từ Firebase
+        // Preview âm thanh tự thu cục bộ
         PlayPreviewSound();
 
         // Kích hoạt sự kiện
@@ -386,7 +398,7 @@ public class AudioPanelController : MonoBehaviour
         if (_previewAudioSource == null) return;
         _previewAudioSource.Stop();
 
-        // TH 1: Phát âm thanh tự thu (Tải & giải mã từ Firebase)
+        // TH 1: Phát âm thanh tự thu (Tải & giải mã cục bộ)
         if (!string.IsNullOrEmpty(SelectedCustomAudioId))
         {
             ShowStatusText("Loading audio...");
@@ -422,7 +434,7 @@ public class AudioPanelController : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogWarning($"[AudioPanelController] Không tìm thấy bản ghi ID {SelectedCustomAudioId} trên Firebase.");
+                    Debug.LogWarning($"[AudioPanelController] Không tìm thấy bản ghi ID {SelectedCustomAudioId} cục bộ.");
                 }
             }
             catch (Exception ex)

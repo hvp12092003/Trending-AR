@@ -4,13 +4,14 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.XR.ARFoundation;
 using DG.Tweening;
 using TMPro;
 
 /// <summary>
 /// Quản lý giao diện Hub Panel và xử lý chuyển đổi Scene cho 3 chế độ chơi:
-/// - AR BAND (Band Mode Scene)
-/// - AR CUSTOME (Custome Scene)
+/// - AR BAND (Band AR / Band Non AR)
+/// - AR CUSTOME (costom AR / costom Non AR)
 /// - AR MINIGAMES (Mini Game Mode Scene)
 /// </summary>
 public class HubPanelController : MonoBehaviour
@@ -26,11 +27,17 @@ public class HubPanelController : MonoBehaviour
     [SerializeField] private Button arMiniGamesButton;
 
     [Header("Scene Configuration")]
-    [Tooltip("Tên Scene của chế độ AR BAND")]
-    [SerializeField] private string arBandSceneName = "Band Mode Scene";
+    [Tooltip("Tên Scene Custom AR")]
+    [SerializeField] private string customArSceneName = "Custome AR Scene";
 
-    [Tooltip("Tên Scene của chế độ AR CUSTOME")]
-    [SerializeField] private string arCustomeSceneName = "Custome Scene";
+    [Tooltip("Tên Scene Custom Non-AR")]
+    [SerializeField] private string customNonArSceneName = "Custome NonAR Scene";
+
+    [Tooltip("Tên Scene Band AR")]
+    [SerializeField] private string bandArSceneName = "Band Mode AR Scene";
+
+    [Tooltip("Tên Scene Band Non-AR")]
+    [SerializeField] private string bandNonArSceneName = "Band Mode NonAR Scene";
 
     [Tooltip("Tên Scene của chế độ AR MINIGAMES")]
     [SerializeField] private string arMiniGamesSceneName = "Mini Game Mode Scene";
@@ -56,7 +63,7 @@ public class HubPanelController : MonoBehaviour
         // 2. Đăng ký sự kiện click cho các nút bấm chuyển Scene
         if (arBandButton != null)
         {
-            arBandButton.onClick.AddListener(() => LoadGameModeScene(arBandSceneName));
+            arBandButton.onClick.AddListener(OnBandButtonClicked);
         }
         else
         {
@@ -65,7 +72,7 @@ public class HubPanelController : MonoBehaviour
 
         if (arCustomeButton != null)
         {
-            arCustomeButton.onClick.AddListener(() => LoadGameModeScene(arCustomeSceneName));
+            arCustomeButton.onClick.AddListener(OnCustomButtonClicked);
         }
         else
         {
@@ -80,6 +87,47 @@ public class HubPanelController : MonoBehaviour
         {
             Debug.LogWarning("[HubPanelController] arMiniGamesButton chưa được gán trong Inspector.");
         }
+    }
+
+    private void OnCustomButtonClicked()
+    {
+        StartCoroutine(CheckARAndLoadScene(customArSceneName, customNonArSceneName));
+    }
+
+    private void OnBandButtonClicked()
+    {
+        StartCoroutine(CheckARAndLoadScene(bandArSceneName, bandNonArSceneName));
+    }
+
+    private IEnumerator CheckARAndLoadScene(string arScene, string nonArScene)
+    {
+        if (loadingOverlay != null)
+        {
+            loadingOverlay.SetActive(true);
+        }
+
+        if (loadingText != null)
+        {
+            loadingText.text = "Checking Device AR Support...";
+        }
+
+        // Gọi API ARFoundation để kiểm tra khả năng tương thích của thiết bị
+        if (ARSession.state == ARSessionState.None || ARSession.state == ARSessionState.CheckingAvailability)
+        {
+            yield return ARSession.CheckAvailability();
+        }
+
+        if (loadingOverlay != null)
+        {
+            loadingOverlay.SetActive(false);
+        }
+
+        // Tạm thời vô hiệu hóa AR theo yêu cầu, luôn định tuyến sang Non-AR
+        bool isSupported = false;
+
+        string targetScene = isSupported ? arScene : nonArScene;
+        Debug.Log($"[HubPanelController] ARCore Routing temporarily disabled. Loading Non-AR scene: {targetScene}");
+        LoadGameModeScene(targetScene);
     }
 
     /// <summary>

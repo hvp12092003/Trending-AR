@@ -37,8 +37,8 @@ public class PermissionPanelController : MonoBehaviour
 
 #if UNITY_EDITOR
     // Biến giả lập trạng thái cấp quyền để kiểm thử trực tiếp trong Unity Editor
-    private bool m_SimulatedCameraGranted = false;
-    private bool m_SimulatedMicrophoneGranted = false;
+    private bool m_SimulatedCameraGranted = true;
+    private bool m_SimulatedMicrophoneGranted = true;
 #endif
 
     private void Awake()

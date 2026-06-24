@@ -11,7 +11,7 @@ using TMPro;
 
 /// <summary>
 /// Quản lý giao diện và logic chuyển đổi Panel, tải Scene ở màn hình Menu chính (Main Menu).
-/// Kết nối với MainMenuDataManager để cập nhật dữ liệu từ Firebase Firestore lên ScrollViews.
+/// Kết nối với MainMenuDataManager để cập nhật dữ liệu cục bộ lên ScrollViews.
 /// </summary>
 public class MainMenuController : MonoBehaviour
 {
@@ -116,7 +116,7 @@ public class MainMenuController : MonoBehaviour
         // Cập nhật tên hiển thị người dùng ban đầu và avatar
         UpdateUserNameUI();
         UpdateUserAvatarUI();
-        SyncUserAvatarFromFirestore();
+        // Không cần sync avatar từ Firestore ở chế độ offline
 
         // Đăng ký sự kiện thay đổi avatar
         ProfilePanelController.OnAvatarChanged += UpdateUserAvatarUI;
@@ -350,61 +350,7 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Đồng bộ avatar từ Firestore về máy khi khởi động Main Menu.
-    /// </summary>
-    private async void SyncUserAvatarFromFirestore()
-    {
-        if (MainMenuDataManager.Instance == null) return;
-
-        // Chỉ đồng bộ khi thiết bị đang trực tuyến
-        if (SceneTransitionManager.Instance != null)
-        {
-            bool hasInternet = await SceneTransitionManager.Instance.CheckInternetConnectionAsync();
-            if (!hasInternet)
-            {
-                Debug.Log("[MainMenuController] Thiết bị ngoại tuyến, sử dụng avatar từ cache cục bộ.");
-                return;
-            }
-        }
-
-        string base64 = await MainMenuDataManager.Instance.GetUserAvatarBase64Async();
-        if (!string.IsNullOrEmpty(base64))
-        {
-            try
-            {
-                byte[] bytes = Convert.FromBase64String(base64);
-                string localPath = GetLocalAvatarPath();
-
-                if (File.Exists(localPath))
-                {
-                    byte[] localBytes = File.ReadAllBytes(localPath);
-                    if (AreByteArraysEqual(bytes, localBytes))
-                    {
-                        return;
-                    }
-                }
-
-                File.WriteAllBytes(localPath, bytes);
-                UpdateUserAvatarUI();
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[MainMenuController] Lỗi đồng bộ avatar từ Firestore: {ex.Message}");
-            }
-        }
-    }
-
-    private bool AreByteArraysEqual(byte[] a, byte[] b)
-    {
-        if (a == null || b == null) return false;
-        if (a.Length != b.Length) return false;
-        for (int i = 0; i < a.Length; i++)
-        {
-            if (a[i] != b[i]) return false;
-        }
-        return true;
-    }
+    // Đã loại bỏ các hàm đồng bộ avatar Firestore ở phiên bản Offline 100%
 
     private void OnDestroy()
     {

@@ -24,6 +24,7 @@ public class CharacterScaleSlider : MonoBehaviour
 
     // Biến cờ ngăn chặn vòng lặp cập nhật đệ quy giữa Slider và code thay đổi scale
     private bool m_IsUpdatingSliderValue = false;
+    private CharacterManager m_LastManager;
 
     private void Awake()
     {
@@ -49,26 +50,23 @@ public class CharacterScaleSlider : MonoBehaviour
         {
             Debug.LogError("CharacterScaleSlider: Không tìm thấy component Slider! Vui lòng gán hoặc thêm Slider vào GameObject này.", this);
         }
+    }
 
-        // Đăng ký nhận sự kiện khi chọn nhân vật mới từ CharacterManager
-        if (CharacterManager.Instance != null)
+    private void Update()
+    {
+        // Đồng bộ hóa việc đăng ký sự kiện động khi CharacterManager.Instance thay đổi/sẵn sàng
+        if (CharacterManager.Instance != m_LastManager)
         {
-            CharacterManager.Instance.OnCharacterSelected += UpdateSliderFromCharacter;
-
-            // Cập nhật giá trị ban đầu nếu game đã có sẵn nhân vật đang được chọn
-            if (CharacterManager.Instance.SelectedCharacter != null)
+            if (m_LastManager != null)
             {
-                UpdateSliderFromCharacter(CharacterManager.Instance.SelectedCharacter);
+                m_LastManager.OnCharacterSelected -= UpdateSliderFromCharacter;
             }
-            else
+            m_LastManager = CharacterManager.Instance;
+            if (m_LastManager != null)
             {
-                // Vô hiệu hóa slider tạm thời nếu chưa chọn nhân vật nào
-                SetSliderInteractable(false);
+                m_LastManager.OnCharacterSelected += UpdateSliderFromCharacter;
+                UpdateSliderFromCharacter(m_LastManager.SelectedCharacter);
             }
-        }
-        else
-        {
-            Debug.LogWarning("CharacterScaleSlider: CharacterManager.Instance chưa sẵn sàng trong Start.");
         }
     }
 
@@ -80,9 +78,10 @@ public class CharacterScaleSlider : MonoBehaviour
             m_ScaleSlider.onValueChanged.RemoveListener(OnSliderValueChanged);
         }
 
-        if (CharacterManager.Instance != null)
+        if (m_LastManager != null)
         {
-            CharacterManager.Instance.OnCharacterSelected -= UpdateSliderFromCharacter;
+            m_LastManager.OnCharacterSelected -= UpdateSliderFromCharacter;
+            m_LastManager = null;
         }
     }
 
@@ -98,9 +97,24 @@ public class CharacterScaleSlider : MonoBehaviour
         {
             GameObject selected = CharacterManager.Instance.SelectedCharacter;
             
-            // Thay đổi tỷ lệ scale đều trên cả 3 trục (X, Y, Z) của nhân vật đang chọn bằng DOTween mượt mà
-            selected.transform.DOKill();
-            selected.transform.DOScale(Vector3.one * value, 0.15f).SetEase(Ease.OutQuad);
+            // Thay đổi tỷ lệ scale trực tiếp để phản hồi ngay lập tức
+            selected.transform.localScale = Vector3.one * value;
+
+            // Kiểm tra xem nhân vật có đang đứng trên bệ của BandARSpawner hay không
+            BandARSpawner spawner = FindFirstObjectByType<BandARSpawner>();
+            if (spawner != null && spawner.Pedestals != null && selected.transform.parent != null)
+            {
+                if (spawner.Pedestals.Contains(selected.transform.parent.gameObject))
+                {
+                    // Công thức tỷ lệ thuận: vị trí cục bộ mới = vị trí mặc định * (scale mới / scale mặc định)
+                    float defaultScaleX = spawner.PedestalLocalScale.x;
+                    if (defaultScaleX > 0.0001f)
+                    {
+                        Vector3 targetPos = spawner.PedestalLocalPosition * (value / defaultScaleX);
+                        selected.transform.localPosition = targetPos;
+                    }
+                }
+            }
         }
     }
 

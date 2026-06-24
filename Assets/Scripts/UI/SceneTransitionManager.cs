@@ -60,12 +60,6 @@ public class SceneTransitionManager : MonoBehaviour
 
     private bool isTransitioning = false;
     private Vector2 screenResolution;
-
-    private bool _isInternetWarningActive = false;
-    private string _savedTipText = "";
-    private float _savedProgressFill = 0f;
-    private string _savedProgressText = "";
-    private bool _wasLoadingPanelActiveBeforeWarning = false;
     private SynchronizationContext _mainContext;
 
     private void Awake()
@@ -81,22 +75,14 @@ public class SceneTransitionManager : MonoBehaviour
             // Lấy độ phân giải màn hình để tính toán khoảng cách trượt
             screenResolution = new Vector2(Screen.width, Screen.height);
 
-            // Kiểm tra xem có đang ở Bootstrap Scene hay không
-            string currentSceneName = SceneManager.GetActiveScene().name;
-            bool isBootstrap = currentSceneName.Contains("Bootstrap") || currentSceneName.Contains("Booter") || currentSceneName.Contains("Boot");
-
-            // Chỉ ẩn Panel nếu không phải ở Bootstrap Scene để FirebaseBootstrap có thể chạy tải lạnh ban đầu
-            if (!isBootstrap)
+            // Tự động ẩn Panel khi khởi tạo để tránh che khuất màn hình chính
+            if (loadingPanel != null)
             {
-                if (loadingPanel != null)
-                {
-                    loadingPanel.SetActive(false);
-                }
-                else if (transitionCanvasGroup != null)
-                {
-                    // Backup nếu không gán loadingPanel
-                    transitionCanvasGroup.gameObject.SetActive(false);
-                }
+                loadingPanel.SetActive(false);
+            }
+            else if (transitionCanvasGroup != null)
+            {
+                transitionCanvasGroup.gameObject.SetActive(false);
             }
         }
         else
@@ -183,11 +169,8 @@ public class SceneTransitionManager : MonoBehaviour
         }
 
         // Đặt lại các giá trị tiến trình
-        if (!_isInternetWarningActive)
-        {
-            if (progressFillImage != null) progressFillImage.fillAmount = 0f;
-            if (progressText != null) progressText.text = "0%";
-        }
+        if (progressFillImage != null) progressFillImage.fillAmount = 0f;
+        if (progressText != null) progressText.text = "0%";
 
         // 2. Kích hoạt Panel UI chuyển cảnh
         if (loadingPanel != null)
@@ -266,21 +249,15 @@ public class SceneTransitionManager : MonoBehaviour
             // Nội suy giá trị tiến trình mượt mà (Tween) để tránh giật lag thanh Slider
             currentProgress = Mathf.MoveTowards(currentProgress, targetProgress, Time.deltaTime * 1.5f);
 
-            if (!_isInternetWarningActive)
-            {
-                if (progressFillImage != null) progressFillImage.fillAmount = currentProgress;
-                if (progressText != null) progressText.text = $"{(int)(currentProgress * 100)}%";
-            }
+            if (progressFillImage != null) progressFillImage.fillAmount = currentProgress;
+            if (progressText != null) progressText.text = $"{(int)(currentProgress * 100)}%";
 
             // Khi thanh load đạt 100% thực tế và tài nguyên đã load xong
             if (currentProgress >= 0.99f && op.progress >= 0.9f)
             {
                 currentProgress = 1f;
-                if (!_isInternetWarningActive)
-                {
-                    if (progressFillImage != null) progressFillImage.fillAmount = 1f;
-                    if (progressText != null) progressText.text = "100%";
-                }
+                if (progressFillImage != null) progressFillImage.fillAmount = 1f;
+                if (progressText != null) progressText.text = "100%";
                 
                 yield return new WaitForSeconds(0.2f); // Giữ màn hình 100% trong 0.2s để người dùng dễ nhìn
                 op.allowSceneActivation = true; // Kích hoạt Scene mới
@@ -429,7 +406,7 @@ public class SceneTransitionManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Kiểm tra kết nối Internet thực tế bằng cách gửi request nhẹ tới google.
+    /// Kiểm tra kết nối Internet thực tế bằng cách gửi request nhẹ tới google (luôn trả về true vì dự án ngoại tuyến).
     /// </summary>
     public async Task<bool> CheckInternetConnectionAsync()
     {
@@ -437,77 +414,11 @@ public class SceneTransitionManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Đảm bảo kết nối mạng trước khi gọi API.
+    /// Đảm bảo kết nối mạng trước khi gọi API (luôn hoàn tất ngay lập tức vì dự án ngoại tuyến).
     /// </summary>
     public async Task EnsureInternetConnectionAsync()
     {
         await Task.CompletedTask;
-    }
-
-    private void ShowInternetWarningUI()
-    {
-        _wasLoadingPanelActiveBeforeWarning = (loadingPanel != null && loadingPanel.activeSelf) || (transitionCanvasGroup != null && transitionCanvasGroup.gameObject.activeSelf);
-
-        // Lưu lại trạng thái hiển thị
-        if (tipText != null)
-        {
-            _savedTipText = tipText.text;
-            tipText.text = "Vui lòng kết nối Internet để tiếp tục.";
-        }
-        if (progressText != null)
-        {
-            _savedProgressText = progressText.text;
-            progressText.text = "Mất kết nối Internet";
-        }
-        if (progressFillImage != null)
-        {
-            _savedProgressFill = progressFillImage.fillAmount;
-            progressFillImage.fillAmount = 0f;
-        }
-
-        if (loadingPanel != null)
-        {
-            loadingPanel.SetActive(true);
-        }
-        else if (transitionCanvasGroup != null)
-        {
-            transitionCanvasGroup.gameObject.SetActive(true);
-        }
-
-        if (transitionCanvasGroup != null)
-        {
-            transitionCanvasGroup.blocksRaycasts = true;
-            transitionCanvasGroup.alpha = 1f;
-        }
-    }
-
-    private void HideInternetWarningUI()
-    {
-        if (_wasLoadingPanelActiveBeforeWarning)
-        {
-            // Khôi phục lại trạng thái loading trước đó
-            if (tipText != null) tipText.text = _savedTipText;
-            if (progressText != null) progressText.text = _savedProgressText;
-            if (progressFillImage != null) progressFillImage.fillAmount = _savedProgressFill;
-        }
-        else
-        {
-            // Ẩn panel đi
-            if (loadingPanel != null)
-            {
-                loadingPanel.SetActive(false);
-            }
-            else if (transitionCanvasGroup != null)
-            {
-                transitionCanvasGroup.gameObject.SetActive(false);
-            }
-
-            if (transitionCanvasGroup != null)
-            {
-                transitionCanvasGroup.blocksRaycasts = false;
-                transitionCanvasGroup.alpha = 0f;
-            }
-        }
     }
 }
 

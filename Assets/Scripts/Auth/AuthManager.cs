@@ -1,17 +1,14 @@
 using System.Threading.Tasks;
-using Firebase;
-using Firebase.Auth;
 using UnityEngine;
 
 /// <summary>
-/// Quản lý xác thực (Authentication) sử dụng Firebase Authentication SDK.
-/// Tất cả các phương thức bất đồng bộ đều trả về (bool success, string errorMessage).
+/// Quản lý xác thực người dùng – phiên bản Offline 100%.
+/// Tất cả dữ liệu được lưu cục bộ bằng PlayerPrefs.
+/// (Firebase Authentication sẽ được tích hợp lại sau.)
 /// </summary>
 public class AuthManager : MonoBehaviour
 {
     public static AuthManager Instance { get; private set; }
-
-    private FirebaseAuth _auth;
 
     private void Awake()
     {
@@ -19,24 +16,10 @@ public class AuthManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            InitializeFirebase();
         }
         else
         {
             Destroy(gameObject);
-        }
-    }
-
-    private void InitializeFirebase()
-    {
-        try
-        {
-            _auth = FirebaseAuth.DefaultInstance;
-            Debug.Log("[AuthManager] Firebase Auth đã khởi tạo (chế độ offline).");
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogWarning("[AuthManager] Bỏ qua lỗi khởi tạo Firebase Auth ở chế độ offline: " + ex.Message);
         }
     }
 
@@ -45,15 +28,12 @@ public class AuthManager : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Kiểm tra người dùng hiện tại đã đăng nhập hay chưa.
+    /// Kiểm tra người dùng hiện tại đã đăng nhập hay chưa (luôn true ở chế độ offline).
     /// </summary>
-    public bool IsLoggedIn()
-    {
-        return true;
-    }
+    public bool IsLoggedIn() => true;
 
     /// <summary>
-    /// Lấy email của người dùng hiện đang đăng nhập.
+    /// Lấy tên người dùng offline từ PlayerPrefs. Tự sinh tên nếu chưa có.
     /// </summary>
     public string GetLoggedInUser()
     {
@@ -61,14 +41,7 @@ public class AuthManager : MonoBehaviour
         if (string.IsNullOrEmpty(username) || username == "Offline User")
         {
             System.DateTime now = System.DateTime.Now;
-            string day = now.Day.ToString();
-            string month = now.Month.ToString();
-            string year = now.Year.ToString();
-            string hour = now.Hour.ToString("D2");
-            string minute = now.Minute.ToString("D2");
-            string second = now.Second.ToString("D2");
-            username = $"Player{day}{month}{year}{hour}{minute}{second}";
-            
+            username = $"Player{now.Day}{now.Month}{now.Year}{now.Hour:D2}{now.Minute:D2}{now.Second:D2}";
             PlayerPrefs.SetString("OfflineUserName", username);
             PlayerPrefs.Save();
         }
@@ -88,19 +61,19 @@ public class AuthManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Đăng xuất tài khoản hiện tại.
+    /// Đăng xuất (No-op ở chế độ offline).
     /// </summary>
     public void Logout()
     {
-        Debug.Log("[AuthManager] Đã gọi đăng xuất (Offline Mode - No-op).");
+        Debug.Log("[AuthManager] Đã gọi đăng xuất (Offline Mode – No-op).");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Async Firebase operations
+    // Async stubs – sẽ kết nối Firebase Authentication sau
     // ─────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Đăng ký tài khoản mới bằng Email và Mật khẩu.
+    /// Đăng ký tài khoản mới (offline stub – luôn thành công).
     /// </summary>
     public async Task<(bool success, string errorMessage)> RegisterAsync(string email, string password, string displayName = "")
     {
@@ -113,47 +86,20 @@ public class AuthManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Đăng nhập bằng Email và Mật khẩu.
+    /// Đăng nhập bằng Email và Mật khẩu (offline stub – luôn thành công).
     /// </summary>
     public async Task<(bool success, string errorMessage)> LoginAsync(string email, string password)
-    {
-        return await Task.FromResult((true, ""));
-    }
+        => await Task.FromResult((true, ""));
 
     /// <summary>
-    /// Đổi mật khẩu cho người dùng hiện tại.
+    /// Đổi mật khẩu (offline stub – luôn thành công).
     /// </summary>
     public async Task<(bool success, string errorMessage)> ChangePasswordAsync(string oldPassword, string newPassword)
-    {
-        return await Task.FromResult((true, ""));
-    }
+        => await Task.FromResult((true, ""));
 
     /// <summary>
-    /// Gửi email đặt lại mật khẩu đến địa chỉ email được cung cấp.
+    /// Gửi email đặt lại mật khẩu (offline stub – luôn thành công).
     /// </summary>
     public async Task<(bool success, string errorMessage)> ForgotPasswordAsync(string email)
-    {
-        return await Task.FromResult((true, ""));
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Error mapping helper
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private static string MapFirebaseError(AuthError error)
-    {
-        return error switch
-        {
-            AuthError.EmailAlreadyInUse      => "Địa chỉ email này đã được đăng ký trước đó!",
-            AuthError.InvalidEmail           => "Địa chỉ email không hợp lệ!",
-            AuthError.WeakPassword           => "Mật khẩu quá yếu. Vui lòng chọn mật khẩu mạnh hơn!",
-            AuthError.UserNotFound           => "Không tìm thấy tài khoản với email này!",
-            AuthError.WrongPassword          => "Mật khẩu đăng nhập không chính xác!",
-            AuthError.NetworkRequestFailed   => "Lỗi kết nối mạng. Vui lòng kiểm tra Internet!",
-            AuthError.TooManyRequests        => "Quá nhiều yêu cầu. Vui lòng thử lại sau!",
-            AuthError.UserDisabled           => "Tài khoản này đã bị vô hiệu hóa!",
-            AuthError.InvalidCredential      => "Thông tin xác thực không hợp lệ!",
-            _                                => "Đã xảy ra lỗi. Vui lòng thử lại!"
-        };
-    }
+        => await Task.FromResult((true, ""));
 }

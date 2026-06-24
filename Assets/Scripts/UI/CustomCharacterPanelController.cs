@@ -49,7 +49,6 @@ public class CustomCharacterPanelController : MonoBehaviour
     [SerializeField] private GameObject audioRecordButtonPrefab;
     [SerializeField] private GameObject audioPresetButtonPrefab;
     [SerializeField] private GameObject animationButtonPrefab;
-    [SerializeField] private List<GameObject> characterPrefabs = new List<GameObject>();
 
     [Header("Cast Panel Integration")]
     [SerializeField] private CastPanelController castPanelController;
@@ -62,7 +61,6 @@ public class CustomCharacterPanelController : MonoBehaviour
 
     [Header("Preview Settings")]
     [SerializeField] private Transform previewContainer;
-    [SerializeField] private List<Sprite> avatarSprites = new List<Sprite>();
 
     [Header("Microphone Recording")]
     [SerializeField] private Button micButton; // Nút ghi âm nổi bên phải
@@ -84,6 +82,7 @@ public class CustomCharacterPanelController : MonoBehaviour
     private string _selectedAnimationId;
 
     private GameObject _previewInstance;
+    private GameObject _previewInstrumentInstance;
     private AudioSource _previewAudioSource;
 
     private enum CustomTab { Character, Instrument, Animation }
@@ -142,6 +141,15 @@ public class CustomCharacterPanelController : MonoBehaviour
     [Header("Transition Settings")]
     [SerializeField] private float transitionDuration = 0.3f;
     [SerializeField] private float slideOffset = 250f;
+
+    [Header("Merged Scene Config")]
+    [SerializeField] private string customArSceneName = "Custome AR Scene";
+    [SerializeField] private string customNonArSceneName = "Custome NonAR Scene";
+
+    [Header("In-Scene Canvas Groups")]
+    [SerializeField] private GameObject uiCustome;
+    [SerializeField] private GameObject uiAr;
+    [SerializeField] private GameObject previewCamera;
 
     private CanvasGroup _characterCG;
     private CanvasGroup _instrumentCG;
@@ -217,6 +225,7 @@ public class CustomCharacterPanelController : MonoBehaviour
                     }
                     MarkAsUnsaved();
                 }
+                SpawnInstrumentPreview(selectedPrefab);
             };
             audioPanelController.OnCustomAudioSelected += (recordingId) =>
             {
@@ -228,6 +237,7 @@ public class CustomCharacterPanelController : MonoBehaviour
                     micButton.gameObject.SetActive(true);
                 }
                 MarkAsUnsaved();
+                SpawnInstrumentPreview(null);
             };
         }
 
@@ -279,6 +289,33 @@ public class CustomCharacterPanelController : MonoBehaviour
         {
             micButton = FindSceneComponentByName<Button>("Record audio", "Record Audio", "Mic Button", "Microphone Button");
         }
+
+        if (uiCustome == null)
+        {
+            Transform canvasTransform = transform.parent;
+            if (canvasTransform != null)
+            {
+                Transform customeTrans = canvasTransform.Find("UI Custome");
+                if (customeTrans != null) uiCustome = customeTrans.gameObject;
+            }
+            if (uiCustome == null) uiCustome = this.gameObject;
+        }
+
+        if (uiAr == null)
+        {
+            Transform canvasTransform = transform.parent;
+            if (canvasTransform != null)
+            {
+                Transform arTrans = canvasTransform.Find("UI AR");
+                if (arTrans != null) uiAr = arTrans.gameObject;
+            }
+        }
+
+        if (previewCamera == null)
+        {
+            previewCamera = GameObject.Find("PreviewCamera");
+            if (previewCamera == null) previewCamera = GameObject.Find("Preview Camera");
+        }
     }
 
     private void Start()
@@ -294,6 +331,10 @@ public class CustomCharacterPanelController : MonoBehaviour
     {
         // Khi bật panel, mặc định chọn tab đầu tiên và không chạy hiệu ứng chuyển động
         SwitchTab(CustomTab.Character, false);
+
+        // Đảm bảo bật lại Preview Container và PreviewCamera khi Panel Creator hoạt động
+        if (previewContainer != null) previewContainer.gameObject.SetActive(true);
+        if (previewCamera != null) previewCamera.SetActive(true);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -927,6 +968,38 @@ public class CustomCharacterPanelController : MonoBehaviour
             {
                 PlayPreviewAnimation(_selectedAnimationId);
             }
+
+            // Tự động spawn nhạc cụ đã chọn đứng cạnh nhân vật mới
+            if (audioPanelController != null && audioPanelController.SelectedPrefab != null)
+            {
+                SpawnInstrumentPreview(audioPanelController.SelectedPrefab);
+            }
+        }
+    }
+
+    private void SpawnInstrumentPreview(GameObject instrumentPrefab)
+    {
+        if (_previewInstrumentInstance != null)
+        {
+            Destroy(_previewInstrumentInstance);
+        }
+
+        if (instrumentPrefab != null && previewContainer != null)
+        {
+            _previewInstrumentInstance = Instantiate(instrumentPrefab, previewContainer.position, previewContainer.rotation, previewContainer);
+            _previewInstrumentInstance.transform.localPosition = new Vector3(-1f, 0.5f, 0f);
+            _previewInstrumentInstance.transform.localRotation = Quaternion.identity;
+            _previewInstrumentInstance.transform.localScale = Vector3.one;
+
+            // Tắt AudioSource trên nhạc cụ preview để tránh phát tiếng ồn không mong muốn
+            AudioSource[] sources = _previewInstrumentInstance.GetComponentsInChildren<AudioSource>(true);
+            foreach (var src in sources)
+            {
+                src.enabled = false;
+            }
+
+            SetLayerRecursively(_previewInstrumentInstance, previewContainer.gameObject.layer);
+            Debug.Log($"[CustomCharacterPanelController] Spawned 3D instrument preview: {instrumentPrefab.name}");
         }
     }
 
@@ -1014,17 +1087,6 @@ public class CustomCharacterPanelController : MonoBehaviour
     {
         if (string.IsNullOrEmpty(prefabName)) return null;
 
-        if (characterPrefabs != null)
-        {
-            foreach (var prefab in characterPrefabs)
-            {
-                if (prefab != null && prefab.name.Equals(prefabName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return prefab;
-                }
-            }
-        }
-
         if (castPanelController != null && castPanelController.CharacterPrefabs != null)
         {
             foreach (var prefab in castPanelController.CharacterPrefabs)
@@ -1054,7 +1116,7 @@ public class CustomCharacterPanelController : MonoBehaviour
     {
         if (dataManager == null) return;
 
-        dataManager.AddCharacterPrefabs(characterPrefabs);
+
         if (castPanelController != null)
         {
             dataManager.AddCharacterPrefabs(castPanelController.CharacterPrefabs);
@@ -1074,21 +1136,12 @@ public class CustomCharacterPanelController : MonoBehaviour
             }
         }
 
-        if (avatarSprites != null)
-        {
-            foreach (var sprite in avatarSprites)
-            {
-                if (sprite != null && sprite.name.Equals(prefabName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return sprite;
-                }
-            }
-        }
+
         return Resources.Load<Sprite>("Avatars/" + prefabName);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Ghi âm âm thanh (Microphone) & Tải lên Firebase Firestore
+    // Ghi âm âm thanh (Microphone) & Lưu Cục Bộ
     // ─────────────────────────────────────────────────────────────────────────
 
     private void OnMicButtonClicked()
@@ -1341,7 +1394,7 @@ public class CustomCharacterPanelController : MonoBehaviour
 
         if (recordingStatusText != null)
         {
-            recordingStatusText.text = "Uploading to Firebase...";
+            recordingStatusText.text = "Saving...";
         }
 
         // Upload dữ liệu Base64 lên Firestore
@@ -1352,7 +1405,7 @@ public class CustomCharacterPanelController : MonoBehaviour
 
         if (success)
         {
-            if (recordingStatusText != null) recordingStatusText.text = "Saved to Firebase!";
+            if (recordingStatusText != null) recordingStatusText.text = "Saved!";
             
             // Lưu lại ID bản ghi âm tùy chỉnh trong phiên này
             _customRecordingId = recId;
@@ -1467,7 +1520,7 @@ public class CustomCharacterPanelController : MonoBehaviour
 
         if (audioId.StartsWith("rec_"))
         {
-            // Âm thanh tự thu: Tải động từ Firebase Firestore
+            // Âm thanh tự thu: Tải động từ bộ nhớ cục bộ
             if (recordingStatusText != null)
             {
                 recordingStatusText.text = "Loading audio...";
@@ -1533,7 +1586,7 @@ public class CustomCharacterPanelController : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Chức năng Lưu Nhân vật (Firestore)
+    // Chức năng Lưu Nhân vật (Local)
     // ─────────────────────────────────────────────────────────────────────────
 
     private async System.Threading.Tasks.Task<bool> SaveCharacter()
@@ -1573,7 +1626,7 @@ public class CustomCharacterPanelController : MonoBehaviour
         {
             try
             {
-                // Đẩy thẳng cấu hình nhân vật lên Firebase Firestore thông qua API có sẵn
+                // Lưu cấu hình nhân vật cục bộ thông qua API có sẵn
                 SyncCharacterPrefabsToDataManager(dataManager);
 
                 GameObject selectedPrefab = GetCharacterPrefab(_selectedPrefabName);
@@ -1750,16 +1803,38 @@ public class CustomCharacterPanelController : MonoBehaviour
 
         if (recordingStatusText != null) recordingStatusText.gameObject.SetActive(false);
 
-        ARSessionState checkedState = ARSession.state;
-        bool isARCoreSupported = IsARCoreSupportedForRouting(checkedState);
+        // Tự động tìm kiếm UI Custome và UI AR nếu chưa được gán
+        if (uiCustome == null)
+        {
+            Transform canvasTransform = transform.parent;
+            if (canvasTransform != null)
+            {
+                Transform customeTrans = canvasTransform.Find("UI Custome");
+                if (customeTrans != null) uiCustome = customeTrans.gameObject;
+            }
+            if (uiCustome == null) uiCustome = this.gameObject;
+        }
 
-#if UNITY_EDITOR
-        // Trong Unity Editor, coi như hỗ trợ để sử dụng AR Simulator của Unity
-        isARCoreSupported = true;
-#endif
+        if (uiAr == null)
+        {
+            Transform canvasTransform = transform.parent;
+            if (canvasTransform != null)
+            {
+                Transform arTrans = canvasTransform.Find("UI AR");
+                if (arTrans != null) uiAr = arTrans.gameObject;
+            }
+        }
 
-        string targetSceneName = isARCoreSupported ? "AR Scene" : "Non-AR Scene";
-        Debug.Log($"[CustomCharacterPanel] Thiết bị hỗ trợ ARCore: {isARCoreSupported}. Loading scene: {targetSceneName}");
+        if (previewCamera == null)
+        {
+            previewCamera = GameObject.Find("PreviewCamera");
+            if (previewCamera == null) previewCamera = GameObject.Find("Preview Camera");
+        }
+
+        // Tạm thời vô hiệu hóa AR theo yêu cầu, luôn định tuyến sang Non-AR
+        bool isARCoreSupported = false;
+        string targetSceneName = isARCoreSupported ? customArSceneName : customNonArSceneName;
+        string activeSceneName = SceneManager.GetActiveScene().name;
 
         // Gán biến castData vào MainMenuDataManager
         MainMenuDataManager dataManager = GetOrCreateMainMenuDataManager();
@@ -1773,6 +1848,21 @@ public class CustomCharacterPanelController : MonoBehaviour
             yield break;
         }
 
+        // Nếu có UI AR trong scene, tức là scene đã được gộp. Ta chuyển đổi trực tiếp mà không cần load scene mới.
+        if (uiAr != null)
+        {
+            TransitionToArModeDirectly("[CustomCharacterPanel] Phát hiện UI AR trong Scene (Scene đã gộp). Thực hiện chuyển đổi UI trực tiếp.");
+            yield break;
+        }
+
+        if (activeSceneName == targetSceneName)
+        {
+            TransitionToArModeDirectly($"[CustomCharacterPanel] Đang ở trong đúng scene mục tiêu '{targetSceneName}'. Tiến hành ẩn Panel Creator và spawn nhân vật trực tiếp.");
+            yield break;
+        }
+
+        Debug.Log($"[CustomCharacterPanel] Thiết bị hỗ trợ ARCore: {isARCoreSupported}. Loading scene: {targetSceneName}");
+
         // Chuyển scene mượt mà bằng SceneTransitionManager
         if (SceneTransitionManager.Instance != null)
         {
@@ -1781,6 +1871,109 @@ public class CustomCharacterPanelController : MonoBehaviour
         else
         {
             SceneManager.LoadScene(targetSceneName);
+        }
+    }
+
+    /// <summary>
+    /// Thực hiện chuyển đổi giao diện mượt mà từ Custom Creator sang AR Mode bằng DOTween fade & scale.
+    /// </summary>
+    private void TransitionToArModeDirectly(string logMessage)
+    {
+        Debug.Log(logMessage);
+
+        // 1. Lấy hoặc thêm CanvasGroup cho uiCustome và uiAr để chạy fade mượt mà
+        CanvasGroup cgCustome = null;
+        if (uiCustome != null)
+        {
+            cgCustome = uiCustome.GetComponent<CanvasGroup>();
+            if (cgCustome == null) cgCustome = uiCustome.AddComponent<CanvasGroup>();
+        }
+
+        CanvasGroup cgAr = null;
+        if (uiAr != null)
+        {
+            cgAr = uiAr.GetComponent<CanvasGroup>();
+            if (cgAr == null) cgAr = uiAr.AddComponent<CanvasGroup>();
+        }
+
+        // Vô hiệu hóa tương tác trong khi chuyển cảnh
+        if (cgCustome != null)
+        {
+            cgCustome.interactable = false;
+            cgCustome.blocksRaycasts = false;
+        }
+
+        if (cgAr != null)
+        {
+            cgAr.interactable = false;
+            cgAr.blocksRaycasts = false;
+            uiAr.SetActive(true);
+            cgAr.alpha = 0f;
+            uiAr.transform.localScale = Vector3.one * 0.95f;
+
+            cgAr.DOKill();
+            uiAr.transform.DOKill();
+            cgAr.DOFade(1f, 0.45f).SetEase(Ease.OutQuad).OnComplete(() =>
+            {
+                cgAr.interactable = true;
+                cgAr.blocksRaycasts = true;
+            });
+            uiAr.transform.DOScale(1f, 0.45f).SetEase(Ease.OutBack);
+        }
+
+        // Chạy hiệu ứng Fade Out của uiCustome
+        if (cgCustome != null)
+        {
+            cgCustome.DOKill();
+            uiCustome.transform.DOKill();
+            uiCustome.transform.DOScale(0.95f, 0.35f).SetEase(Ease.InQuad);
+            cgCustome.DOFade(0f, 0.35f).SetEase(Ease.InQuad).OnComplete(() =>
+            {
+                uiCustome.SetActive(false);
+            });
+        }
+        else
+        {
+            gameObject.SetActive(false);
+        }
+
+        // Tắt Preview Container và PreviewCamera
+        if (previewContainer != null) previewContainer.gameObject.SetActive(false);
+        if (previewCamera != null) previewCamera.SetActive(false);
+
+        // Dọn dẹp các đối tượng tạm thời của preview
+        if (_previewAudioSource != null) _previewAudioSource.Stop();
+        if (_previewInstance != null) Destroy(_previewInstance);
+        if (_previewInstrumentInstance != null) Destroy(_previewInstrumentInstance);
+
+        // Tìm Spawner và tiến hành spawn nhân vật
+        BandARSpawner spawner = FindFirstObjectByType<BandARSpawner>();
+        if (spawner != null)
+        {
+            Vector3 spawnPos = Vector3.zero;
+            Quaternion spawnRot = Quaternion.identity;
+
+            if (Camera.main != null)
+            {
+                Transform camTrans = Camera.main.transform;
+                Vector3 camForwardHorizontal = camTrans.forward;
+                camForwardHorizontal.y = 0f;
+                camForwardHorizontal.Normalize();
+                
+                spawnPos = camTrans.position + camForwardHorizontal * 3f; // cách camera 3 mét
+                spawnRot = Quaternion.LookRotation(-camForwardHorizontal, Vector3.up);
+            }
+            else
+            {
+                spawnPos = spawner.transform.position;
+                spawnRot = spawner.transform.rotation;
+            }
+
+            spawner.SpawnBand(spawnPos, spawnRot);
+        }
+        else
+        {
+            Debug.LogWarning("[CustomCharacterPanel] Không tìm thấy BandARSpawner trong scene hiện hành để spawn nhân vật!");
         }
     }
 
@@ -1810,6 +2003,7 @@ public class CustomCharacterPanelController : MonoBehaviour
     {
         if (_previewAudioSource != null) _previewAudioSource.Stop();
         if (_previewInstance != null) Destroy(_previewInstance);
+        if (_previewInstrumentInstance != null) Destroy(_previewInstrumentInstance);
         
         // Chuyển Scene về Main Menu Scene
         if (SceneTransitionManager.Instance != null)

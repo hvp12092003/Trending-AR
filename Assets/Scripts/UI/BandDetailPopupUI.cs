@@ -1,7 +1,9 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.XR.ARFoundation;
 using DG.Tweening;
 
 /// <summary>
@@ -50,8 +52,11 @@ public class BandDetailPopupUI : MonoBehaviour
     [SerializeField] private Button closeButton;
 
     [Header("AR Configuration")]
-    [Tooltip("Tên Scene AR của ban nhạc cần chuyển tới")]
-    [SerializeField] private string arSceneName = "Band Mode Scene";
+    [Tooltip("Tên Scene AR của ban nhạc")]
+    [SerializeField] private string arSceneName = "Band Mode AR Scene";
+
+    [Tooltip("Tên Scene Non-AR của ban nhạc")]
+    [SerializeField] private string nonArSceneName = "Band Mode NonAR Scene";
 
     [Header("Transition Settings")]
     [SerializeField] private float fadeDuration = 0.25f;
@@ -213,7 +218,7 @@ public class BandDetailPopupUI : MonoBehaviour
 
     /// <summary>
     /// Xử lý khi nhấn nút Thử (Try).
-    /// Lưu ban nhạc được chọn vào Selection Manager toàn cục và tải Scene AR.
+    /// Lưu ban nhạc được chọn vào Selection Manager toàn cục và tải Scene AR/Non-AR tương ứng.
     /// </summary>
     private void OnTryButtonClicked()
     {
@@ -233,15 +238,32 @@ public class BandDetailPopupUI : MonoBehaviour
         // 2. Ẩn popup
         Hide();
 
-        // 3. Tải scene AR mượt mà thông qua SceneTransitionManager
+        // 3. Bắt đầu Coroutine kiểm tra ARCore và tải Scene tương ứng
+        StartCoroutine(CheckARCoreAndTransition());
+    }
+
+    private IEnumerator CheckARCoreAndTransition()
+    {
+        // Kiểm tra khả năng hỗ trợ ARCore của thiết bị
+        if (ARSession.state == ARSessionState.None || ARSession.state == ARSessionState.CheckingAvailability)
+        {
+            yield return ARSession.CheckAvailability();
+        }
+
+        // Tạm thời vô hiệu hóa AR theo yêu cầu, luôn định tuyến sang Non-AR
+        bool isSupported = false;
+
+        string targetScene = isSupported ? arSceneName : nonArSceneName;
+        Debug.Log($"[BandDetailPopupUI] ARCore Routing temporarily disabled. Loading Non-AR scene: {targetScene}");
+
         if (SceneTransitionManager.Instance != null)
         {
-            SceneTransitionManager.Instance.TransitionToScene(arSceneName, TransitionType.Fade);
+            SceneTransitionManager.Instance.TransitionToScene(targetScene, TransitionType.Fade);
         }
         else
         {
             Debug.LogWarning("[BandDetailPopupUI] Không tìm thấy SceneTransitionManager. Thực hiện load trực tiếp.");
-            UnityEngine.SceneManagement.SceneManager.LoadScene(arSceneName);
+            UnityEngine.SceneManagement.SceneManager.LoadScene(targetScene);
         }
     }
 

@@ -65,6 +65,27 @@ public class TapToPlacePrefab : MonoBehaviour
     [Tooltip("ARRaycastManager dùng để tìm kiếm các mặt phẳng AR Plane. Nếu để trống, script sẽ tự động tìm trên GameObject này hoặc trong Scene.")]
     private ARRaycastManager m_RaycastManager;
 
+    [Header("Drop Animation Settings")]
+    [SerializeField]
+    [Tooltip("Độ cao Y mặc định mà nhân vật rơi xuống nếu Raycast không tìm thấy mặt đất.")]
+    private float m_FallbackGroundY = 0f;
+
+    [SerializeField]
+    [Tooltip("Độ cao rơi tối thiểu (m). Nâng nhân vật lên cao so với mặt sàn nếu thả quá sát sàn.")]
+    private float m_MinDropHeight = 0.8f;
+
+    [SerializeField]
+    [Tooltip("Khoảng cách dò tìm mặt đất tối đa (m).")]
+    private float m_MaxRaycastDistance = 20f;
+
+    [SerializeField]
+    [Tooltip("Thời gian thực hiện chuyển động rơi tiếp đất (s).")]
+    private float m_DropDuration = 0.45f;
+
+    [SerializeField]
+    [Tooltip("Tỉ lệ scale của nhân vật khi được kéo ra đặt vào AR.")]
+    private Vector3 m_PlacedScale = new Vector3(0.5f, 0.5f, 0.5f);
+
     private GameObject m_DraggedObject;
     private bool m_IsDragging = false;
     private Vector3 m_OriginalDraggedScale = Vector3.zero;
@@ -152,8 +173,17 @@ public class TapToPlacePrefab : MonoBehaviour
                                 // Tách nhân vật ra khỏi bệ của spawner (và ẩn bệ tương ứng)
                                 spawner.DetachMember(m_DraggedObject);
 
-                                // Lưu lại scale gốc của nhân vật sau khi tách khỏi bệ đứng
-                                m_OriginalDraggedScale = m_DraggedObject.transform.localScale;
+                                // Đặt scale theo m_PlacedScale ngay khi kéo khỏi bệ đứng và lưu lại
+                                m_OriginalDraggedScale = m_PlacedScale;
+                                m_DraggedObject.transform.localScale = m_OriginalDraggedScale;
+                            }
+                            else
+                            {
+                                // Chọn nhân vật làm active khi nhấp chuột/chạm tay vào nhân vật đã đặt trong AR
+                                if (CharacterManager.Instance != null)
+                                {
+                                    CharacterManager.Instance.SelectCharacter(characterMove.gameObject);
+                                }
                             }
                         }
                     }
@@ -174,9 +204,65 @@ public class TapToPlacePrefab : MonoBehaviour
             {
                 UpdateDragPosition(pointerPos);
 
+                Vector3 currentPos = m_DraggedObject.transform.position;
+                Vector3 finalPos = currentPos;
+
+                // Tạm thời tắt các collider của nhân vật để tránh Raycast tự chạm trúng chính mình
+                Collider[] colliders = m_DraggedObject.GetComponentsInChildren<Collider>();
+                foreach (var col in colliders) col.enabled = false;
+
+                // Xác định vị trí mặt đất dưới chân nhân vật bằng Raycast hướng xuống dưới
+                Ray ray = new Ray(currentPos + Vector3.up * 0.5f, Vector3.down);
+                if (Physics.Raycast(ray, out RaycastHit hit, m_MaxRaycastDistance))
+                {
+                    finalPos = hit.point;
+                }
+                else
+                {
+                    // Fallback độ cao mặc định nếu không va chạm
+                    finalPos.y = m_FallbackGroundY;
+                }
+
+                // Bật lại các collider
+                foreach (var col in colliders) col.enabled = true;
+
+                // Điểm bắt đầu rơi: Đảm bảo có khoảng cách rơi tối thiểu để thấy rõ hiệu ứng
+                Vector3 startPos = currentPos;
+                if (startPos.y < finalPos.y + m_MinDropHeight)
+                {
+                    startPos.y = finalPos.y + m_MinDropHeight;
+                }
+
                 // Hủy hẳn parent để cố định nhân vật trong thế giới AR
                 m_DraggedObject.transform.SetParent(null);
-                Debug.Log($"[TapToPlacePrefab] Đã thả cố định nhân vật: {m_DraggedObject.name}");
+                m_DraggedObject.transform.position = startPos;
+
+                // Thực hiện hiệu ứng rơi tự do có nảy nhẹ bằng DOTween
+                m_DraggedObject.transform.DOKill();
+                m_DraggedObject.transform.DOMove(finalPos, m_DropDuration).SetEase(Ease.OutBounce);
+
+                Debug.Log($"[TapToPlacePrefab] Đã thả và kích hoạt hiệu ứng rơi cho nhân vật: {m_DraggedObject.name}");
+
+                // Chạy animation nhảy được cấu hình
+                Move moveScript = m_DraggedObject.GetComponent<Move>();
+                if (moveScript != null)
+                {
+                    moveScript.PlayDance(0.15f);
+                }
+
+                // Phát nhạc nhạc cụ khi Cast được thả ra thế giới AR
+                CastAudioData castAudio = m_DraggedObject.GetComponent<CastAudioData>();
+                if (castAudio != null)
+                {
+                    castAudio.PlayAudio();
+                    Debug.Log($"[TapToPlacePrefab] Đã kích hoạt phát nhạc cho: {m_DraggedObject.name} (audioId: {castAudio.audioId})");
+                }
+
+                // Cập nhật lại lựa chọn trong CharacterManager để đồng bộ UI (Slider scale)
+                if (CharacterManager.Instance != null && CharacterManager.Instance.SelectedCharacter == m_DraggedObject)
+                {
+                    CharacterManager.Instance.SelectCharacter(m_DraggedObject);
+                }
             }
 
             m_DraggedObject = null;
@@ -193,7 +279,7 @@ public class TapToPlacePrefab : MonoBehaviour
 
         BandARSpawner spawner = FindFirstObjectByType<BandARSpawner>();
         Quaternion offsetRot = spawner != null ? Quaternion.Euler(spawner.PedestalLocalRotation) : Quaternion.Euler(-90f, 90f, 90f);
-        Vector3 targetScale = m_OriginalDraggedScale != Vector3.zero ? m_OriginalDraggedScale : (spawner != null ? spawner.PedestalLocalScale : new Vector3(0.02f, 0.02f, 0.02f));
+        Vector3 targetScale = m_OriginalDraggedScale != Vector3.zero ? m_OriginalDraggedScale : m_PlacedScale;
 
         // Bắn Raycast xuống Plane nếu không ở chế độ giả lập
         if (!m_UseFallbackMode && m_RaycastManager != null)

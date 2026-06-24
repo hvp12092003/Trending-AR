@@ -24,6 +24,11 @@ public class MusicSyncManager : MonoBehaviour
     /// </summary>
     public event Action OnBeat;
 
+    /// <summary>
+    /// Cho phép các script khác truy cập AudioSource phát nhạc nền chính.
+    /// </summary>
+    public AudioSource AudioSource => audioSource;
+
     private float beatInterval;
     private float beatTimer;
 

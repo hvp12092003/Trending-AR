@@ -8,21 +8,21 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Main Menu Scene.unity
     guid: 1bcd3ad1c76019c4eb8483207b9762d9
-  - enabled: 1
-    path: Assets/Scenes/Band Mode Scene.unity
+  - enabled: 0
+    path: Assets/Scenes/Hiden Scene/Band Mode AR Scene.unity
     guid: a234e963748e0ff449aea513e6115eab
   - enabled: 1
-    path: Assets/Scenes/Custome Scene.unity
+    path: Assets/Scenes/Band Mode NonAR Scene.unity
+    guid: e69924f7146664d4ca12509a505c0d1f
+  - enabled: 0
+    path: Assets/Scenes/Hiden Scene/Custome AR Scene.unity
     guid: ccf06ca894affe14ead8fc8c340fc833
   - enabled: 1
-    path: Assets/Scenes/Mini Game Mode Scene.unity
+    path: Assets/Scenes/Custome NonAR Scene.unity
+    guid: da0f4834276682c4d84d946ef4dd34cf
+  - enabled: 0
+    path: Assets/Scenes/Hiden Scene/Mini Game Mode Scene.unity
     guid: 0f32625e825a0a24f82a58116ce34d1c
-  - enabled: 1
-    path: Assets/Scenes/AR Scene.unity
-    guid: c084eb213503f9740815f74c8b1f9614
-  - enabled: 1
-    path: Assets/Scenes/Non-AR Scene.unity
-    guid: 1713cbf26551f424fbc0dd70a27b5a25
   m_configObjects:
     UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: 6ee72d15cf39dd748a13eac57397b9af, type: 2}
     UnityEditor.XR.ARKit.ARKitSettings: {fileID: 11400000, guid: 0465d33c6aee55f44b0237db8b0e0259, type: 2}

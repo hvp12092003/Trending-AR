@@ -170,7 +170,7 @@ public class BottomBarController : MonoBehaviour
             }
         }
 
-        // Kích hoạt Event thông báo cho các component khác (như nạp dữ liệu Firebase)
+        // Kích hoạt Event thông báo cho các component khác (như nạp dữ liệu)
         onTabSelected?.Invoke(index);
     }
 

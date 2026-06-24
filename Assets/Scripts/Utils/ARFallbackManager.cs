@@ -70,6 +70,11 @@ public class ARFallbackManager : MonoBehaviour
     private string m_CurrentInitializedScene = "";
     private static ARFallbackManager s_Instance;
 
+    [Header("Persistence Settings")]
+    [SerializeField]
+    [Tooltip("Nếu true, đối tượng này sẽ không bị hủy khi chuyển scene.")]
+    private bool m_DontDestroyOnLoad = false;
+
     private void Awake()
     {
         m_InitialForceFallback = m_ForceFallback;
@@ -83,7 +88,10 @@ public class ARFallbackManager : MonoBehaviour
         }
 
         s_Instance = this;
-        DontDestroyOnLoad(gameObject);
+        if (m_DontDestroyOnLoad)
+        {
+            DontDestroyOnLoad(gameObject);
+        }
 
         // Tự động tìm kiếm các thành phần nếu chưa được gán trong Inspector
         if (m_ARSession == null)
@@ -131,6 +139,26 @@ public class ARFallbackManager : MonoBehaviour
         InitializeForScene(scene.name);
     }
 
+    private bool IsARScene(string name)
+    {
+        return name == "AR Scene" || 
+               name == "costom AR" || 
+               name == "Custom AR" || 
+               name == "Band AR" ||
+               name == "Custome AR Scene" ||
+               name == "Band Mode AR Scene";
+    }
+
+    private bool IsNonARScene(string name)
+    {
+        return name == "Non-AR Scene" || 
+               name == "costom Non AR" || 
+               name == "Custom Non AR" || 
+               name == "Band Non AR" ||
+               name == "Custome NonAR Scene" ||
+               name == "Band Mode NonAR Scene";
+    }
+
     private void InitializeForScene(string sceneName)
     {
         if (m_CurrentInitializedScene == sceneName)
@@ -144,7 +172,7 @@ public class ARFallbackManager : MonoBehaviour
         StopAllCoroutines();
 
         // 1. Chỉ chạy ở AR Scene và Non-AR Scene. Các scene khác (khởi động, đăng nhập, menu chính, studio...) thì dọn dẹp camera và bỏ qua hoàn toàn.
-        if (sceneName != "AR Scene" && sceneName != "Non-AR Scene")
+        if (!IsARScene(sceneName) && !IsNonARScene(sceneName))
         {
             Debug.Log($"ARFallbackManager: Đang ở scene '{sceneName}', tiến hành dọn dẹp và bỏ qua kích hoạt Camera.");
             Cleanup(false);
@@ -155,7 +183,7 @@ public class ARFallbackManager : MonoBehaviour
         m_ForceFallback = m_InitialForceFallback;
 
         // 2. Bắt buộc kích hoạt chế độ giả lập nếu ở Non-AR Scene hoặc được thiết lập cứng trong Inspector
-        bool isNonAR = (m_SceneMode == SceneMode.NonARScene) || (sceneName == "Non-AR Scene");
+        bool isNonAR = (m_SceneMode == SceneMode.NonARScene) || IsNonARScene(sceneName);
         if (isNonAR)
         {
             m_ForceFallback = true;
@@ -315,7 +343,7 @@ public class ARFallbackManager : MonoBehaviour
 
         // 3. Yêu cầu cấp quyền camera và khởi chạy luồng hình ảnh Camera di động làm phông nền (Chỉ chạy ở Non-AR Scene)
         string activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        if (activeScene == "Non-AR Scene")
+        if (IsNonARScene(activeScene))
         {
             StartCoroutine(RequestCameraPermissionAndStartWebCam());
         }
