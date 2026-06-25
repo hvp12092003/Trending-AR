@@ -258,6 +258,9 @@ public class ModelLoopEffects : MonoBehaviour
 
     private void PlayBeatVFX()
     {
+        // Kiểm tra cấu hình VFX local trước khi phát hiệu ứng hạt
+        if (PlayerPrefs.GetInt("Setting_VFX", 1) == 0) return;
+
         if (m_BeatVFXPrefab == null) return;
 
         ParticleSystem vfxInstance = null;

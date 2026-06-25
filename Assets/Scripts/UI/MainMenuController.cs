@@ -39,6 +39,10 @@ public class MainMenuController : MonoBehaviour
     [Header("Permission Panel")]
     [SerializeField] private PermissionPanelController permissionPanel;
 
+    [Header("Setting Popup")]
+    [SerializeField] private Button settingButton;
+    [SerializeField] private PopupSetting settingPopup;
+
     private void Awake()
     {
         // Ẩn nhanh Bottom Bar và các panels của tab khi chưa được cấp quyền
@@ -118,6 +122,20 @@ public class MainMenuController : MonoBehaviour
 
         // Đăng ký sự kiện thay đổi avatar
         ProfilePanelController.OnAvatarChanged += UpdateUserAvatarUI;
+
+        // Khởi động thiết lập âm lượng hệ thống dựa trên setting đã lưu offline
+        bool soundOn = PlayerPrefs.GetInt(PopupSetting.SOUND_KEY, 1) == 1;
+        AudioListener.volume = soundOn ? 1f : 0f;
+
+        // Đăng ký sự kiện mở Popup Setting
+        if (settingButton != null && settingPopup != null)
+        {
+            settingPopup.gameObject.SetActive(false); // Đảm bảo ẩn khi khởi động
+            settingButton.onClick.AddListener(() =>
+            {
+                settingPopup.OpenPopup();
+            });
+        }
     }
 
     private void OnPermissionsGrantedCallback()

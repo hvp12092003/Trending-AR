@@ -55,7 +55,7 @@ public class BandARSpawner : MonoBehaviour
     [SerializeField] private Vector3 pedestalLocalPosition = new Vector3(0f, 0f, 0.002f);
     
     [Tooltip("Góc xoay cục bộ của nhân vật so với bệ đứng.")]
-    [SerializeField] private Vector3 pedestalLocalRotation = new Vector3(-90f, 90f, 90f);
+    [SerializeField] private Vector3 pedestalLocalRotation = new Vector3(0f, 180f, 0f);
     
     [Tooltip("Tỉ lệ scale cục bộ của nhân vật.")]
     [SerializeField] private Vector3 pedestalLocalScale = new Vector3(0.02f, 0.02f, 0.02f);
@@ -145,33 +145,92 @@ public class BandARSpawner : MonoBehaviour
         await LoadCastsToSpawnAsync();
 
         // Tự động spawn ngay khi bắt đầu nếu ở chế độ Band
-        if (m_SpawnerMode == SpawnerMode.Band && _cachedCastsToSpawn.Count > 0)
+        if (m_SpawnerMode == SpawnerMode.Band)
         {
-            Vector3 spawnPos = Vector3.zero;
-            Quaternion spawnRot = Quaternion.identity;
-
-            // Nếu tìm thấy Camera chính, tính toán vị trí trước mặt Camera
-            if (Camera.main != null)
+            bool hasSelectedBand = MainMenuDataManager.Instance != null && MainMenuDataManager.Instance.selectedBandData != null;
+            if (hasSelectedBand)
             {
-                Transform camTrans = Camera.main.transform;
-                Vector3 camForwardHorizontal = camTrans.forward;
-                camForwardHorizontal.y = 0f;
-                camForwardHorizontal.Normalize();
-                
-                spawnPos = camTrans.position + camForwardHorizontal * autoSpawnOffset.z + camTrans.right * autoSpawnOffset.x;
-                spawnPos.y = camTrans.position.y + autoSpawnOffset.y; // Đồng bộ cao độ y
-
-                // Quay mặt về phía Camera (container hướng ngược lại với camForwardHorizontal)
-                spawnRot = Quaternion.LookRotation(-camForwardHorizontal, Vector3.up);
+                SpawnBandAtDefaultPosition();
             }
             else
             {
-                spawnPos = transform.position + autoSpawnOffset;
-                spawnRot = transform.rotation;
+                // Chưa chọn Band -> Hiện popup chọn ngay trong Scene chơi nhạc
+                ShowBandSelectionUI();
             }
-
-            SpawnBand(spawnPos, spawnRot);
         }
+    }
+
+    /// <summary>
+    /// Tính toán vị trí trước camera và spawn ban nhạc.
+    /// </summary>
+    public void SpawnBandAtDefaultPosition()
+    {
+        Vector3 spawnPos = Vector3.zero;
+        Quaternion spawnRot = Quaternion.identity;
+
+        if (Camera.main != null)
+        {
+            Transform camTrans = Camera.main.transform;
+            Vector3 camForwardHorizontal = camTrans.forward;
+            camForwardHorizontal.y = 0f;
+            camForwardHorizontal.Normalize();
+            
+            spawnPos = camTrans.position + camForwardHorizontal * autoSpawnOffset.z + camTrans.right * autoSpawnOffset.x;
+            spawnPos.y = camTrans.position.y + autoSpawnOffset.y;
+            spawnRot = Quaternion.LookRotation(-camForwardHorizontal, Vector3.up);
+        }
+        else
+        {
+            spawnPos = transform.position + autoSpawnOffset;
+            spawnRot = transform.rotation;
+        }
+
+        SpawnBand(spawnPos, spawnRot);
+    }
+
+    /// <summary>
+    /// Hiển thị giao diện chọn ban nhạc ngay trong Scene AR/Non-AR.
+    /// </summary>
+    public void ShowBandSelectionUI()
+    {
+        // 1. Ưu tiên tìm kiếm các UI Panel tĩnh đã được thiết kế sẵn trong Scene
+        GameObject staticUI = GameObject.Find("UIBand");
+        if (staticUI == null) staticUI = GameObject.Find("UI_Band");
+        if (staticUI == null)
+        {
+            // Tìm các đối tượng ở gốc Scene kể cả khi chúng đang bị disable
+            foreach (GameObject root in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+            {
+                Transform found = root.transform.Find("UIBand");
+                if (found == null) found = root.transform.Find("UI_Band");
+                if (found != null)
+                {
+                    staticUI = found.gameObject;
+                    break;
+                }
+            }
+        }
+
+        if (staticUI != null)
+        {
+            staticUI.SetActive(true);
+            Debug.Log($"[BandARSpawner] Đã hiển thị UIBand tĩnh được thiết kế sẵn: {staticUI.name}");
+            return;
+        }
+
+        // 2. Fallback: tự sinh UI nếu không tìm thấy thiết kế sẵn trong Scene
+        BandSelectionPanelUI panel = FindFirstObjectByType<BandSelectionPanelUI>();
+        if (panel == null)
+        {
+            GameObject obj = new GameObject("BandSelectionPanel_Manager");
+            panel = obj.AddComponent<BandSelectionPanelUI>();
+        }
+
+        panel.Show((arScene, nonArScene) =>
+        {
+            // Spawn trực tiếp trong scene hiện tại mà không chuyển cảnh
+            SpawnBandAtDefaultPosition();
+        });
     }
 
     private void Update()
@@ -389,43 +448,53 @@ public class BandARSpawner : MonoBehaviour
     /// <param name="rotation">Góc xoay của ban nhạc (hướng mặt).</param>
     public async void SpawnBand(Vector3 centerPosition, Quaternion rotation)
     {
-        // Luôn tải lại danh sách Casts mới nhất trước khi thực hiện spawn
-        await LoadCastsToSpawnAsync();
+        // Kiểm tra xem có cấu hình EditorBand được chọn hay không
+        EditorBandData editorBand = MainMenuDataManager.Instance != null ? MainMenuDataManager.Instance.selectedBandData : null;
+        bool useEditorConfig = editorBand != null && editorBand.members != null && editorBand.members.Count > 0;
 
         List<CastData> casts = new List<CastData>();
-        if (_cachedCastsToSpawn != null && _cachedCastsToSpawn.Count > 0)
+        if (!useEditorConfig)
         {
-            casts.AddRange(_cachedCastsToSpawn);
-        }
-        else
-        {
-            BandData band = BandSelectionManager.SelectedBand;
-            CastData customCast = (MainMenuDataManager.Instance != null) ? MainMenuDataManager.Instance.castData : null;
+            // Luôn tải lại danh sách Casts mới nhất trước khi thực hiện spawn
+            await LoadCastsToSpawnAsync();
 
-            if (band == null && customCast != null)
+            if (_cachedCastsToSpawn != null && _cachedCastsToSpawn.Count > 0)
             {
-                band = new BandData(new List<CastData> { customCast });
+                casts.AddRange(_cachedCastsToSpawn);
+            }
+            else
+            {
+                BandData band = BandSelectionManager.SelectedBand;
+                CastData customCast = (MainMenuDataManager.Instance != null) ? MainMenuDataManager.Instance.castData : null;
+
+                if (band == null && customCast != null)
+                {
+                    band = new BandData(new List<CastData> { customCast });
+                }
+
+                if (band != null)
+                {
+                    casts.AddRange(band.casts);
+                }
             }
 
-            if (band != null)
+            if (casts.Count == 0)
             {
-                casts.AddRange(band.casts);
+                Debug.LogWarning("[BandARSpawner] Không có dữ liệu Cast nào để spawn!");
+                return;
             }
-        }
-
-        if (casts.Count == 0)
-        {
-            Debug.LogWarning("[BandARSpawner] Không có dữ liệu Cast nào để spawn!");
-            return;
         }
 
         // 1. Dọn dẹp các thành viên cũ nếu có
         ClearSpawnedMembers();
 
-        int count = casts.Count;
+        int count = useEditorConfig ? editorBand.members.Count : casts.Count;
         if (count == 0) return;
 
-        Debug.Log($"[BandARSpawner] Đang spawn với {count} thành viên...");
+        Debug.Log($"[BandARSpawner] Đang spawn với {count} thành viên (Cấu hình Editor: {useEditorConfig})...");
+
+        // Khởi tạo BandAudioManager để quản lý âm thanh tập trung cho Scene AR/Non-AR
+        BandAudioManager.GetOrCreateInstance(useEditorConfig ? editorBand.fullSongAudio : null);
 
         if (pedestals != null && pedestals.Count > 0)
         {
@@ -444,7 +513,7 @@ public class BandARSpawner : MonoBehaviour
             {
                 Transform commonParent = null;
 
-                // Kiểm tra xem tất cả các bệ đứng có chung một cha hợp lệ (không phải null và không phải các root quản lý AR) không
+                // Kiểm tra xem tất cả các bệ đứng có chung một cha hợp lệ không
                 bool shareSameParent = true;
                 Transform firstParent = pedestals[0] != null ? pedestals[0].transform.parent : null;
 
@@ -457,7 +526,6 @@ public class BandARSpawner : MonoBehaviour
                     }
                 }
 
-                // Nếu đã chung một cha hợp lệ và tên không phải là các đối tượng quản lý AR hệ thống
                 if (shareSameParent && firstParent != null && 
                     !firstParent.name.Contains("AR Session") && 
                     !firstParent.name.Contains("XR Origin") && 
@@ -467,7 +535,6 @@ public class BandARSpawner : MonoBehaviour
                 }
                 else
                 {
-                    // Nếu các bệ đứng chưa chung cha hoặc nằm ở root, tự tạo một ScrollContainer cha chung tại runtime
                     GameObject container = GameObject.Find("Pedestals_ScrollContainer");
                     if (container == null)
                     {
@@ -484,7 +551,6 @@ public class BandARSpawner : MonoBehaviour
                     }
                     commonParent = container.transform;
 
-                    // Gom tất cả các bệ đứng về làm con của container này để di chuyển đồng bộ
                     foreach (var pedestal in pedestals)
                     {
                         if (pedestal != null && pedestal.transform.parent != commonParent)
@@ -506,7 +572,6 @@ public class BandARSpawner : MonoBehaviour
             }
             else
             {
-                // Nếu được kéo thả bằng tay, đảm bảo GameObject chứa scroller được active
                 scroller.gameObject.SetActive(true);
             }
 
@@ -518,41 +583,58 @@ public class BandARSpawner : MonoBehaviour
                 {
                     pedestals[i].SetActive(true);
 
-                    CastData cast = casts[i];
-                    GameObject prefab = GetCharacterPrefab(cast.prefabName);
+                    GameObject prefab = null;
+                    string memberName = "";
+                    CastData cast = null;
+                    EditorBandMember editorMember = null;
+
+                    if (useEditorConfig)
+                    {
+                        editorMember = editorBand.members[i];
+                        if (MainMenuDataManager.Instance != null && 
+                            editorMember.castPrefabIndex >= 0 && 
+                            editorMember.castPrefabIndex < MainMenuDataManager.Instance.CharacterPrefabs.Count)
+                        {
+                            prefab = MainMenuDataManager.Instance.CharacterPrefabs[editorMember.castPrefabIndex];
+                        }
+                        memberName = editorMember.castName;
+                    }
+                    else
+                    {
+                        cast = casts[i];
+                        prefab = GetCharacterPrefab(cast.prefabName);
+                        memberName = cast.name;
+                    }
+
                     if (prefab == null)
                     {
-                        Debug.LogError($"[BandARSpawner] Không tìm thấy prefab nào cho tên: '{cast.prefabName}'.");
+                        Debug.LogError($"[BandARSpawner] Không tìm thấy prefab nào cho thành viên thứ {i + 1}.");
                         continue;
                     }
 
                     GameObject memberObj = Instantiate(prefab, pedestals[i].transform);
                     memberObj.transform.localPosition = pedestalLocalPosition;
                     memberObj.transform.localRotation = Quaternion.Euler(pedestalLocalRotation);
-                    memberObj.name = $"BandMember_{i + 1}_{cast.name}";
+                    memberObj.name = $"BandMember_{i + 1}_{memberName}";
 
-                    SetupMemberComponents(memberObj, cast, i == 0);
+                    SetupMemberComponents(memberObj, cast, i == 0, editorMember);
                     _spawnedMembers.Add(memberObj);
                 }
                 else
                 {
-                    // Ẩn bệ thừa không có nhân vật
                     pedestals[i].SetActive(false);
                 }
             }
 
-            // Cập nhật lại giới hạn cuộn dựa trên số bệ đứng đang active thực tế
             if (scroller != null)
             {
                 scroller.CalculateScrollLimits();
             }
 
-            // Tự động tạo nút UI ẩn/hiện bệ đứng tại runtime
             CreateToggleUI();
         }
         else
         {
-            // Trường hợp 2: Fallback tự động xếp hàng ngang (như cũ) nếu không gán bệ
             Vector3 rightDir = rotation * Vector3.right;
 
             if (m_FollowCamera)
@@ -567,8 +649,29 @@ public class BandARSpawner : MonoBehaviour
 
             for (int i = 0; i < count; i++)
             {
-                CastData cast = casts[i];
-                GameObject prefab = GetCharacterPrefab(cast.prefabName);
+                GameObject prefab = null;
+                string memberName = "";
+                CastData cast = null;
+                EditorBandMember editorMember = null;
+
+                if (useEditorConfig)
+                {
+                    editorMember = editorBand.members[i];
+                    if (MainMenuDataManager.Instance != null && 
+                        editorMember.castPrefabIndex >= 0 && 
+                        editorMember.castPrefabIndex < MainMenuDataManager.Instance.CharacterPrefabs.Count)
+                    {
+                        prefab = MainMenuDataManager.Instance.CharacterPrefabs[editorMember.castPrefabIndex];
+                    }
+                    memberName = editorMember.castName;
+                }
+                else
+                {
+                    cast = casts[i];
+                    prefab = GetCharacterPrefab(cast.prefabName);
+                    memberName = cast.name;
+                }
+
                 if (prefab == null) continue;
 
                 GameObject memberObj;
@@ -589,8 +692,8 @@ public class BandARSpawner : MonoBehaviour
                     memberObj = Instantiate(prefab, memberPos, rotation);
                 }
 
-                memberObj.name = $"BandMember_{i + 1}_{cast.name}";
-                SetupMemberComponents(memberObj, cast, i == 0);
+                memberObj.name = $"BandMember_{i + 1}_{memberName}";
+                SetupMemberComponents(memberObj, cast, i == 0, editorMember);
                 _spawnedMembers.Add(memberObj);
             }
         }
@@ -599,7 +702,7 @@ public class BandARSpawner : MonoBehaviour
     /// <summary>
     /// Cấu hình các component cho thành viên ban nhạc sau khi spawn.
     /// </summary>
-    private void SetupMemberComponents(GameObject memberObj, CastData cast, bool selectFirst)
+    private void SetupMemberComponents(GameObject memberObj, CastData cast, bool selectFirst, EditorBandMember editorMember = null)
     {
         // Đảm bảo nhân vật có Collider để có thể chạm/click chọn
         Collider col = memberObj.GetComponent<Collider>();
@@ -651,22 +754,75 @@ public class BandARSpawner : MonoBehaviour
         }
 
         // ── Tự động cấu hình Dance Animation ──
-        if (!string.IsNullOrEmpty(cast.danceAnimId))
+        string danceAnim = (editorMember != null) ? editorMember.danceAnimId : (cast != null ? cast.danceAnimId : "");
+        if (!string.IsNullOrEmpty(danceAnim))
         {
             if (moveScript != null)
             {
-                moveScript.Pose1StateName = cast.danceAnimId;
+                moveScript.Pose1StateName = danceAnim;
                 moveScript.PlayDance(0.15f);
             }
         }
 
         // ── Tự động tạo mô hình 3D nhạc cụ và cấu hình Audio ──
-        // Nguồn audio ưu tiên: AudioConfig.audioSource trên instrument prefab (đã có clip sẵn).
-        // Fallback: load AudioClip từ Resources nếu không có AudioConfig.
-        // Việc phát nhạc sẽ do CastAudioData.PlayAudio() trigger khi người dùng thả Cast vào AR.
-        if (!string.IsNullOrEmpty(cast.audioId))
+        if (editorMember != null)
         {
-            // Gắn CastAudioData để TapToPlacePrefab trigger PlayAudio() sau này
+            CastAudioData castAudioData = memberObj.GetComponent<CastAudioData>();
+            if (castAudioData == null)
+            {
+                castAudioData = memberObj.AddComponent<CastAudioData>();
+            }
+            castAudioData.audioId = editorMember.audioClip != null ? editorMember.audioClip.name : "editor_audio";
+            castAudioData.reduceVolumeWhenTogether = editorMember.reduceVolumeWhenTogether;
+            castAudioData.reduceAmount = editorMember.reduceAmount;
+
+            AudioSource designatedSource = null;
+
+            GameObject instPrefab = null;
+            if (MainMenuDataManager.Instance != null && 
+                editorMember.instrumentPrefabIndex >= 0 && 
+                editorMember.instrumentPrefabIndex < MainMenuDataManager.Instance.InstrumentPrefabs.Count)
+            {
+                instPrefab = MainMenuDataManager.Instance.InstrumentPrefabs[editorMember.instrumentPrefabIndex];
+            }
+
+            if (instPrefab != null)
+            {
+                GameObject instrumentObj = Instantiate(instPrefab, memberObj.transform);
+                instrumentObj.name = $"Instrument_{castAudioData.audioId}";
+                instrumentObj.transform.localPosition = instrumentLocalPosition;
+                instrumentObj.transform.localRotation = Quaternion.Euler(instrumentLocalRotation);
+                instrumentObj.transform.localScale = instrumentLocalScale;
+                SetLayerRecursively(instrumentObj, memberObj.layer);
+
+                designatedSource = instrumentObj.GetComponentInChildren<AudioSource>(true);
+                if (designatedSource == null)
+                {
+                    designatedSource = instrumentObj.AddComponent<AudioSource>();
+                }
+            }
+            else
+            {
+                designatedSource = memberObj.GetComponent<AudioSource>();
+                if (designatedSource == null)
+                {
+                    designatedSource = memberObj.AddComponent<AudioSource>();
+                }
+            }
+
+            if (designatedSource != null)
+            {
+                designatedSource.clip = editorMember.audioClip;
+                designatedSource.loop = true;
+                designatedSource.playOnAwake = false;
+                designatedSource.enabled = true;
+                
+                castAudioData.preparedSource = designatedSource;
+                Debug.Log($"[BandARSpawner] Đã nạp AudioSource Editor cho {memberObj.name} với clip: {(editorMember.audioClip != null ? editorMember.audioClip.name : "null")}");
+            }
+        }
+        else if (cast != null && !string.IsNullOrEmpty(cast.audioId))
+        {
             CastAudioData castAudioData = memberObj.GetComponent<CastAudioData>();
             if (castAudioData == null)
             {
@@ -676,7 +832,6 @@ public class BandARSpawner : MonoBehaviour
 
             if (cast.audioId.StartsWith("rec_"))
             {
-                // Bản ghi âm: tạo AudioSource riêng trên nhân vật, nạp clip nhưng chưa phát
                 AudioSource recSource = memberObj.GetComponent<AudioSource>();
                 if (recSource == null) recSource = memberObj.AddComponent<AudioSource>();
                 recSource.loop = true;
@@ -686,7 +841,6 @@ public class BandARSpawner : MonoBehaviour
             }
             else
             {
-                // Nhạc cụ thông thường: spawn model 3D + lấy AudioSource từ AudioConfig
                 GameObject instrumentPrefab = GetInstrumentPrefab(cast.audioId);
                 if (instrumentPrefab != null)
                 {
@@ -697,7 +851,6 @@ public class BandARSpawner : MonoBehaviour
                     instrumentObj.transform.localScale = instrumentLocalScale;
                     SetLayerRecursively(instrumentObj, memberObj.layer);
 
-                    // Ưu tiên lấy AudioSource từ AudioConfig (clip đã được gán sẵn trong prefab)
                     AudioConfig audioConfig = instrumentObj.GetComponentInChildren<AudioConfig>(true);
                     AudioSource designatedSource = null;
 
@@ -706,10 +859,9 @@ public class BandARSpawner : MonoBehaviour
                         designatedSource = audioConfig.audioSource;
                         designatedSource.loop = true;
                         designatedSource.playOnAwake = false;
-                        designatedSource.enabled = true; // Bật nhưng chưa phát
+                        designatedSource.enabled = true;
                         Debug.Log($"[BandARSpawner] Dùng AudioConfig.audioSource cho nhạc cụ: {cast.audioId} (clip: {designatedSource.clip.name})");
 
-                        // Tắt tất cả AudioSource khác trên instrument (không phải designatedSource)
                         AudioSource[] otherSources = instrumentObj.GetComponentsInChildren<AudioSource>(true);
                         foreach (var src in otherSources)
                         {
@@ -719,7 +871,6 @@ public class BandARSpawner : MonoBehaviour
                     }
                     else
                     {
-                        // Fallback: thử tìm AudioSource đầu tiên trên instrument có clip
                         AudioSource[] allSources = instrumentObj.GetComponentsInChildren<AudioSource>(true);
                         foreach (var s in allSources)
                         {
@@ -734,7 +885,6 @@ public class BandARSpawner : MonoBehaviour
                             }
                         }
 
-                        // Fallback cuối: load từ Resources
                         if (designatedSource == null)
                         {
                             AudioClip clip = Resources.Load<AudioClip>("Audios/" + cast.audioId);
@@ -750,13 +900,8 @@ public class BandARSpawner : MonoBehaviour
                                 designatedSource = resSource;
                                 Debug.Log($"[BandARSpawner] Fallback Resources: đã load clip '{clip.name}' cho audioId: {cast.audioId}");
                             }
-                            else
-                            {
-                                Debug.LogWarning($"[BandARSpawner] Không tìm thấy AudioClip cho audioId '{cast.audioId}' qua AudioConfig, AudioSource trên instrument, hay Resources.");
-                            }
                         }
 
-                        // Tắt các AudioSource khác trên nhạc cụ (không phải designatedSource)
                         AudioSource[] allSourcesNow = instrumentObj.GetComponentsInChildren<AudioSource>(true);
                         foreach (var src in allSourcesNow)
                         {
@@ -772,7 +917,6 @@ public class BandARSpawner : MonoBehaviour
                 }
                 else
                 {
-                    // Không có instrument prefab: thử load audio từ Resources trực tiếp
                     AudioClip clip = Resources.Load<AudioClip>("Audios/" + cast.audioId);
                     if (clip == null) clip = Resources.Load<AudioClip>(cast.audioId);
                     if (clip != null)

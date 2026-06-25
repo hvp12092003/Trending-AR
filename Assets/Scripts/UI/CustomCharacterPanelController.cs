@@ -17,38 +17,13 @@ public class CustomCharacterPanelController : MonoBehaviour
     [Header("Panel Navigation")]
     [SerializeField] private Button backButton;
 
-    [Header("Tab Toggle Buttons")]
-    [SerializeField] private Button characterTabButton;
-    [SerializeField] private Button instrumentTabButton;
-    [SerializeField] private Button animationTabButton;
-
-    [Header("Tab Images & Text")]
+    [Header("Tab Title Text")]
     [SerializeField] private TextMeshProUGUI titleText; // "NAME", "INSTRUMENT", "ANIMATION"
-
-    [System.Serializable]
-    public struct TabSpriteGroup
-    {
-        public Sprite selectedSprite;
-        public Sprite unselectedSprite;
-    }
-
-    [Header("Tab Sprites")]
-    [SerializeField] private TabSpriteGroup characterTabSprites;
-    [SerializeField] private TabSpriteGroup instrumentTabSprites;
-    [SerializeField] private TabSpriteGroup animationTabSprites;
 
     [Header("ScrollView Containers")]
     [SerializeField] private GameObject characterScrollView;
     [SerializeField] private GameObject instrumentScrollView;
     [SerializeField] private GameObject animationScrollView;
-
-    [SerializeField] private Transform instrumentContent;
-    [SerializeField] private Transform animationContent;
-
-    [Header("Prefabs")]
-    [SerializeField] private GameObject audioRecordButtonPrefab;
-    [SerializeField] private GameObject audioPresetButtonPrefab;
-    [SerializeField] private GameObject animationButtonPrefab;
 
     [Header("Cast Panel Integration")]
     [SerializeField] private CastPanelController castPanelController;
@@ -62,19 +37,24 @@ public class CustomCharacterPanelController : MonoBehaviour
     [Header("Preview Settings")]
     [SerializeField] private Transform previewContainer;
 
-    [Header("Microphone Recording")]
-    [SerializeField] private Button micButton; // Nút ghi âm nổi bên phải
+    [Header("Recording Status")]
     [SerializeField] private TextMeshProUGUI recordingStatusText;
 
-    [Header("Action Buttons")]
-    [SerializeField] private Button actionButton; // Nút SELECT hoặc START ở dưới cùng
-    [SerializeField] private TextMeshProUGUI actionText;
+    [Header("Navigation Buttons")]
+    [Tooltip("Nút mũi tên TRÁI — về tab trước")]
+    [SerializeField] private Button prevButton;
+    [Tooltip("Nút mũi tên PHẢI — sang tab tiếp theo")]
+    [SerializeField] private Button nextButton;
+    [Tooltip("Nút START/SAVE ở tab Animation (chỉ hiện ở tab 3)")]
+    [SerializeField] private Button startButton;
+    [SerializeField] private TextMeshProUGUI startButtonText;
     [SerializeField] private Button skipButton; // Nút SKIP bỏ qua lưu và vào thẳng AR
 
+    [Header("Studio Popup")]
+    [SerializeField] private PopupStudio popupStudio;
 
-
-    private List<InstrumentPreset> instrumentPresets = new List<InstrumentPreset>();
-    private List<AnimationPreset> animationPresets = new List<AnimationPreset>();
+    [Header("Progress Bar")]
+    [SerializeField] private CustomProgressController progressController;
 
     // Trạng thái hiện tại của việc thiết kế nhân vật
     private string _selectedPrefabName;
@@ -95,48 +75,55 @@ public class CustomCharacterPanelController : MonoBehaviour
     {
         _isCharacterSaved = false;
         _savedCastData = null;
-        UpdateActionButtonText();
+        UpdateStartButtonText();
     }
 
-    private void UpdateActionButtonText()
+    /// <summary>
+    /// Cập nhật text của nút START:
+    /// - Chưa lưu → "SAVE"
+    /// - Đã lưu xong → "START"
+    /// </summary>
+    private void UpdateStartButtonText()
     {
-        if (actionText == null) return;
-        
-        if (_currentTab == CustomTab.Character || _currentTab == CustomTab.Instrument)
+        if (startButtonText == null) return;
+        startButtonText.text = _isCharacterSaved ? "START" : "SAVE";
+    }
+
+    /// <summary>
+    /// Cập nhật trạng thái hiển thị của thanh tiến trình (Process).
+    /// </summary>
+    private void UpdateProgressBar(bool animate = true)
+    {
+        if (progressController != null)
         {
-            actionText.text = "NEXT";
-        }
-        else if (_currentTab == CustomTab.Animation)
-        {
-            actionText.text = _isCharacterSaved ? "PLAY AR" : "SAVE";
+            bool hasChar = !string.IsNullOrEmpty(_selectedPrefabName);
+            bool hasInstrument = !string.IsNullOrEmpty(_selectedAudioId);
+            bool hasAnim = !string.IsNullOrEmpty(_selectedAnimationId);
+            progressController.SetProgress(hasChar, hasInstrument, hasAnim, animate);
         }
     }
 
-    // Ghi âm
-    private string _microphoneName;
-    private AudioClip _recordingClip;
-    private bool _isRecording = false;
-    private float _recordingStartTime;
-    private const int MaxRecordingDuration = 10; // Tối đa 10 giây
-    private string _customRecordingId; // Lưu ID của ghi âm tùy chỉnh trong phiên này
+    /// <summary>
+    /// Cập nhật hiển thị các nút điều hướng dựa theo tab hiện tại.
+    /// </summary>
+    private void UpdateNavigationButtons()
+    {
+        // prevButton: ẩn ở tab 1, hiện ở tab 2 và 3
+        if (prevButton != null)
+            prevButton.gameObject.SetActive(_currentTab != CustomTab.Character);
+
+        // nextButton: hiện ở tab 1 và 2, ẩn ở tab 3
+        if (nextButton != null)
+            nextButton.gameObject.SetActive(_currentTab != CustomTab.Animation);
+
+        // startButton: chỉ hiện ở tab 3
+        if (startButton != null)
+            startButton.gameObject.SetActive(_currentTab == CustomTab.Animation);
+
+        UpdateStartButtonText();
+    }
+
     private bool _shouldTransitionAfterSave = false; // Có chuyển scene sau khi lưu xong hay không
-
-
-
-    [System.Serializable]
-    public struct InstrumentPreset
-    {
-        public string displayName;
-        public string instrumentId;
-        public Sprite icon;
-    }
-
-    [System.Serializable]
-    public struct AnimationPreset
-    {
-        public string displayName;
-        public string animationId;
-    }
 
     [Header("Transition Settings")]
     [SerializeField] private float transitionDuration = 0.3f;
@@ -188,19 +175,17 @@ public class CustomCharacterPanelController : MonoBehaviour
         // Khởi tạo CanvasGroup và vị trí gốc cho các panel để phục vụ chuyển tab mượt mà
         InitCanvasGroups();
 
-        // Gán sự kiện cho các nút chuyển tab
-        if (characterTabButton != null) characterTabButton.onClick.AddListener(() => SwitchTab(CustomTab.Character, true));
-        if (instrumentTabButton != null) instrumentTabButton.onClick.AddListener(() => SwitchTab(CustomTab.Instrument, true));
-        if (animationTabButton != null) animationTabButton.onClick.AddListener(() => SwitchTab(CustomTab.Animation, true));
+
 
         // Nút BACK
         if (backButton != null) backButton.onClick.AddListener(ClosePanel);
 
-        // Nút Microphone
-        if (micButton != null) micButton.onClick.AddListener(OnMicButtonClicked);
+        // Nút điều hướng mũi tên
+        if (prevButton != null) prevButton.onClick.AddListener(OnPrevButtonClicked);
+        if (nextButton != null) nextButton.onClick.AddListener(OnNextButtonClicked);
 
-        // Nút SELECT/START
-        if (actionButton != null) actionButton.onClick.AddListener(OnActionButtonClicked);
+        // Nút START/SAVE
+        if (startButton != null) startButton.onClick.AddListener(OnStartButtonClicked);
 
         // Nút SKIP
         if (skipButton != null) skipButton.onClick.AddListener(OnSkipButtonClicked);
@@ -217,27 +202,17 @@ public class CustomCharacterPanelController : MonoBehaviour
                 {
                     AudioConfig config = selectedPrefab.GetComponent<AudioConfig>();
                     _selectedAudioId = (config != null && !string.IsNullOrEmpty(config.Name)) ? config.Name : selectedPrefab.name;
-                    
-                    // Hiện lại nút mic nổi vì đang chọn preset nhạc cụ
-                    if (micButton != null && _currentTab == CustomTab.Instrument)
-                    {
-                        micButton.gameObject.SetActive(true);
-                    }
                     MarkAsUnsaved();
                 }
                 SpawnInstrumentPreview(selectedPrefab);
+                UpdateProgressBar(true);
             };
             audioPanelController.OnCustomAudioSelected += (recordingId) =>
             {
                 _selectedAudioId = recordingId;
-                
-                // Giữ nút mic nổi hoạt động để báo đã có bản thu nếu người dùng nhấn ghi âm tiếp
-                if (micButton != null && _currentTab == CustomTab.Instrument)
-                {
-                    micButton.gameObject.SetActive(true);
-                }
                 MarkAsUnsaved();
                 SpawnInstrumentPreview(null);
+                UpdateProgressBar(true);
             };
         }
 
@@ -249,10 +224,19 @@ public class CustomCharacterPanelController : MonoBehaviour
                 if (characterPrefab != null)
                 {
                     _selectedPrefabName = characterPrefab.name;
+                    _selectedAudioId = "";
+                    _selectedAnimationId = "";
+
+                    // Reset trạng thái chọn của audio panel
+                    if (audioPanelController != null)
+                    {
+                        audioPanelController.SetCustomRecordingId(null);
+                        audioPanelController.SelectAudioById("");
+                    }
+
                     SpawnCharacterPreview(_selectedPrefabName);
-                    SelectDefaultAnimationForCurrentCharacter();
-                    PopulateAnimations();
                     MarkAsUnsaved();
+                    UpdateProgressBar(true);
                 }
             };
         }
@@ -265,29 +249,31 @@ public class CustomCharacterPanelController : MonoBehaviour
                 _selectedAnimationId = animId;
                 PlayPreviewAnimation(_selectedAnimationId);
                 MarkAsUnsaved();
+                UpdateProgressBar(true);
             };
         }
     }
 
     private void AutoAssignMissingReferences()
     {
-        if (actionButton == null)
+        if (startButton == null)
         {
-            actionButton = FindSceneComponentByName<Button>("Select Button", "Action Button", "Start Button");
-            if (actionButton == null)
-            {
-                Debug.LogWarning("[CustomCharacterPanelController] actionButton is not assigned and no Select Button was found in the scene.", this);
-            }
+            startButton = FindSceneComponentByName<Button>("Start Button", "StartButton", "Save Button");
         }
 
-        if (actionText == null && actionButton != null)
+        if (startButtonText == null && startButton != null)
         {
-            actionText = actionButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            startButtonText = startButton.GetComponentInChildren<TextMeshProUGUI>(true);
         }
 
-        if (micButton == null)
+        if (prevButton == null)
         {
-            micButton = FindSceneComponentByName<Button>("Record audio", "Record Audio", "Mic Button", "Microphone Button");
+            prevButton = FindSceneComponentByName<Button>("Prev Button", "PrevButton", "Back Arrow");
+        }
+
+        if (nextButton == null)
+        {
+            nextButton = FindSceneComponentByName<Button>("Next Button", "NextButton", "Forward Arrow");
         }
 
         if (uiCustome == null)
@@ -316,6 +302,11 @@ public class CustomCharacterPanelController : MonoBehaviour
             previewCamera = GameObject.Find("PreviewCamera");
             if (previewCamera == null) previewCamera = GameObject.Find("Preview Camera");
         }
+
+        if (popupStudio == null)
+        {
+            popupStudio = FindComponentInScene<PopupStudio>();
+        }
     }
 
     private void Start()
@@ -335,6 +326,9 @@ public class CustomCharacterPanelController : MonoBehaviour
         // Đảm bảo bật lại Preview Container và PreviewCamera khi Panel Creator hoạt động
         if (previewContainer != null) previewContainer.gameObject.SetActive(true);
         if (previewCamera != null) previewCamera.SetActive(true);
+
+        // Khởi tạo thanh tiến trình trạng thái hiện tại (không chạy hiệu ứng)
+        UpdateProgressBar(false);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -349,31 +343,17 @@ public class CustomCharacterPanelController : MonoBehaviour
         _currentTab = tab;
         _isFirstSwitch = false;
 
-        // 1. Cập nhật Sprite và hiệu ứng các nút Tab
-        UpdateTabButtonVisuals(characterTabButton, (tab == CustomTab.Character) ? characterTabSprites.selectedSprite : characterTabSprites.unselectedSprite, tab == CustomTab.Character, animate);
-        UpdateTabButtonVisuals(instrumentTabButton, (tab == CustomTab.Instrument) ? instrumentTabSprites.selectedSprite : instrumentTabSprites.unselectedSprite, tab == CustomTab.Instrument, animate);
-        UpdateTabButtonVisuals(animationTabButton, (tab == CustomTab.Animation) ? animationTabSprites.selectedSprite : animationTabSprites.unselectedSprite, tab == CustomTab.Animation, animate);
 
-        // 2. Cập nhật tiêu đề tương ứng với thiết kế Figma kèm hiệu ứng fade & scale nhẹ
+
+        // 2. Cập nhật tiêu đề theo đúng thiết kế: NAME / INSTRUMENT / ANIMATION
         if (titleText != null)
         {
-            string newTitle = "";
-            switch (tab)
+            string newTitle = tab switch
             {
-                case CustomTab.Character: newTitle = "CAST"; break;
-                case CustomTab.Instrument: newTitle = "INSTRUMENT"; break;
-                case CustomTab.Animation: 
-                    var config = GetSelectedCastConfig();
-                    if (config != null && !string.IsNullOrEmpty(config.Name))
-                    {
-                        newTitle = $"ANIMATION - {config.Name.ToUpper()} ({config.animations.Count})";
-                    }
-                    else
-                    {
-                        newTitle = "ANIMATION";
-                    }
-                    break;
-            }
+                CustomTab.Character  => "NAME",
+                CustomTab.Instrument => "INSTRUMENT",
+                _                    => "ANIMATION",
+            };
 
             if (titleText.text != newTitle)
             {
@@ -399,13 +379,8 @@ public class CustomCharacterPanelController : MonoBehaviour
         // 3. Bật/Tắt và di chuyển các ScrollView có hiệu ứng slide & fade
         AnimateTabTransition(oldTab, tab, animate);
 
-        if (micButton != null)
-        {
-            micButton.gameObject.SetActive(tab == CustomTab.Instrument);
-        }
-
-        // 5. Cập nhật nội dung Action Button
-        UpdateActionButtonText();
+        // 4. Cập nhật nút điều hướng (prev/next/start)
+        UpdateNavigationButtons();
 
         if (tab == CustomTab.Instrument)
         {
@@ -455,35 +430,6 @@ public class CustomCharacterPanelController : MonoBehaviour
         }
     }
 
-    private void UpdateTabButtonVisuals(Button button, Sprite targetSprite, bool isSelected, bool animate)
-    {
-        if (button != null && button.image != null)
-        {
-            button.image.sprite = targetSprite;
-        }
-
-        if (button != null)
-        {
-            if (animate)
-            {
-                button.transform.DOKill();
-                if (isSelected)
-                {
-                    button.transform.localScale = Vector3.one;
-                    button.transform.DOScale(1.1f, 0.2f).SetEase(Ease.OutQuad)
-                        .OnComplete(() => button.transform.DOScale(1.0f, 0.15f).SetEase(Ease.InQuad));
-                }
-                else
-                {
-                    button.transform.DOScale(1.0f, 0.2f).SetEase(Ease.OutQuad);
-                }
-            }
-            else
-            {
-                button.transform.localScale = Vector3.one;
-            }
-        }
-    }
 
     private void AnimateTabTransition(CustomTab oldTab, CustomTab newTab, bool animate)
     {
@@ -560,10 +506,6 @@ public class CustomCharacterPanelController : MonoBehaviour
             // Cập nhật trạng thái cho phép thu âm và ID đang chọn
             audioPanelController.EnableRecording = characterCanRecord;
 
-            // Đồng bộ bản ghi âm hiện có của nhân vật trong phiên này
-            string existingRecId = !string.IsNullOrEmpty(_customRecordingId) ? _customRecordingId : "";
-            audioPanelController.SetCustomRecordingId(existingRecId);
-
             audioPanelController.SelectAudioById(_selectedAudioId);
             audioPanelController.InitializePanel();
 
@@ -574,135 +516,12 @@ public class CustomCharacterPanelController : MonoBehaviour
             }
             else if (audioPanelController.SelectedAudioConfig != null)
             {
-                _selectedAudioId = !string.IsNullOrEmpty(audioPanelController.SelectedAudioConfig.Name) ? audioPanelController.SelectedAudioConfig.Name : audioPanelController.SelectedPrefab.name;
+                _selectedAudioId = !string.IsNullOrEmpty(audioPanelController.SelectedAudioConfig.Name)
+                    ? audioPanelController.SelectedAudioConfig.Name
+                    : audioPanelController.SelectedPrefab.name;
             }
         }
-        else
-        {
-            ClearChildren(instrumentContent);
-
-            bool characterCanRecord = true;
-
-            // Chỉ tạo nút bản thu âm đã ghi khi đã có ghi âm cho nhân vật
-            if (characterCanRecord && !string.IsNullOrEmpty(_customRecordingId))
-            {
-                GameObject obj = Instantiate(audioRecordButtonPrefab, instrumentContent);
-                var itemUI = obj.GetComponent<CustomAudioRecordItemUI>();
-                if (itemUI != null)
-                {
-                    Sprite audioSprite = null;
-                    if (micButton != null && micButton.image != null) audioSprite = micButton.image.sprite;
-                    itemUI.SetupRecordedItem("Record", audioSprite, () =>
-                    {
-                        _selectedAudioId = _customRecordingId;
-                        PreviewAudio(_selectedAudioId);
-                        UpdateSelectionVisuals(instrumentContent, _customRecordingId);
-                    }, () =>
-                    {
-                        DeleteCustomRecording(_customRecordingId);
-                    });
-                }
-            }
-
-            if (instrumentPresets.Count == 0)
-            {
-                instrumentPresets.Add(new InstrumentPreset { displayName = "Drum", instrumentId = "drum" });
-                instrumentPresets.Add(new InstrumentPreset { displayName = "Saxophone", instrumentId = "saxophone" });
-            }
-
-            foreach (var preset in instrumentPresets)
-            {
-                GameObject obj = Instantiate(audioPresetButtonPrefab, instrumentContent);
-                var itemUI = obj.GetComponent<CustomCharacterItemUI>();
-                if (itemUI != null)
-                {
-                    itemUI.Setup(preset.displayName, preset.icon, () =>
-                    {
-                        _selectedAudioId = preset.instrumentId;
-                        PreviewAudio(_selectedAudioId);
-                        UpdateSelectionVisuals(instrumentContent, preset.instrumentId);
-                    });
-                }
-                else
-                {
-                    Button standardBtn = obj.GetComponent<Button>();
-                    if (standardBtn != null)
-                    {
-                        standardBtn.onClick.RemoveAllListeners();
-                        standardBtn.onClick.AddListener(() =>
-                        {
-                            _selectedAudioId = preset.instrumentId;
-                            PreviewAudio(_selectedAudioId);
-                            UpdateSelectionVisuals(instrumentContent, preset.instrumentId);
-                        });
-
-                        var nameText = obj.GetComponentInChildren<TextMeshProUGUI>(true);
-                        if (nameText != null) nameText.text = preset.displayName;
-
-                        Image[] images = obj.GetComponentsInChildren<Image>(true);
-                        foreach (var img in images)
-                        {
-                            if (img.gameObject != obj)
-                            {
-                                img.sprite = preset.icon;
-                                img.gameObject.SetActive(preset.icon != null);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (!string.IsNullOrEmpty(_selectedAudioId))
-            {
-                UpdateSelectionVisuals(instrumentContent, _selectedAudioId);
-            }
-        }
-    }
-
-    private CastPrefab GetSelectedCastConfig()
-    {
-        CastPrefab config = null;
-        if (_previewInstance != null)
-        {
-            config = _previewInstance.GetComponent<CastPrefab>();
-        }
-
-        if (config == null && !string.IsNullOrEmpty(_selectedPrefabName))
-        {
-            GameObject prefab = GetCharacterPrefab(_selectedPrefabName);
-            if (prefab != null)
-            {
-                config = prefab.GetComponent<CastPrefab>();
-            }
-        }
-        return config;
-    }
-
-    private void SelectDefaultAnimationForCurrentCharacter()
-    {
-        if (animPanelController != null)
-        {
-            return;
-        }
-
-        CastPrefab config = GetSelectedCastConfig();
-        if (config != null && config.animations != null && config.animations.Count > 0)
-        {
-            if (config.animations[0].animation != null)
-            {
-                _selectedAnimationId = config.animations[0].animation.name;
-                PlayPreviewAnimation(_selectedAnimationId);
-            }
-        }
-        else
-        {
-            if (animationPresets.Count > 0)
-            {
-                _selectedAnimationId = animationPresets[0].animationId;
-                PlayPreviewAnimation(_selectedAnimationId);
-            }
-        }
+        UpdateProgressBar(true);
     }
 
     private void PopulateAnimations()
@@ -719,201 +538,7 @@ public class CustomCharacterPanelController : MonoBehaviour
                 PlayPreviewAnimation(_selectedAnimationId);
             }
         }
-        else
-        {
-            ClearChildren(animationContent);
-
-            CastPrefab config = GetSelectedCastConfig();
-
-            if (config != null && config.animations != null && config.animations.Count > 0)
-            {
-                foreach (var animInfo in config.animations)
-                {
-                    if (animInfo.animation == null) continue;
-
-                    GameObject obj = Instantiate(animationButtonPrefab, animationContent);
-                    var itemUI = obj.GetComponent<CustomCharacterItemUI>();
-                    if (itemUI != null)
-                    {
-                        string animId = animInfo.animation.name;
-                        Sprite animAvatar = animInfo.sprite;
-                        string animDisplayName = string.IsNullOrEmpty(animInfo.animName) ? animInfo.animation.name : animInfo.animName;
-
-                        itemUI.Setup(animDisplayName, animAvatar, () =>
-                        {
-                            _selectedAnimationId = animId;
-                            PlayPreviewAnimation(_selectedAnimationId);
-                            UpdateSelectionVisuals(animationContent, animDisplayName);
-                        });
-                    }
-                    else
-                    {
-                        string animId = animInfo.animation.name;
-                        Sprite animAvatar = animInfo.sprite;
-                        string animDisplayName = string.IsNullOrEmpty(animInfo.animName) ? animInfo.animation.name : animInfo.animName;
-
-                        Button standardBtn = obj.GetComponent<Button>();
-                        if (standardBtn != null)
-                        {
-                            standardBtn.onClick.RemoveAllListeners();
-                            standardBtn.onClick.AddListener(() =>
-                            {
-                                _selectedAnimationId = animId;
-                                PlayPreviewAnimation(_selectedAnimationId);
-                                UpdateSelectionVisuals(animationContent, animDisplayName);
-                            });
-
-                            var nameText = obj.GetComponentInChildren<TextMeshProUGUI>(true);
-                            if (nameText != null) nameText.text = animDisplayName;
-
-                            Image[] images = obj.GetComponentsInChildren<Image>(true);
-                            foreach (var img in images)
-                            {
-                                if (img.gameObject != obj)
-                                {
-                                    img.sprite = animAvatar;
-                                    img.gameObject.SetActive(animAvatar != null);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Chọn mặc định animation đầu tiên
-                if (config.animations.Count > 0 && config.animations[0].animation != null)
-                {
-                    string firstAnimId = config.animations[0].animation.name;
-                    string firstAnimDisplayName = string.IsNullOrEmpty(config.animations[0].animName) ? firstAnimId : config.animations[0].animName;
-                    _selectedAnimationId = firstAnimId;
-                    PlayPreviewAnimation(_selectedAnimationId);
-                    UpdateSelectionVisuals(animationContent, firstAnimDisplayName);
-                }
-            }
-            else
-            {
-                if (animationPresets.Count == 0)
-                {
-                    animationPresets.Add(new AnimationPreset { displayName = "Jump", animationId = "jump" });
-                    animationPresets.Add(new AnimationPreset { displayName = "Dance 1", animationId = "dance1" });
-                    animationPresets.Add(new AnimationPreset { displayName = "Dance 2", animationId = "dance2" });
-                }
-
-                foreach (var preset in animationPresets)
-                {
-                    GameObject obj = Instantiate(animationButtonPrefab, animationContent);
-                    var itemUI = obj.GetComponent<CustomCharacterItemUI>();
-                    if (itemUI != null)
-                    {
-                        itemUI.Setup(preset.displayName, null, () =>
-                        {
-                            _selectedAnimationId = preset.animationId;
-                            PlayPreviewAnimation(_selectedAnimationId);
-                            UpdateSelectionVisuals(animationContent, preset.displayName);
-                        });
-                    }
-                    else
-                    {
-                        Button standardBtn = obj.GetComponent<Button>();
-                        if (standardBtn != null)
-                        {
-                            standardBtn.onClick.RemoveAllListeners();
-                            standardBtn.onClick.AddListener(() =>
-                            {
-                                _selectedAnimationId = preset.animationId;
-                                PlayPreviewAnimation(_selectedAnimationId);
-                                UpdateSelectionVisuals(animationContent, preset.displayName);
-                            });
-
-                            var nameText = obj.GetComponentInChildren<TextMeshProUGUI>(true);
-                            if (nameText != null) nameText.text = preset.displayName;
-
-                            Image[] images = obj.GetComponentsInChildren<Image>(true);
-                            foreach (var img in images)
-                            {
-                                if (img.gameObject != obj)
-                                {
-                                    img.gameObject.SetActive(false);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (animationPresets.Count > 0)
-                {
-                    _selectedAnimationId = animationPresets[0].animationId;
-                    PlayPreviewAnimation(_selectedAnimationId);
-                    UpdateSelectionVisuals(animationContent, animationPresets[0].displayName);
-                }
-            }
-        }
-    }
-
-    private void UpdateSelectionVisuals(Transform container, string targetId)
-    {
-        foreach (Transform child in container)
-        {
-            var itemUI = child.GetComponent<CustomCharacterItemUI>();
-            if (itemUI != null)
-            {
-                // So sánh tên hiển thị hoặc ID hoặc ItemId để highlight
-                bool isSelected = itemUI.GetTitle() == targetId || itemUI.GetTitle().Equals(targetId, StringComparison.OrdinalIgnoreCase) || itemUI.ItemId == targetId;
-                
-                // Hỗ trợ thêm việc so sánh với _selectedAnimationId (tên clip thực tế)
-                if (!isSelected && container == animationContent)
-                {
-                    isSelected = _selectedAnimationId == itemUI.ItemId || _selectedAnimationId == itemUI.GetTitle();
-                }
-
-                // Fallback nếu targetId là ID nhạc cụ/hoạt ảnh thay vì tên hiển thị
-                if (targetId.StartsWith("rec_"))
-                {
-                    isSelected = itemUI.GetTitle().Contains(targetId) || _selectedAudioId == targetId;
-                }
-
-                itemUI.SetSelected(isSelected);
-            }
-            else
-            {
-                var recordItemUI = child.GetComponent<CustomAudioRecordItemUI>();
-                if (recordItemUI != null)
-                {
-                    // So sánh tên hiển thị hoặc ID hoặc ItemId để highlight
-                    bool isSelected = recordItemUI.GetTitle() == targetId || recordItemUI.GetTitle().Equals(targetId, StringComparison.OrdinalIgnoreCase) || recordItemUI.ItemId == targetId;
-                    
-                    // Fallback nếu targetId là ID nhạc cụ/hoạt ảnh thay vì tên hiển thị
-                    if (targetId.StartsWith("rec_"))
-                    {
-                        isSelected = recordItemUI.GetTitle().Contains(targetId) || _selectedAudioId == targetId;
-                    }
-
-                    recordItemUI.SetSelected(isSelected);
-                }
-                else
-                {
-                    Button standardBtn = child.GetComponent<Button>();
-                    if (standardBtn != null)
-                    {
-                        var nameText = child.GetComponentInChildren<TextMeshProUGUI>(true);
-                        string nameVal = nameText != null ? nameText.text : "";
-                        bool isSelected = nameVal == targetId || nameVal.Equals(targetId, StringComparison.OrdinalIgnoreCase);
-
-                        if (!isSelected && container == animationContent)
-                        {
-                            isSelected = _selectedAnimationId == nameVal;
-                        }
-
-                        Image btnImage = standardBtn.image != null ? standardBtn.image : standardBtn.GetComponent<Image>();
-                        if (btnImage != null)
-                        {
-                            btnImage.color = isSelected ? new Color(0.7f, 0.7f, 0.7f, 1f) : Color.white;
-                        }
-                    }
-                }
-            }
-        }
+        UpdateProgressBar(true);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1205,360 +830,7 @@ public class CustomCharacterPanelController : MonoBehaviour
     // Ghi âm âm thanh (Microphone) & Lưu Cục Bộ
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void OnMicButtonClicked()
-    {
-        string currentRecording = !string.IsNullOrEmpty(_customRecordingId) ? _customRecordingId : (audioPanelController != null ? audioPanelController.SelectedCustomAudioId : "");
-        if (!string.IsNullOrEmpty(currentRecording))
-        {
-            if (recordingStatusText != null)
-            {
-                recordingStatusText.text = "Đã có bản ghi âm cho nhân vật. Vui lòng xóa đi để ghi âm lại!";
-                recordingStatusText.gameObject.SetActive(true);
-                Invoke("HideRecordingStatus", 3.0f);
-            }
-            return;
-        }
 
-        if (_isRecording)
-        {
-            StopRecording();
-        }
-        else
-        {
-            StartFloatingRecording();
-        }
-    }
-
-    private void StartFloatingRecording()
-    {
-#if UNITY_ANDROID && !UNITY_EDITOR
-        if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Microphone))
-        {
-            UnityEngine.Android.Permission.RequestUserPermission(UnityEngine.Android.Permission.Microphone);
-            return;
-        }
-#endif
-
-        if (Microphone.devices.Length == 0)
-        {
-            Debug.LogError("[CustomCharacterPanel] Không tìm thấy thiết bị Microphone nào!");
-            if (recordingStatusText != null)
-            {
-                recordingStatusText.text = "No Microphone Found!";
-                recordingStatusText.gameObject.SetActive(true);
-                Invoke("HideRecordingStatus", 2f);
-            }
-            return;
-        }
-
-        // Tắt tiếng đang phát thử nếu có
-        if (_previewAudioSource != null)
-        {
-            _previewAudioSource.Stop();
-        }
-
-        // Thử dừng AudioSource trên AudioPanelController nếu có
-        if (audioPanelController != null)
-        {
-            var otherAudioSource = audioPanelController.GetComponent<AudioSource>();
-            if (otherAudioSource != null)
-            {
-                otherAudioSource.Stop();
-            }
-        }
-
-        _microphoneName = Microphone.devices[0];
-        _recordingClip = Microphone.Start(_microphoneName, false, MaxRecordingDuration, 44100);
-        _isRecording = true;
-        _recordingStartTime = Time.time;
-
-        if (recordingStatusText != null)
-        {
-            recordingStatusText.text = "Recording: 0s";
-            recordingStatusText.gameObject.SetActive(true);
-        }
-
-        SetPanelInteractive(false);
-
-        StartCoroutine(FloatingRecordingRoutine());
-    }
-
-    private IEnumerator FloatingRecordingRoutine()
-    {
-        float duration = (float)MaxRecordingDuration;
-        float elapsed = 0f;
-
-        while (elapsed < duration && _isRecording)
-        {
-            yield return null;
-            elapsed = Time.time - _recordingStartTime;
-
-            if (recordingStatusText != null)
-            {
-                recordingStatusText.text = $"Recording: {(int)elapsed}s";
-            }
-        }
-
-        if (_isRecording)
-        {
-            StopRecording();
-        }
-    }
-
-    private void StartScrollViewRecording(CustomAudioRecordItemUI recordItem)
-    {
-#if UNITY_ANDROID && !UNITY_EDITOR
-        if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Microphone))
-        {
-            UnityEngine.Android.Permission.RequestUserPermission(UnityEngine.Android.Permission.Microphone);
-            return;
-        }
-#endif
-
-        if (Microphone.devices.Length == 0)
-        {
-            Debug.LogError("[CustomCharacterPanel] Không tìm thấy thiết bị Microphone nào!");
-            if (recordingStatusText != null)
-            {
-                recordingStatusText.text = "No Microphone Found!";
-                recordingStatusText.gameObject.SetActive(true);
-                Invoke("HideRecordingStatus", 2f);
-            }
-            return;
-        }
-
-        _microphoneName = Microphone.devices[0];
-        // Bắt đầu thu âm mono tần số 44.1kHz, kéo dài tối đa 10s
-        _recordingClip = Microphone.Start(_microphoneName, false, MaxRecordingDuration, 44100);
-        _isRecording = true;
-        _recordingStartTime = Time.time;
-
-        if (recordingStatusText != null)
-        {
-            recordingStatusText.text = "Recording: 0s";
-            recordingStatusText.gameObject.SetActive(true);
-        }
-
-        // Vô hiệu hóa tương tác các nút khác trong khi ghi âm
-        SetPanelInteractive(false);
-
-        // Chạy hiệu ứng đếm ngược 360 độ radial fill và viền đỏ
-        StartCoroutine(ScrollViewRecordingRoutine(recordItem));
-    }
-
-    private void SetPanelInteractive(bool interactive)
-    {
-        if (backButton != null) backButton.interactable = interactive;
-        if (characterTabButton != null) characterTabButton.interactable = interactive;
-        if (instrumentTabButton != null) instrumentTabButton.interactable = interactive;
-        if (animationTabButton != null) animationTabButton.interactable = interactive;
-        if (actionButton != null) actionButton.interactable = interactive;
-        if (skipButton != null) skipButton.interactable = interactive;
-    }
-
-    private IEnumerator ScrollViewRecordingRoutine(CustomAudioRecordItemUI recordItem)
-    {
-        float duration = (float)MaxRecordingDuration;
-        float elapsed = 0f;
-
-        recordItem.SetRecordingState(true);
-
-        while (elapsed < duration)
-        {
-            yield return null;
-            elapsed = Time.time - _recordingStartTime;
-            float progress = Mathf.Clamp01(elapsed / duration);
-
-            recordItem.SetRadialFill(progress);
-
-            if (recordingStatusText != null)
-            {
-                recordingStatusText.text = $"Recording: {(int)elapsed}s";
-            }
-        }
-
-        recordItem.SetRadialFill(1f);
-        recordItem.SetRecordingState(false);
-
-        // Dừng ghi âm và lưu dữ liệu
-        StopRecording();
-    }
-
-    private async void StopRecording()
-    {
-        if (!_isRecording) return;
-
-        int lastSamplePos = Microphone.GetPosition(_microphoneName);
-        Microphone.End(_microphoneName);
-        _isRecording = false;
-
-        // Bật lại các tương tác của panel
-        SetPanelInteractive(true);
-
-        if (recordingStatusText != null)
-        {
-            recordingStatusText.text = "Processing...";
-        }
-
-        if (lastSamplePos <= 0)
-        {
-            Debug.LogWarning("[CustomCharacterPanel] Ghi âm trống!");
-            if (recordingStatusText != null) recordingStatusText.gameObject.SetActive(false);
-            if (_recordingClip != null) Destroy(_recordingClip);
-            PopulateInstruments(); // Refresh lại UI về trạng thái chưa ghi âm
-            return;
-        }
-
-        // Tạo clip mới khớp với độ dài thực tế đã thu âm
-        int channels = _recordingClip.channels;
-        int frequency = _recordingClip.frequency;
-        float[] samples = new float[lastSamplePos * channels];
-        _recordingClip.GetData(samples, 0);
-
-        AudioClip trimmedClip = AudioClip.Create("TempTrimmed", lastSamplePos, channels, frequency, false);
-        trimmedClip.SetData(samples, 0);
-
-        // Chuyển đổi sang file WAV nhị phân hoàn toàn trong bộ nhớ RAM
-        byte[] wavBytes = WavUtility.FromAudioClip(trimmedClip);
-
-        // Hủy clip ghi âm ngay lập tức để tránh rò rỉ RAM trong Unity
-        Destroy(_recordingClip);
-        Destroy(trimmedClip);
-
-        if (wavBytes == null)
-        {
-            Debug.LogError("[CustomCharacterPanel] Lỗi mã hóa WAV bytes!");
-            if (recordingStatusText != null) recordingStatusText.gameObject.SetActive(false);
-            PopulateInstruments();
-            return;
-        }
-
-        // --- MÃ HÓA AES ---
-        byte[] encryptedBytes;
-        try
-        {
-            encryptedBytes = AudioEncryption.Encrypt(wavBytes);
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError("[CustomCharacterPanel] Lỗi mã hóa âm thanh: " + ex.Message);
-            encryptedBytes = wavBytes; // Fallback
-        }
-
-        // Mã hóa Base64 để gửi lên Firestore
-        string base64 = Convert.ToBase64String(encryptedBytes);
-        wavBytes = null;
-        encryptedBytes = null;
-
-        string recId = "rec_" + DateTime.UtcNow.Ticks;
-        string recName = "Rec " + DateTime.Now.ToString("HH:mm:ss");
-
-        if (recordingStatusText != null)
-        {
-            recordingStatusText.text = "Saving...";
-        }
-
-        // Upload dữ liệu Base64 lên Firestore
-        bool success = await MainMenuDataManager.Instance.SaveRecordingAsync(recId, recName, base64);
-
-        base64 = null; // Giải phóng chuỗi Base64
-        GC.Collect();  // Gọi Garbage Collector dọn dẹp bộ nhớ RAM lập tức
-
-        if (success)
-        {
-            if (recordingStatusText != null) recordingStatusText.text = "Saved!";
-            
-            // Lưu lại ID bản ghi âm tùy chỉnh trong phiên này
-            _customRecordingId = recId;
-            _selectedAudioId = recId;
-
-            // Đồng bộ sang AudioPanelController nếu có
-            if (audioPanelController != null)
-            {
-                audioPanelController.SetCustomRecordingId(recId);
-                audioPanelController.SelectAudioById(recId);
-            }
-
-            PopulateInstruments(); // Refresh danh sách (sẽ hiển thị thẻ đã thu và ẩn nút Record)
-            
-            // Hiện lại nút mic nổi
-            if (micButton != null && _currentTab == CustomTab.Instrument) micButton.gameObject.SetActive(true);
-            MarkAsUnsaved();
-        }
-        else
-        {
-            if (recordingStatusText != null) recordingStatusText.text = "Upload Failed!";
-            PopulateInstruments();
-        }
-
-        Invoke("HideRecordingStatus", 2.0f);
-    }
-
-    private async void DeleteCustomRecording(string recordingId)
-    {
-        if (string.IsNullOrEmpty(recordingId)) return;
-
-        if (recordingStatusText != null)
-        {
-            recordingStatusText.text = "Deleting recording...";
-            recordingStatusText.gameObject.SetActive(true);
-        }
-
-        bool success = await MainMenuDataManager.Instance.DeleteRecordingAsync(recordingId);
-
-        if (success)
-        {
-            if (recordingStatusText != null) recordingStatusText.text = "Deleted!";
-            
-            _customRecordingId = null;
-
-            // Nếu âm thanh đang chọn là bản ghi âm bị xóa, đổi về nhạc cụ mặc định đầu tiên
-            if (_selectedAudioId == recordingId)
-            {
-                if (instrumentPresets.Count > 0)
-                {
-                    _selectedAudioId = instrumentPresets[0].instrumentId;
-                }
-                else
-                {
-                    _selectedAudioId = "";
-                }
-            }
-
-            // Đồng bộ sang AudioPanelController nếu có
-            if (audioPanelController != null)
-            {
-                audioPanelController.SetCustomRecordingId(null);
-                audioPanelController.SelectAudioById(_selectedAudioId);
-            }
-
-            PopulateInstruments(); // Tải lại danh sách
-            
-            // Hiện lại nút Microphone nổi
-            if (micButton != null && _currentTab == CustomTab.Instrument)
-            {
-                micButton.gameObject.SetActive(true);
-            }
-            MarkAsUnsaved();
-        }
-        else
-        {
-            if (recordingStatusText != null) recordingStatusText.text = "Delete Failed!";
-            PopulateInstruments();
-        }
-
-        Invoke("HideRecordingStatus", 1.5f);
-    }
-
-    private void DeleteCustomRecordingSilently(string recordingId)
-    {
-        if (string.IsNullOrEmpty(recordingId)) return;
-        _ = MainMenuDataManager.Instance.DeleteRecordingAsync(recordingId);
-        if (_customRecordingId == recordingId)
-        {
-            _customRecordingId = null;
-        }
-    }
 
     private void HideRecordingStatus()
     {
@@ -1658,13 +930,26 @@ public class CustomCharacterPanelController : MonoBehaviour
         MainMenuDataManager dataManager = GetOrCreateMainMenuDataManager();
         if (dataManager != null && dataManager.GetSavedCastsCount() >= 7)
         {
-            if (recordingStatusText != null)
+            if (popupStudio != null)
             {
-                recordingStatusText.text = "Limit of 7 characters reached. Please delete an old character in Studio to save a new one!";
-                recordingStatusText.gameObject.SetActive(true);
+                popupStudio.OnCancel -= OnPopupCancel;
+                popupStudio.OnStart -= OnPopupStart;
+
+                popupStudio.OnCancel += OnPopupCancel;
+                popupStudio.OnStart += OnPopupStart;
+
+                popupStudio.OpenPopup();
             }
-            Debug.LogWarning("[CustomCharacterPanel] Limit of 7 characters reached. Cannot save character.");
-            Invoke("HideRecordingStatus", 4f);
+            else
+            {
+                if (recordingStatusText != null)
+                {
+                    recordingStatusText.text = "Limit of 7 characters reached. Please delete an old character in Studio to save a new one!";
+                    recordingStatusText.gameObject.SetActive(true);
+                }
+                Debug.LogWarning("[CustomCharacterPanel] Limit of 7 characters reached and popupStudio is null.");
+                Invoke("HideRecordingStatus", 4f);
+            }
             return false;
         }
 
@@ -1730,29 +1015,16 @@ public class CustomCharacterPanelController : MonoBehaviour
         {
             _isCharacterSaved = true;
             _savedCastData = savedCast;
-            UpdateActionButtonText();
+            UpdateStartButtonText(); // text đổi thành "START" sau khi lưu xong
 
             // Tự động xóa bản ghi âm dư thừa nếu không chọn nó làm âm thanh chính của nhân vật
-            string recordedId = "";
             if (audioPanelController != null)
             {
-                recordedId = audioPanelController.TempRecordedAudioId;
-            }
-            else
-            {
-                recordedId = _customRecordingId;
-            }
-
-            if (!string.IsNullOrEmpty(recordedId) && _selectedAudioId != recordedId)
-            {
-                Debug.Log($"[SaveCharacter] Tự động xóa bản ghi âm không chọn: {recordedId}");
-                if (audioPanelController != null)
+                string recordedId = audioPanelController.TempRecordedAudioId;
+                if (!string.IsNullOrEmpty(recordedId) && _selectedAudioId != recordedId)
                 {
+                    Debug.Log($"[SaveCharacter] Tự động xóa bản ghi âm không chọn: {recordedId}");
                     audioPanelController.DeleteCustomRecordingSilently(recordedId);
-                }
-                else
-                {
-                    DeleteCustomRecordingSilently(recordedId);
                 }
             }
         }
@@ -1795,41 +1067,57 @@ public class CustomCharacterPanelController : MonoBehaviour
     // Chuyển Scene AR/Non-AR theo cấu hình ARCore
     // ─────────────────────────────────────────────────────────────────────────
 
-    private async void OnActionButtonClicked()
+    // ─────────────────────────────────────────────────────────────────────────
+    // Điều hướng bằng mũi tên Trái / Phải / START
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void OnPrevButtonClicked()
     {
-        if (_currentTab == CustomTab.Character)
+        switch (_currentTab)
         {
-            SwitchTab(CustomTab.Instrument, true);
+            case CustomTab.Instrument: SwitchTab(CustomTab.Character, true); break;
+            case CustomTab.Animation:  SwitchTab(CustomTab.Instrument, true); break;
         }
-        else if (_currentTab == CustomTab.Instrument)
+    }
+
+    private void OnNextButtonClicked()
+    {
+        switch (_currentTab)
         {
-            SwitchTab(CustomTab.Animation, true);
+            case CustomTab.Character:  SwitchTab(CustomTab.Instrument, true); break;
+            case CustomTab.Instrument: SwitchTab(CustomTab.Animation, true); break;
         }
-        else if (_currentTab == CustomTab.Animation)
+    }
+
+    /// <summary>
+    /// Nút START / SAVE ở tab Animation:
+    /// - Chưa lưu → thực hiện SAVE, đổi text thành START
+    /// - Đã lưu → chuyển sang AR
+    /// </summary>
+    private async void OnStartButtonClicked()
+    {
+        if (_isCharacterSaved)
         {
-            if (_isCharacterSaved)
+            // Đã lưu thành công → START: vào AR
+            if (_savedCastData == null)
             {
-                // Nếu đã lưu thành công rồi, bấm nút này sẽ chuyển qua PLAY AR
-                if (_savedCastData == null)
+                MainMenuDataManager dataManager = GetOrCreateMainMenuDataManager();
+                if (dataManager != null)
                 {
-                    MainMenuDataManager dataManager = GetOrCreateMainMenuDataManager();
-                    if (dataManager != null)
-                    {
-                        _savedCastData = dataManager.CreateCastDataFromPrefabName(_selectedPrefabName, _selectedAudioId, _selectedAnimationId);
-                    }
+                    _savedCastData = dataManager.CreateCastDataFromPrefabName(_selectedPrefabName, _selectedAudioId, _selectedAnimationId);
                 }
-                
-                // Vào chế độ Custom Character: clear Band Mode selection
-                BandSelectionManager.ClearSelection();
-                
-                StartCoroutine(CheckARCoreAndTransition(_savedCastData));
             }
-            else
-            {
-                // Nếu chưa lưu, bấm nút này sẽ thực hiện SAVE
-                _shouldTransitionAfterSave = false;
-                await SaveCharacter();
-            }
+
+            // Vào chế độ Custom Character: clear Band Mode selection
+            BandSelectionManager.ClearSelection();
+            StartCoroutine(CheckARCoreAndTransition(_savedCastData));
+        }
+        else
+        {
+            // Chưa lưu → SAVE
+            _shouldTransitionAfterSave = false;
+            await SaveCharacter();
+            // UpdateStartButtonText() đã được gọi trong SaveCharacter → _isCharacterSaved = true
         }
     }
 
@@ -2152,5 +1440,33 @@ public class CustomCharacterPanelController : MonoBehaviour
                component.gameObject != null &&
                component.gameObject.scene.IsValid() &&
                !string.IsNullOrEmpty(component.gameObject.scene.name);
+    }
+
+    private async void OnPopupStart()
+    {
+        if (popupStudio != null)
+        {
+            popupStudio.OnCancel -= OnPopupCancel;
+            popupStudio.OnStart -= OnPopupStart;
+        }
+
+        Debug.Log("[CustomCharacterPanel] Nhấn Start từ Popup Studio. Tiến hành lưu tiếp...");
+        bool success = await SaveCharacter();
+        if (success && _isCharacterSaved && _savedCastData != null)
+        {
+            // Tự động chuyển cảnh sau khi lưu thành công
+            BandSelectionManager.ClearSelection();
+            StartCoroutine(CheckARCoreAndTransition(_savedCastData));
+        }
+    }
+
+    private void OnPopupCancel()
+    {
+        if (popupStudio != null)
+        {
+            popupStudio.OnCancel -= OnPopupCancel;
+            popupStudio.OnStart -= OnPopupStart;
+        }
+        Debug.Log("[CustomCharacterPanel] Người dùng đóng popup và hủy lưu.");
     }
 }

@@ -105,6 +105,7 @@ public class CastPanelController : MonoBehaviour
             // 1. Lấy thông tin từ prefab nhân vật
             CastPrefab config = prefab.GetComponent<CastPrefab>();
             string displayName = (config != null && !string.IsNullOrEmpty(config.Name)) ? config.Name : prefab.name;
+            string category = (config != null && !string.IsNullOrEmpty(config.Category)) ? config.Category : null;
             Sprite avatar = (config != null) ? config.characterAvatar : null;
 
             // Nếu avatar trên prefab trống, thử lấy từ danh sách avatarSprites hoặc load Resources
@@ -121,7 +122,7 @@ public class CastPanelController : MonoBehaviour
             buttonObj.name = $"Btn_Character_{displayName}";
 
             // 3. Thiết lập logic và hiển thị cho nút dựa trên Component có sẵn
-            SetupButtonComponent(buttonObj, prefab, displayName, avatar, i);
+            SetupButtonComponent(buttonObj, prefab, displayName, avatar, i, category);
         }
 
         // Tự động chọn nhân vật đầu tiên nếu được cấu hình
@@ -187,13 +188,13 @@ public class CastPanelController : MonoBehaviour
     /// <summary>
     /// Thiết lập hiển thị và gán sự kiện click cho nút bấm.
     /// </summary>
-    private void SetupButtonComponent(GameObject buttonObj, GameObject prefab, string displayName, Sprite avatar, int index)
+    private void SetupButtonComponent(GameObject buttonObj, GameObject prefab, string displayName, Sprite avatar, int index, string subtitle = null)
     {
         // TH 1: Nút sử dụng CustomCharacterItemUI
         var customUI = buttonObj.GetComponent<CustomCharacterItemUI>();
         if (customUI != null)
         {
-            customUI.Setup(displayName, avatar, () => SelectCharacter(index));
+            customUI.Setup(displayName, avatar, () => SelectCharacter(index), subtitle);
             return;
         }
 

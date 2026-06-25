@@ -173,7 +173,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioConfig
   Name: CatBoombox
-  avatar: {fileID: 0}
+  avatar: {fileID: 21300000, guid: 5496759275b8fc34792bd6dc8d103cae, type: 3}
   audioSource: {fileID: 5474914411561571343}
 --- !u!82 &5474914411561571343
 AudioSource:

@@ -16,6 +16,9 @@ public class CastButtonUI : MonoBehaviour
     [Tooltip("Text hiển thị tên nhân vật")]
     [SerializeField] private TextMeshProUGUI nameText;
 
+    [Tooltip("Ảnh hiển thị nhạc cụ đi kèm")]
+    [SerializeField] private Image instrumentImage;
+
     [Header("Interactivity")]
     [Tooltip("Nút bấm chính để chọn cast này")]
     [SerializeField] private Button button;
@@ -75,6 +78,28 @@ public class CastButtonUI : MonoBehaviour
                 avatarImage.enabled = false;
             }
         }
+
+        // Cập nhật hiển thị nhạc cụ đi kèm
+        if (instrumentImage != null)
+        {
+            if (Cast != null && MainMenuDataManager.Instance != null)
+            {
+                Sprite instrumentSprite = MainMenuDataManager.Instance.GetInstrumentAvatarSprite(Cast.audioId);
+                if (instrumentSprite != null)
+                {
+                    instrumentImage.sprite = instrumentSprite;
+                    instrumentImage.gameObject.SetActive(true);
+                }
+                else
+                {
+                    instrumentImage.gameObject.SetActive(false);
+                }
+            }
+            else
+            {
+                instrumentImage.gameObject.SetActive(false);
+            }
+        }
     }
 
     /// <summary>
@@ -113,3 +138,4 @@ public class CastButtonUI : MonoBehaviour
         // Bạn có thể kích hoạt event hoặc gọi sang CharacterManager khi bấm vào nút này ở đây.
     }
 }
+

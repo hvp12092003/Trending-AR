@@ -173,7 +173,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioConfig
   Name: DragonSpeaker
-  avatar: {fileID: 0}
+  avatar: {fileID: 21300000, guid: 158bad196443833469a5d3804f26aed0, type: 3}
   audioSource: {fileID: 6576840008075566714}
 --- !u!82 &6576840008075566714
 AudioSource:

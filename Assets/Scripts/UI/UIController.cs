@@ -26,6 +26,8 @@ public class UIController : MonoBehaviour
 
     // Lưu trữ trạng thái active của các đối tượng trước khi ẩn
     private Dictionary<GameObject, bool> m_UiActiveStates = new Dictionary<GameObject, bool>();
+    // Lưu trữ scale ban đầu của các đối tượng trước khi ẩn/hiện
+    private Dictionary<GameObject, Vector3> m_UiOriginalScales = new Dictionary<GameObject, Vector3>();
     private Image m_FadeOverlay;
 
     private void Start()
@@ -247,6 +249,12 @@ public class UIController : MonoBehaviour
                 continue;
             }
 
+            // Lưu scale ban đầu nếu chưa lưu (chỉ lưu 1 lần duy nhất để giữ đúng scale gốc)
+            if (!m_UiOriginalScales.ContainsKey(uiObj))
+            {
+                m_UiOriginalScales[uiObj] = uiObj.transform.localScale;
+            }
+
             // Lưu trạng thái hoạt động hiện tại
             m_UiActiveStates[uiObj] = uiObj.activeSelf;
             
@@ -269,8 +277,9 @@ public class UIController : MonoBehaviour
                     cg.blocksRaycasts = false;
 
                     GameObject targetObj = uiObj; // Tránh closure scope variable modification
+                    Vector3 targetScale = m_UiOriginalScales[uiObj] * 0.95f; // Thu nhỏ 5% scale gốc
                     cg.DOFade(0f, uiFadeDuration).SetEase(uiFadeEase);
-                    uiObj.transform.DOScale(0.95f, uiFadeDuration).SetEase(uiFadeEase).OnComplete(() =>
+                    uiObj.transform.DOScale(targetScale, uiFadeDuration).SetEase(uiFadeEase).OnComplete(() =>
                     {
                         targetObj.SetActive(false);
                     });
@@ -372,6 +381,18 @@ public class UIController : MonoBehaviour
                 continue;
             }
 
+            // Lấy scale ban đầu của đối tượng (hoặc lưu lại nếu chưa có)
+            Vector3 originalScale = Vector3.one;
+            if (m_UiOriginalScales.TryGetValue(uiObj, out Vector3 savedScale))
+            {
+                originalScale = savedScale;
+            }
+            else
+            {
+                originalScale = uiObj.transform.localScale;
+                m_UiOriginalScales[uiObj] = originalScale;
+            }
+
             if (m_UiActiveStates.TryGetValue(uiObj, out bool wasActive))
             {
                 if (wasActive)
@@ -379,6 +400,7 @@ public class UIController : MonoBehaviour
                     if (useBlackScreenTransition)
                     {
                         uiObj.SetActive(true);
+                        uiObj.transform.localScale = originalScale; // Khôi phục đúng scale gốc
                     }
                     else
                     {
@@ -392,10 +414,12 @@ public class UIController : MonoBehaviour
                         cg.interactable = false;
                         cg.blocksRaycasts = false;
                         cg.alpha = 0f;
-                        uiObj.transform.localScale = Vector3.one * 0.95f;
+                        // Bắt đầu từ 95% của scale gốc
+                        uiObj.transform.localScale = originalScale * 0.95f;
 
                         cg.DOFade(1f, uiFadeDuration).SetEase(uiFadeEase);
-                        uiObj.transform.DOScale(1f, uiFadeDuration + 0.1f).SetEase(uiShowEase).OnComplete(() =>
+                        // Scale về đúng scale gốc thay vì Vector3.one cứng nhắc
+                        uiObj.transform.DOScale(originalScale, uiFadeDuration + 0.1f).SetEase(uiShowEase).OnComplete(() =>
                         {
                             cg.interactable = true;
                             cg.blocksRaycasts = true;
@@ -409,10 +433,11 @@ public class UIController : MonoBehaviour
             }
             else
             {
-                // Mặc định bật nếu không lưu trạng thái
+                // Mặc định bật nếu không lưu trạng thái trước đó
                 if (useBlackScreenTransition)
                 {
                     uiObj.SetActive(true);
+                    uiObj.transform.localScale = originalScale; // Khôi phục đúng scale gốc
                 }
                 else
                 {
@@ -425,10 +450,12 @@ public class UIController : MonoBehaviour
                     cg.interactable = false;
                     cg.blocksRaycasts = false;
                     cg.alpha = 0f;
-                    uiObj.transform.localScale = Vector3.one * 0.95f;
+                    // Bắt đầu từ 95% của scale gốc
+                    uiObj.transform.localScale = originalScale * 0.95f;
 
                     cg.DOFade(1f, uiFadeDuration).SetEase(uiFadeEase);
-                    uiObj.transform.DOScale(1f, uiFadeDuration + 0.1f).SetEase(uiShowEase).OnComplete(() =>
+                    // Scale về đúng scale gốc thay vì Vector3.one cứng nhắc
+                    uiObj.transform.DOScale(originalScale, uiFadeDuration + 0.1f).SetEase(uiShowEase).OnComplete(() =>
                     {
                         cg.interactable = true;
                         cg.blocksRaycasts = true;

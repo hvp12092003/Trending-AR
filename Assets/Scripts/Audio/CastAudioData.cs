@@ -13,6 +13,15 @@ public class CastAudioData : MonoBehaviour
     [Tooltip("AudioSource đã được cấu hình sẵn AudioClip, chưa phát. Sẽ được BandARSpawner gán vào.")]
     public AudioSource preparedSource;
 
+    [Tooltip("Nếu tích chọn, âm lượng của nhân vật này sẽ nhỏ lại khi có nhân vật khác cùng được thả ra AR")]
+    public bool reduceVolumeWhenTogether = true;
+
+    [Tooltip("Mức độ giảm âm lượng khi chơi chung (Ví dụ: 0.3 có nghĩa là giảm đi 30%, âm lượng còn 70%)")]
+    public float reduceAmount = 0.3f;
+
+    [HideInInspector]
+    public float originalVolume = 1f;
+
     /// <summary>
     /// Phát nhạc nhạc cụ. Gọi hàm này sau khi người dùng thả Cast ra thế giới AR.
     /// </summary>
@@ -23,6 +32,8 @@ public class CastAudioData : MonoBehaviour
             Debug.LogWarning($"[CastAudioData] ({gameObject.name}) preparedSource là null, không thể phát nhạc.");
             return;
         }
+
+        originalVolume = preparedSource.volume;
 
         if (preparedSource.clip == null)
         {

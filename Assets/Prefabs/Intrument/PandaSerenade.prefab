@@ -173,7 +173,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioConfig
   Name: PandaSerenade
-  avatar: {fileID: 0}
+  avatar: {fileID: 21300000, guid: 60407e4b68dfa3b49886ca982ccc8692, type: 3}
   audioSource: {fileID: 5639334132750171394}
 --- !u!82 &5639334132750171394
 AudioSource:

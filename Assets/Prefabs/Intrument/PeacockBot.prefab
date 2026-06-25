@@ -173,7 +173,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioConfig
   Name: PeacockBot
-  avatar: {fileID: 0}
+  avatar: {fileID: 21300000, guid: 44fe699adfa3e9545974547ab32b7bfc, type: 3}
   audioSource: {fileID: 2219722300933424973}
 --- !u!82 &2219722300933424973
 AudioSource:

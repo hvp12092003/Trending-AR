@@ -173,7 +173,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioConfig
   Name: Meowbone
-  avatar: {fileID: 0}
+  avatar: {fileID: 21300000, guid: ee3db2d49d073de46af1afac46669580, type: 3}
   audioSource: {fileID: 8423452156013125980}
 --- !u!82 &8423452156013125980
 AudioSource:

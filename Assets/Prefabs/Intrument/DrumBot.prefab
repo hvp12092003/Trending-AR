@@ -83,7 +83,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioConfig
   Name: DrumBot
-  avatar: {fileID: 0}
+  avatar: {fileID: 21300000, guid: 0bf727941bf3fdb41a3a01d96c20c5c1, type: 3}
   audioSource: {fileID: 6257739570571891410}
 --- !u!82 &6257739570571891410
 AudioSource:

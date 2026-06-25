@@ -104,3 +104,7 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Exclude NativeGallery plugin from git tracking (per user request)
+/[Aa]ssets/Plugins/NativeGallery/
+/[Aa]ssets/Plugins/NativeGallery.meta

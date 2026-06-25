@@ -675,7 +675,7 @@ MonoBehaviour:
   - {fileID: 1169551866}
   - {fileID: 1630345216}
   pedestalLocalPosition: {x: 0, y: 0, z: 0.002}
-  pedestalLocalRotation: {x: -90, y: 90, z: 90}
+  pedestalLocalRotation: {x: 0, y: 180, z: 0}
   pedestalLocalScale: {x: 0.02, y: 0.02, z: 0.02}
 --- !u!1 &431648749
 GameObject:

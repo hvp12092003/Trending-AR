@@ -24,6 +24,18 @@ public class MainMenuDataManager : MonoBehaviour
 
     public List<GameObject> InstrumentPrefabs => instrumentPrefabs;
 
+    [Header("Predefined Bands Configuration")]
+    [Tooltip("Danh sách các ban nhạc được cấu hình sẵn cho chế độ Band Mode.")]
+    [SerializeField] private List<EditorBandData> predefinedBands = new List<EditorBandData>();
+
+    public List<EditorBandData> PredefinedBands => predefinedBands;
+
+    /// <summary>
+    /// Lưu trữ cấu hình ban nhạc được chọn hiện hành từ Main Menu để truyền sang Scene AR.
+    /// </summary>
+    [HideInInspector]
+    public EditorBandData selectedBandData;
+
     private const string LAST_SELECTED_CAST_KEY    = "LastSelectedCastJSON";
     private const string SAVED_CASTS_PREFS_KEY      = "SavedCastsDataJSON";
     private const string SAVED_RECORDINGS_PREFS_KEY = "SavedRecordingsDataJSON";
@@ -167,6 +179,47 @@ public class MainMenuDataManager : MonoBehaviour
         if (prefab == null) return null;
         CastPrefab config = prefab.GetComponent<CastPrefab>();
         return config != null ? config.characterAvatar : null;
+    }
+
+    /// <summary>
+    /// Lấy Sprite ảnh đại diện của nhạc cụ dựa vào ID (Name hoặc tên prefab).
+    /// </summary>
+    public Sprite GetInstrumentAvatarSprite(string instrumentId)
+    {
+        if (string.IsNullOrEmpty(instrumentId)) return null;
+
+        // Fallback cho bản ghi âm tự thu
+        if (instrumentId.StartsWith("rec_"))
+        {
+            Sprite micSprite = Resources.Load<Sprite>("Avatars/Mic");
+            if (micSprite == null) micSprite = Resources.Load<Sprite>("Mic");
+            return micSprite;
+        }
+
+        if (instrumentPrefabs != null)
+        {
+            foreach (GameObject prefab in instrumentPrefabs)
+            {
+                if (prefab == null) continue;
+                AudioConfig config = prefab.GetComponent<AudioConfig>();
+                if (config != null)
+                {
+                    string name = !string.IsNullOrEmpty(config.Name) ? config.Name : prefab.name;
+                    if (name.Equals(instrumentId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return config.avatar;
+                    }
+                }
+                else
+                {
+                    if (prefab.name.Equals(instrumentId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return null;
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     public CastData CreateCastDataFromPrefab(GameObject prefab, string audioId = "", string selectedDanceAnimId = "")
@@ -578,4 +631,47 @@ public class MainMenuDataManager : MonoBehaviour
         list.Add(new UserData { userId = "bot_3", displayName = "AR Groover",   points = 510 });
         return Task.FromResult(list);
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Editor Band Configurations for Offline Custom Bands
+// ─────────────────────────────────────────────────────────────────────────────
+
+[System.Serializable]
+public class EditorBandMember
+{
+    [Tooltip("Tên hiển thị của thành viên")]
+    public string castName;
+
+    [Tooltip("Chỉ số (Index) của Prefab nhân vật trong Character Catalog của MainMenuDataManager")]
+    public int castPrefabIndex;
+
+    [Tooltip("Tên State hoạt ảnh nhảy của nhân vật này trong Animator (ví dụ: Dance1, Dance2, Dance3)")]
+    public string danceAnimId;
+
+    [Tooltip("Chỉ số (Index) của Prefab nhạc cụ trong Instrument Catalog của MainMenuDataManager")]
+    public int instrumentPrefabIndex;
+
+    [Tooltip("File âm thanh nhạc cụ hoặc giọng hát riêng của nhân vật này")]
+    public AudioClip audioClip;
+
+    [Tooltip("Nếu tích chọn, âm lượng của nhân vật này sẽ nhỏ lại khi có nhân vật khác cùng được thả ra AR")]
+    public bool reduceVolumeWhenTogether = true;
+
+    [Tooltip("Mức độ giảm âm lượng khi chơi chung (Ví dụ: 0.3 có nghĩa là giảm đi 30%, âm lượng còn 70%)")]
+    [Range(0f, 1f)]
+    public float reduceAmount = 0.3f;
+}
+
+[System.Serializable]
+public class EditorBandData
+{
+    [Tooltip("Tên ban nhạc")]
+    public string bandName;
+
+    [Tooltip("Danh sách các thành viên trong ban nhạc (Tối đa 4 cast)")]
+    public List<EditorBandMember> members = new List<EditorBandMember>();
+
+    [Tooltip("File âm thanh bài hát hoàn chỉnh (Được phát khi thả đủ 4 cast ra AR)")]
+    public AudioClip fullSongAudio;
 }

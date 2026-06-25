@@ -820,35 +820,36 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CastPrefab
   Name: ECHO
+  Category: 
   characterAvatar: {fileID: 21300000, guid: 6e5cf5017509d6e4ba576ce57a77677a, type: 3}
   animations:
   - animation: {fileID: 7400000, guid: 0c4c9dc4b0235804f906057431e056de, type: 2}
-    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    sprite: {fileID: 21300000, guid: 8f285ee87fbaea244956e73fb97a769b, type: 3}
     animName: Idle
-  - animation: {fileID: 7400000, guid: 8e0b3200f6e81ce48b864a6472545558, type: 2}
-    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+  - animation: {fileID: 7400000, guid: cbbf175e98e0b5a4fbf7e0eb15f91ed3, type: 2}
+    sprite: {fileID: 21300000, guid: 8e7667d98e363ae45ad179d8cc670588, type: 3}
     animName: Run
   - animation: {fileID: 7400000, guid: 4f390ebcb6369584bbf45fc31ca0874b, type: 2}
-    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    sprite: {fileID: 21300000, guid: e4b77197fbe03aa4587c20878cb0a1b0, type: 3}
     animName: Dance1
   - animation: {fileID: 7400000, guid: 5a8a38e511412ed4db8b1feba9568bba, type: 2}
-    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    sprite: {fileID: 21300000, guid: 4742c6b8a9a6e444e9bd86f51c741e84, type: 3}
     animName: Dance2
   - animation: {fileID: 7400000, guid: bb52dc0f97594dc4db5b9853d089b8ac, type: 2}
-    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
-    animName: Run
+    sprite: {fileID: 21300000, guid: 343581bd40f3b3344a917d88eed67816, type: 3}
+    animName: Dance3
   - animation: {fileID: 7400000, guid: 19e9087c5c3b0b7499ff2041498d8c64, type: 2}
-    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    sprite: {fileID: 21300000, guid: 3a38ca462aa777546bba09a1e752c6fc, type: 3}
     animName: Dance4
   - animation: {fileID: 7400000, guid: 45aa5a517dd159849821e9e54ae6375f, type: 2}
-    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    sprite: {fileID: 21300000, guid: 672c8cfb8160db340bc2771e2aded5a5, type: 3}
     animName: Dance5
   - animation: {fileID: 7400000, guid: 85ebf06dffbc22e46aaa52e07477ab1d, type: 2}
-    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    sprite: {fileID: 21300000, guid: 254b21f9a3ed1224a88fba22620edfa3, type: 3}
     animName: Dance6
   - animation: {fileID: 7400000, guid: 543bc8ba58dbf054195213e846532757, type: 2}
-    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    sprite: {fileID: 21300000, guid: dde75490fea6db74cb79a6f7fb5ba969, type: 3}
     animName: Dance7
   - animation: {fileID: 7400000, guid: 1f0c75b645a202045acc4bb43011b6ee, type: 2}
-    sprite: {fileID: 21300000, guid: 2f7198b627d33314bb2ecf9f4dbaf3b5, type: 3}
+    sprite: {fileID: 21300000, guid: 1d8b3a184bee11a4e8a611c212cd6440, type: 3}
     animName: Dance8

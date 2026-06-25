@@ -4,8 +4,11 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Component quản lý hiển thị của nút ghi âm (Record Trigger và Recorded Item) trong ScrollView.
-/// Hỗ trợ hiển thị viền đỏ, tiến trình radial đếm ngược, và nút xóa bản ghi âm.
+/// Component quản lý hiển thị của nút ghi âm trong ScrollView.
+/// Hỗ trợ 2 trạng thái:
+///   - Chưa ghi âm: hiển thị icon Microphone, click để ghi âm
+///   - Đã ghi âm: hiển thị icon Audio, có nút Delete ở góc trên
+/// Ngoài ra hỗ trợ radial fill và viền đỏ khi đang ghi âm.
 /// </summary>
 public class CustomAudioRecordItemUI : MonoBehaviour
 {
@@ -17,6 +20,10 @@ public class CustomAudioRecordItemUI : MonoBehaviour
     [Header("Selection Button Sprites")]
     [SerializeField] private Sprite selectedSprite;
     [SerializeField] private Sprite unselectedSprite;
+
+    [Header("Record State Icons")]
+    [SerializeField] private Sprite micIcon;       // Icon mic khi chưa có ghi âm
+    [SerializeField] private Sprite audioIcon;     // Icon audio/waveform khi đã có ghi âm
 
     [Header("Record/Delete Optionals")]
     [SerializeField] private Button deleteButton;       // Nút xóa ghi âm (biểu tượng thùng rác)
@@ -47,7 +54,82 @@ public class CustomAudioRecordItemUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Thiết lập giao diện cho nút Bắt đầu ghi âm.
+    /// Thiết lập nút ghi âm thống nhất.
+    /// Nếu hasRecording = false: hiển thị icon mic, click để bắt đầu ghi âm.
+    /// Nếu hasRecording = true: hiển thị icon audio, nút delete hiện lên, click để phát/chọn bản ghi âm.
+    /// </summary>
+    public void SetupRecordButton(bool hasRecording, Action onClickCallback, Action onDeleteCallback)
+    {
+        EnsureReferences();
+
+        if (hasRecording)
+        {
+            // Trạng thái đã có ghi âm
+            if (nameText != null) nameText.text = "Record";
+            ItemId = "Record_Audio";
+
+            // Đổi sang icon audio
+            if (avatarImage != null)
+            {
+                Sprite icon = audioIcon != null ? audioIcon : micIcon;
+                if (icon != null)
+                {
+                    avatarImage.sprite = icon;
+                    avatarImage.gameObject.SetActive(true);
+                }
+            }
+
+            // Hiện nút delete
+            if (deleteButton != null)
+            {
+                deleteButton.gameObject.SetActive(true);
+                deleteButton.onClick.RemoveAllListeners();
+                deleteButton.onClick.AddListener(() => onDeleteCallback?.Invoke());
+            }
+        }
+        else
+        {
+            // Trạng thái chưa có ghi âm
+            if (nameText != null) nameText.text = "Record";
+            ItemId = "Record_Trigger";
+
+            // Dùng icon mic
+            if (avatarImage != null)
+            {
+                if (micIcon != null)
+                {
+                    avatarImage.sprite = micIcon;
+                    avatarImage.gameObject.SetActive(true);
+                }
+                else
+                {
+                    avatarImage.gameObject.SetActive(false);
+                }
+            }
+
+            // Ẩn nút delete
+            if (deleteButton != null) deleteButton.gameObject.SetActive(false);
+        }
+
+        if (itemButton != null)
+        {
+            itemButton.onClick.RemoveAllListeners();
+            itemButton.onClick.AddListener(() => onClickCallback?.Invoke());
+            itemButton.interactable = true;
+        }
+
+        if (recordBorder != null) recordBorder.gameObject.SetActive(false);
+        if (radialFill != null)
+        {
+            radialFill.gameObject.SetActive(!hasRecording);
+            radialFill.fillAmount = 0f;
+        }
+
+        SetSelected(hasRecording); // Đánh dấu selected nếu đang dùng bản ghi âm
+    }
+
+    /// <summary>
+    /// [Legacy] Thiết lập giao diện cho nút Bắt đầu ghi âm.
     /// </summary>
     public void SetupRecordTrigger(Sprite recordIcon, Action onClickCallback)
     {
@@ -56,9 +138,10 @@ public class CustomAudioRecordItemUI : MonoBehaviour
         if (nameText != null) nameText.text = "Record";
         if (avatarImage != null)
         {
-            if (recordIcon != null)
+            Sprite icon = recordIcon != null ? recordIcon : micIcon;
+            if (icon != null)
             {
-                avatarImage.sprite = recordIcon;
+                avatarImage.sprite = icon;
                 avatarImage.gameObject.SetActive(true);
             }
             else
@@ -67,7 +150,7 @@ public class CustomAudioRecordItemUI : MonoBehaviour
             }
         }
 
-        ItemId = "Record_Trigger"; // Định danh đặc biệt
+        ItemId = "Record_Trigger";
 
         if (itemButton != null)
         {
@@ -88,7 +171,7 @@ public class CustomAudioRecordItemUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Thiết lập giao diện cho thẻ Âm thanh đã ghi âm.
+    /// [Legacy] Thiết lập giao diện cho thẻ Âm thanh đã ghi âm.
     /// </summary>
     public void SetupRecordedItem(string name, Sprite icon, Action onClickCallback, Action onDeleteCallback)
     {
@@ -97,9 +180,10 @@ public class CustomAudioRecordItemUI : MonoBehaviour
         if (nameText != null) nameText.text = name;
         if (avatarImage != null)
         {
-            if (icon != null)
+            Sprite displayIcon = icon != null ? icon : audioIcon;
+            if (displayIcon != null)
             {
-                avatarImage.sprite = icon;
+                avatarImage.sprite = displayIcon;
                 avatarImage.gameObject.SetActive(true);
             }
             else
@@ -108,7 +192,7 @@ public class CustomAudioRecordItemUI : MonoBehaviour
             }
         }
 
-        ItemId = "Record_Audio"; // Định danh đặc biệt
+        ItemId = "Record_Audio";
 
         if (itemButton != null)
         {

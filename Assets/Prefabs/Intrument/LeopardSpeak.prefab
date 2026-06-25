@@ -173,7 +173,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioConfig
   Name: LeopardSpeak
-  avatar: {fileID: 0}
+  avatar: {fileID: 21300000, guid: 01a1c5a217487e64ab751d256f8a262d, type: 3}
   audioSource: {fileID: 717056484069004447}
 --- !u!82 &717056484069004447
 AudioSource:

@@ -83,7 +83,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioConfig
   Name: WingedSpeaker
-  avatar: {fileID: 0}
+  avatar: {fileID: 21300000, guid: 3a545a50b0e25e649b73f549c685cf31, type: 3}
   audioSource: {fileID: 1171725872923644258}
 --- !u!82 &1171725872923644258
 AudioSource:

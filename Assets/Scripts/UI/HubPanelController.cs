@@ -96,6 +96,12 @@ public class HubPanelController : MonoBehaviour
 
     private void OnBandButtonClicked()
     {
+        // Reset selectedBandData để Scene chơi nhạc tự động mở Popup chọn ban nhạc mới
+        if (MainMenuDataManager.Instance != null)
+        {
+            MainMenuDataManager.Instance.selectedBandData = null;
+        }
+
         StartCoroutine(CheckARAndLoadScene(bandArSceneName, bandNonArSceneName));
     }
 

@@ -277,8 +277,6 @@ public class TapToPlacePrefab : MonoBehaviour
 
         bool placedOnPlane = false;
 
-        BandARSpawner spawner = FindFirstObjectByType<BandARSpawner>();
-        Quaternion offsetRot = spawner != null ? Quaternion.Euler(spawner.PedestalLocalRotation) : Quaternion.Euler(-90f, 90f, 90f);
         Vector3 targetScale = m_OriginalDraggedScale != Vector3.zero ? m_OriginalDraggedScale : m_PlacedScale;
 
         // Bắn Raycast xuống Plane nếu không ở chế độ giả lập
@@ -301,7 +299,7 @@ public class TapToPlacePrefab : MonoBehaviour
                 }
 
                 m_DraggedObject.transform.position = targetPos;
-                m_DraggedObject.transform.rotation = targetRot * offsetRot;
+                m_DraggedObject.transform.rotation = targetRot;
                 m_DraggedObject.transform.localScale = targetScale;
                 placedOnPlane = true;
             }
@@ -325,7 +323,7 @@ public class TapToPlacePrefab : MonoBehaviour
             }
 
             m_DraggedObject.transform.position = spawnPosition;
-            m_DraggedObject.transform.rotation = targetRot * offsetRot;
+            m_DraggedObject.transform.rotation = targetRot;
             m_DraggedObject.transform.localScale = targetScale;
         }
     }

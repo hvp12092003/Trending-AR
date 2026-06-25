@@ -11,6 +11,9 @@ public class CharacterItemUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI dateText;
     [SerializeField] private Button deleteButton;
 
+    [Tooltip("Ảnh hiển thị nhạc cụ đi kèm")]
+    [SerializeField] private Image instrumentImage;
+
     public Button DeleteButton => deleteButton;
 
     /// <summary>
@@ -28,6 +31,28 @@ public class CharacterItemUI : MonoBehaviour
                 .FromUnixTimeSeconds(data.createdAtSeconds)
                 .LocalDateTime;
             dateText.text = $"Tạo ngày: {date:dd/MM/yyyy}";
+        }
+
+        // Cập nhật hiển thị nhạc cụ đi kèm
+        if (instrumentImage != null)
+        {
+            if (data != null && MainMenuDataManager.Instance != null)
+            {
+                Sprite instrumentSprite = MainMenuDataManager.Instance.GetInstrumentAvatarSprite(data.instrumentId);
+                if (instrumentSprite != null)
+                {
+                    instrumentImage.sprite = instrumentSprite;
+                    instrumentImage.gameObject.SetActive(true);
+                }
+                else
+                {
+                    instrumentImage.gameObject.SetActive(false);
+                }
+            }
+            else
+            {
+                instrumentImage.gameObject.SetActive(false);
+            }
         }
     }
 }

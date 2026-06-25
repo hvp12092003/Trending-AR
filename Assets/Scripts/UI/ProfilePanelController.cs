@@ -73,10 +73,10 @@ public class ProfilePanelController : MonoBehaviour
             changePasswordBtn.onClick.AddListener(OpenChangePasswordPanel);
 
         if (helpCenterBtn != null)
-            helpCenterBtn.onClick.AddListener(() => ShowMainNotification("Trung tâm hỗ trợ sẽ sớm ra mắt!"));
+            helpCenterBtn.onClick.AddListener(() => ShowMainNotification("Support center is coming soon!"));
 
         if (aboutUsBtn != null)
-            aboutUsBtn.onClick.AddListener(() => ShowMainNotification("Dự án Trending AR - Phiên bản 1.0"));
+            aboutUsBtn.onClick.AddListener(() => ShowMainNotification("Trending AR Project - Version 1.0"));
 
         if (logoutBtn != null)
             logoutBtn.onClick.AddListener(OnLogoutClicked);
@@ -217,7 +217,7 @@ public class ProfilePanelController : MonoBehaviour
     {
         if (AuthManager.Instance == null)
         {
-            ShowChangePassNotification("Hệ thống xác thực không khả dụng!", Color.red);
+            ShowChangePassNotification("Authentication system is unavailable!", Color.red);
             return;
         }
 
@@ -227,24 +227,24 @@ public class ProfilePanelController : MonoBehaviour
 
         if (string.IsNullOrEmpty(currentPass) || string.IsNullOrEmpty(newPass) || string.IsNullOrEmpty(confirmPass))
         {
-            ShowChangePassNotification("Vui lòng điền đầy đủ tất cả các trường!", Color.red);
+            ShowChangePassNotification("Please fill in all fields!", Color.red);
             return;
         }
 
         if (newPass != confirmPass)
         {
-            ShowChangePassNotification("Mật khẩu mới xác nhận không khớp!", Color.red);
+            ShowChangePassNotification("New passwords do not match!", Color.red);
             return;
         }
 
         if (newPass.Length < 6)
         {
-            ShowChangePassNotification("Mật khẩu mới phải có tối thiểu 6 ký tự!", Color.red);
+            ShowChangePassNotification("New password must be at least 6 characters!", Color.red);
             return;
         }
 
         // Offline mode: đổi mật khẩu luôn thành công
-        ShowChangePassNotification("Đổi mật khẩu thành công!", Color.green);
+        ShowChangePassNotification("Password changed successfully!", Color.green);
         Invoke(nameof(CloseChangePasswordPanel), 1.5f);
     }
 
@@ -268,7 +268,7 @@ public class ProfilePanelController : MonoBehaviour
             AuthManager.Instance.Logout();
         }
 
-        ShowMainNotification("Đang đăng xuất...");
+        ShowMainNotification("Logging out...");
 
         // Chuyển về màn hình đăng nhập
         if (SceneTransitionManager.Instance != null)
@@ -395,7 +395,7 @@ public class ProfilePanelController : MonoBehaviour
             {
                 HandlePickedImage(path);
             }
-        }, "Chọn ảnh đại diện", "image/*");
+        }, "Select Avatar", "image/*");
     }
 
     private void HandlePickedImage(string path)
@@ -404,7 +404,7 @@ public class ProfilePanelController : MonoBehaviour
         Texture2D texture = NativeGallery.LoadImageAtPath(path, maxSize: 256, markTextureNonReadable: false);
         if (texture == null)
         {
-            ShowMainNotification("Không thể tải ảnh đã chọn.");
+            ShowMainNotification("Unable to load selected image.");
             return;
         }
 
@@ -431,7 +431,7 @@ public class ProfilePanelController : MonoBehaviour
         // Kích hoạt sự kiện đổi ảnh đại diện
         OnAvatarChanged?.Invoke();
 
-        ShowMainNotification("Cập nhật ảnh đại diện thành công!");
+        ShowMainNotification("Avatar updated successfully!");
     }
 
     private void ClearNotifications()
@@ -444,7 +444,7 @@ public class ProfilePanelController : MonoBehaviour
     {
         if (string.IsNullOrWhiteSpace(newName))
         {
-            ShowMainNotification("Tên người chơi không được để trống!");
+            ShowMainNotification("Player name cannot be empty!");
             if (userNameInputField != null)
             {
                 userNameInputField.text = GetCurrentUserName();
@@ -462,7 +462,7 @@ public class ProfilePanelController : MonoBehaviour
             PlayerPrefs.Save();
         }
 
-        ShowMainNotification("Đổi tên thành công!");
+        ShowMainNotification("Name changed successfully!");
         RefreshProfileData();
     }
 

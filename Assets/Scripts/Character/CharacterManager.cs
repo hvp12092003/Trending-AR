@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using System.Collections;
 using DG.Tweening;
 
 /// <summary>
@@ -36,6 +37,12 @@ public class CharacterManager : MonoBehaviour
     [SerializeField] private Vector3 m_IndicatorLocalScale = new Vector3(0.6f, 0.6f, 0.6f);
 
     private GameObject m_ActiveIndicator;
+    private Coroutine m_AutoHideCoroutine;
+
+    [Header("Auto-Hide Settings")]
+    [SerializeField]
+    [Tooltip("Thời gian (giây) trước khi indicator tự ẩn sau khi nhân vật được chọn. 0 = không tự ẩn.")]
+    private float m_AutoHideDelay = 3f;
 
     [Header("Persistence Settings")]
     [SerializeField]
@@ -164,12 +171,33 @@ public class CharacterManager : MonoBehaviour
         m_ActiveIndicator = Instantiate(m_SelectionIndicatorPrefab, m_SelectedCharacter.transform);
         m_ActiveIndicator.transform.localPosition = m_IndicatorLocalPosition; // Đặt đúng dưới chân nhân vật
         m_ActiveIndicator.transform.localRotation = Quaternion.Euler(m_IndicatorLocalRotation); // Xoay nằm ngang
-        
+        m_ActiveIndicator.SetActive(true);
+
         // Hoạt ảnh xuất hiện vòng tròn chọn dùng DOTween
         Vector3 targetScale = m_IndicatorLocalScale;
         m_ActiveIndicator.transform.localScale = Vector3.zero;
         m_ActiveIndicator.transform.DOKill();
         m_ActiveIndicator.transform.DOScale(targetScale, 0.3f).SetEase(Ease.OutBack);
+
+        // Tự động ẩn indicator sau m_AutoHideDelay giây
+        if (m_AutoHideDelay > 0f)
+        {
+            if (m_AutoHideCoroutine != null)
+            {
+                StopCoroutine(m_AutoHideCoroutine);
+            }
+            m_AutoHideCoroutine = StartCoroutine(AutoHideIndicatorAfterDelay(m_AutoHideDelay));
+        }
+    }
+
+    /// <summary>
+    /// Coroutine tự động ẩn indicator sau một khoảng thời gian.
+    /// </summary>
+    private IEnumerator AutoHideIndicatorAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        SetIndicatorActive(false);
+        m_AutoHideCoroutine = null;
     }
 
     /// <summary>

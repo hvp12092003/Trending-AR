@@ -6,12 +6,13 @@ using TMPro;
 
 /// <summary>
 /// Component quản lý hiển thị của từng item trong ScrollView.
-/// Chỉ chứa ảnh đại diện (avatar) và tên (name), hỗ trợ đổi sprite nút khi chọn.
+/// Hỗ trợ ảnh đại diện (avatar), tên (name), subtitle (category), và trạng thái chọn.
 /// </summary>
 public class CustomCharacterItemUI : MonoBehaviour
 {
     [Header("UI Elements")]
     [SerializeField] private TextMeshProUGUI nameText;
+    [SerializeField] private TextMeshProUGUI subtitleText; // dòng nhỏ bên dưới (ví dụ: Reaction, Comedy, Beat)
     [SerializeField] private Image avatarImage;
     [SerializeField] private Button itemButton;
 
@@ -26,11 +27,27 @@ public class CustomCharacterItemUI : MonoBehaviour
     public string GetTitle() => nameText != null ? nameText.text : "";
 
     /// <summary>
-    /// Thiết lập giao diện cho Item.
+    /// Thiết lập giao diện cho Item (không có subtitle).
     /// </summary>
     public void Setup(string name, Sprite avatar, Action onClickCallback)
     {
+        Setup(name, avatar, onClickCallback, null);
+    }
+
+    /// <summary>
+    /// Thiết lập giao diện cho Item (có subtitle).
+    /// </summary>
+    public void Setup(string name, Sprite avatar, Action onClickCallback, string subtitle)
+    {
         if (nameText != null) nameText.text = name;
+
+        if (subtitleText != null)
+        {
+            bool hasSubtitle = !string.IsNullOrEmpty(subtitle);
+            subtitleText.text = hasSubtitle ? subtitle : "";
+            subtitleText.gameObject.SetActive(hasSubtitle);
+        }
+
         if (avatarImage != null)
         {
             if (avatar != null)

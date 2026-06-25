@@ -173,7 +173,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioConfig
   Name: BunnyDrum
-  avatar: {fileID: 0}
+  avatar: {fileID: 21300000, guid: 2c7c3ff58c93a824fb61d4c536ec4eb2, type: 3}
   audioSource: {fileID: 6106265735136362398}
 --- !u!82 &6106265735136362398
 AudioSource:

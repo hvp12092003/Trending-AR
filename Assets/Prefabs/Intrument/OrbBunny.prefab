@@ -83,7 +83,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioConfig
   Name: OrbBunny
-  avatar: {fileID: 0}
+  avatar: {fileID: 21300000, guid: 9d2f4e5bf96c8114ebf19f2740fc451f, type: 3}
   audioSource: {fileID: 2596138567456775464}
 --- !u!82 &2596138567456775464
 AudioSource:

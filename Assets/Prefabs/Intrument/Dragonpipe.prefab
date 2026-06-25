@@ -83,7 +83,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioConfig
   Name: Dragonpipe
-  avatar: {fileID: 0}
+  avatar: {fileID: 21300000, guid: 5f48979ccef0fbc4396e9c74f1742880, type: 3}
   audioSource: {fileID: 1109873991772115394}
 --- !u!82 &1109873991772115394
 AudioSource:

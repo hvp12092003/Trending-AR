@@ -173,7 +173,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioConfig
   Name: AquaKeyboard
-  avatar: {fileID: 0}
+  avatar: {fileID: 21300000, guid: 278e93f01831e2f45bb060b5b7734038, type: 3}
   audioSource: {fileID: 2629559138636851155}
 --- !u!82 &2629559138636851155
 AudioSource:
