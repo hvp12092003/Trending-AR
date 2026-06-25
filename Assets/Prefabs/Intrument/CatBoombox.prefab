@@ -158,7 +158,7 @@ MonoBehaviour:
   m_BeatVFXPrefab: {fileID: 4024555818009781825, guid: ddfac030af4ddec4990238f3ed033376, type: 3}
   m_InitialPoolSize: 10
   m_PoolParent: {fileID: 2668929041843074091}
-  m_LoudnessVFXThreshold: 0.5
+  m_LoudnessVFXThreshold: 0.05
   m_LoudnessVFXCooldown: 0.15
 --- !u!114 &508252374930499313
 MonoBehaviour:

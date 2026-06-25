@@ -637,10 +637,10 @@ MonoBehaviour:
   arBandButton: {fileID: 365575431}
   arCustomeButton: {fileID: 1301690890}
   arMiniGamesButton: {fileID: 242636812}
-  customArSceneName: Custome AR Scene
+  customArSceneName: Custome NonAR Scene
   customNonArSceneName: Custome NonAR Scene
-  bandArSceneName: Band Mode AR Scene
-  bandNonArSceneName: Band Mode NonAR Scene
+  bandArSceneName: Band NonAR Scene
+  bandNonArSceneName: Band NonAR Scene
   arMiniGamesSceneName: Mini Game Mode Scene
   loadingOverlay: {fileID: 0}
   loadingText: {fileID: 0}
@@ -2841,43 +2841,39 @@ MonoBehaviour:
   - {fileID: 8035061807666817717, guid: cba9afe70ed28b2489d8e90457a9391b, type: 3}
   - {fileID: 5905772277487262173, guid: 30381d9a451567849b4fdd090d129fa5, type: 3}
   predefinedBands:
-  - bandId: 1
-    bandName: Band test
-    bandLogo: {fileID: 0}
+  - bandName: Band test
     members:
     - castName: 
-      castPrefab: {fileID: 0}
+      castPrefabIndex: 0
       danceAnimId: 
-      instrumentPrefab: {fileID: 0}
+      instrumentPrefabIndex: 0
       audioClip: {fileID: 0}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
-      castPrefab: {fileID: 0}
+      castPrefabIndex: 0
       danceAnimId: 
-      instrumentPrefab: {fileID: 0}
+      instrumentPrefabIndex: 0
       audioClip: {fileID: 0}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
-      castPrefab: {fileID: 0}
+      castPrefabIndex: 0
       danceAnimId: 
-      instrumentPrefab: {fileID: 0}
+      instrumentPrefabIndex: 0
       audioClip: {fileID: 0}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
-      castPrefab: {fileID: 0}
+      castPrefabIndex: 0
       danceAnimId: 
-      instrumentPrefab: {fileID: 0}
+      instrumentPrefabIndex: 0
       audioClip: {fileID: 0}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     fullSongAudio: {fileID: 0}
   selectedBandData:
-    bandId: 
     bandName: 
-    bandLogo: {fileID: 0}
     members: []
     fullSongAudio: {fileID: 0}
 --- !u!4 &505875379

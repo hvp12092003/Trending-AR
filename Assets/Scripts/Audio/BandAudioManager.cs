@@ -143,14 +143,14 @@ public class BandAudioManager : MonoBehaviour
                 }
             }
         }
-        else if (placedCount < 4)
+        else
         {
-            // Tắt bài hát hoàn chỉnh nếu đang phát
+            // Dừng bài hát hoàn chỉnh (vì chúng ta sẽ phát các nhạc cụ đơn lẻ kết hợp lại)
             if (m_FullSongSource != null && m_FullSongSource.isPlaying)
             {
                 m_FullSongSource.Stop();
                 m_FullSongPlayingState = false;
-                Debug.Log("[BandAudioManager] Thu hồi nhân vật (placed < 4) -> Dừng phát bài hát hoàn chỉnh.");
+                Debug.Log("[BandAudioManager] Đã dừng phát bài hát hoàn chỉnh để phát các nhạc cụ riêng lẻ.");
             }
 
             // Xử lý các Cast chưa được đặt: đảm bảo chúng KHÔNG phát tiếng
@@ -162,21 +162,57 @@ public class BandAudioManager : MonoBehaviour
                 }
             }
 
-            // Xử lý các Cast đã được đặt ra thế giới
+            // Tìm thời gian phát tham chiếu (đã phát và ở trạng thái ổn định)
+            float referenceTime = -1f;
             foreach (var cast in placedCasts)
             {
+                if (cast.preparedSource != null && cast.preparedSource.isPlaying && cast.preparedSource.time > 0.05f)
+                {
+                    referenceTime = cast.preparedSource.time;
+                    break;
+                }
+            }
+
+            // Xử lý các Cast đã được đặt ra thế giới: Phát và đồng bộ hóa thời gian phát
+            foreach (var cast in placedCasts)
+            {
+                if (cast.preparedSource == null) continue;
+
                 // Cho phát âm thanh nhạc cụ riêng lẻ
                 if (!cast.preparedSource.isPlaying)
                 {
                     cast.preparedSource.Play();
+                    if (referenceTime >= 0f && 
+                        cast.preparedSource.clip != null && 
+                        cast.preparedSource.clip.loadState == AudioDataLoadState.Loaded && 
+                        referenceTime < cast.preparedSource.clip.length)
+                    {
+                        cast.preparedSource.time = referenceTime;
+                        Debug.Log($"[BandAudioManager] Đồng bộ phát Cast '{cast.gameObject.name}' theo thời gian tham chiếu: {referenceTime}");
+                    }
                 }
+                else
+                {
+                    // Đồng bộ lại nếu lệch pha quá nhiều (> 0.15s)
+                    if (referenceTime >= 0f && 
+                        cast.preparedSource.clip != null && 
+                        cast.preparedSource.clip.loadState == AudioDataLoadState.Loaded && 
+                        referenceTime < cast.preparedSource.clip.length && 
+                        Mathf.Abs(cast.preparedSource.time - referenceTime) > 0.15f)
+                    {
+                        cast.preparedSource.time = referenceTime;
+                        Debug.Log($"[BandAudioManager] Đồng bộ lại Cast '{cast.gameObject.name}' bị lệch pha (reference: {referenceTime}, current: {cast.preparedSource.time})");
+                    }
+                }
+
+                // Đảm bảo không bị mute
+                cast.preparedSource.mute = false;
 
                 // Cập nhật âm lượng dựa trên số lượng Cast đặt ra
                 if (placedCount == 1)
                 {
                     // Chỉ có 1 Cast: Phát với âm lượng gốc đầy đủ
                     cast.preparedSource.volume = cast.originalVolume;
-                    cast.preparedSource.mute = false;
                 }
                 else
                 {
@@ -190,48 +226,6 @@ public class BandAudioManager : MonoBehaviour
                     {
                         // Giữ nguyên âm lượng (ví dụ: ca sĩ hát)
                         cast.preparedSource.volume = cast.originalVolume;
-                    }
-                    cast.preparedSource.mute = false;
-                }
-            }
-        }
-        else
-        {
-            // Đã đặt đủ cả 4 Cast ra thế giới!
-            // 1. Mute toàn bộ 4 Cast riêng lẻ
-            foreach (var cast in placedCasts)
-            {
-                cast.preparedSource.mute = true;
-            }
-
-            // 2. Tắt tiếng các cast chưa được đặt (nếu có trường hợp đặc biệt)
-            foreach (var cast in unplacedCasts)
-            {
-                if (cast.preparedSource.isPlaying)
-                {
-                    cast.preparedSource.Pause();
-                }
-            }
-
-            // 3. Phát bài hát hoàn chỉnh (Full Song) duy nhất
-            if (m_FullSongSource != null && m_FullSongClip != null)
-            {
-                if (!m_FullSongSource.isPlaying && !m_FullSongPlayingState)
-                {
-                    m_FullSongSource.Play();
-                    m_FullSongPlayingState = true;
-                    Debug.Log("[BandAudioManager] Đủ 4 Cast -> Kích hoạt phát bài hát hoàn chỉnh!");
-                }
-            }
-            else
-            {
-                // Fallback nếu không có Clip bài hát hoàn chỉnh: vẫn để các nhạc cụ tự phát với âm lượng giảm
-                foreach (var cast in placedCasts)
-                {
-                    cast.preparedSource.mute = false;
-                    if (cast.reduceVolumeWhenTogether)
-                    {
-                        cast.preparedSource.volume = cast.originalVolume * (1f - cast.reduceAmount);
                     }
                 }
             }

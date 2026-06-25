@@ -35,9 +35,7 @@ public class CustomProgressController : MonoBehaviour
     [SerializeField] private Ease fillEase = Ease.OutQuad;
 
     // Trạng thái hiện tại để so sánh khi cập nhật
-    private bool _currentHasCharacter = false;
-    private bool _currentHasInstrument = false;
-    private bool _currentHasAnimation = false;
+    private int _currentStep = 1;
 
     private Sequence _activeSequence;
 
@@ -55,26 +53,24 @@ public class CustomProgressController : MonoBehaviour
     }
 
     /// <summary>
-    /// Cập nhật tiến độ thanh tiến trình.
+    /// Cập nhật tiến độ thanh tiến trình theo bước hiện tại.
     /// </summary>
-    /// <param name="hasCharacter">Đã chọn nhân vật (Hoàn thành bước 1)</param>
-    /// <param name="hasInstrument">Đã chọn nhạc cụ/ghi âm (Hoàn thành bước 2)</param>
-    /// <param name="hasAnimation">Đã chọn hoạt ảnh (Hoàn thành bước 3)</param>
+    /// <param name="step">Bước hiện tại (1, 2, 3)</param>
     /// <param name="animate">Có chạy hiệu ứng chuyển động hay không</param>
-    public void SetProgress(bool hasCharacter, bool hasInstrument, bool hasAnimation, bool animate = true)
+    public Sequence SetProgress(int step, bool animate = true)
     {
-        // Xác định các giá trị lượng đầy (fill amount) mục tiêu theo yêu cầu của user:
-        // - Bước 1 (NAME): Không điền đầy line hay image nào (bằng 0).
-        // - Bước 2 (SOUND): Line 1 đầy -> Image 2 đầy -> Màu text 2 đen.
-        // - Bước 3 (ANIM): Line 2 đầy -> Image 3 đầy -> Màu text 3 đen.
+        // Xác định các giá trị lượng đầy (fill amount) mục tiêu theo bước hiện tại:
+        // - Bước 1: Line 1 = 0, Image 2 = 0, Line 2 = 0, Image 3 = 0, Text 2 & 3 rỗng (màu mặc định).
+        // - Bước 2: Line 1 = 1, Image 2 = 1, Line 2 = 0, Image 3 = 0, Text 2 màu active, Text 3 màu mặc định.
+        // - Bước 3: Line 1 = 1, Image 2 = 1, Line 2 = 1, Image 3 = 1, Text 2 & 3 màu active.
         
-        float targetLine1 = (hasCharacter && hasInstrument) ? 1f : 0f;
-        float targetStep2 = (hasCharacter && hasInstrument) ? 1f : 0f;
-        float targetLine2 = (hasCharacter && hasInstrument && hasAnimation) ? 1f : 0f;
-        float targetStep3 = (hasCharacter && hasInstrument && hasAnimation) ? 1f : 0f;
+        float targetLine1 = (step >= 2) ? 1f : 0f;
+        float targetStep2 = (step >= 2) ? 1f : 0f;
+        float targetLine2 = (step >= 3) ? 1f : 0f;
+        float targetStep3 = (step >= 3) ? 1f : 0f;
 
-        Color targetColor2 = (hasCharacter && hasInstrument) ? activeTextColor : defaultTextColor;
-        Color targetColor3 = (hasCharacter && hasInstrument && hasAnimation) ? activeTextColor : defaultTextColor;
+        Color targetColor2 = (step >= 2) ? activeTextColor : defaultTextColor;
+        Color targetColor3 = (step >= 3) ? activeTextColor : defaultTextColor;
 
         // Dừng sequence đang chạy dở
         if (_activeSequence != null && _activeSequence.IsActive())
@@ -87,21 +83,21 @@ public class CustomProgressController : MonoBehaviour
             _activeSequence = DOTween.Sequence();
 
             // Kiểm tra xem là tiến lên hay lùi lại để sắp xếp thứ tự chạy animation
-            bool isForward = (hasInstrument && !_currentHasInstrument) || (hasAnimation && !_currentHasAnimation);
+            bool isForward = step > _currentStep;
 
             if (isForward)
             {
                 // TIẾN LÊN:
-                // Bước 2 (SOUND): Line 1 đầy -> Image 2 đầy -> Màu text 2 đen
-                if (hasInstrument != _currentHasInstrument && hasInstrument)
+                // Nếu tiến lên bước 2 hoặc hơn và trước đó đang ở bước nhỏ hơn 2
+                if (step >= 2 && _currentStep < 2)
                 {
                     if (filledLine1 != null) _activeSequence.Append(filledLine1.DOFillAmount(targetLine1, fillDuration).SetEase(fillEase));
                     if (filledImageStep2 != null) _activeSequence.Append(filledImageStep2.DOFillAmount(targetStep2, fillDuration).SetEase(fillEase));
                     if (step2Text != null) _activeSequence.Join(step2Text.DOColor(targetColor2, fillDuration));
                 }
 
-                // Bước 3 (ANIM): Line 2 đầy -> Image 3 đầy -> Màu text 3 đen
-                if (hasAnimation != _currentHasAnimation && hasAnimation)
+                // Nếu tiến lên bước 3 và trước đó đang ở bước nhỏ hơn 3
+                if (step >= 3 && _currentStep < 3)
                 {
                     if (filledLine2 != null) _activeSequence.Append(filledLine2.DOFillAmount(targetLine2, fillDuration).SetEase(fillEase));
                     if (filledImageStep3 != null) _activeSequence.Append(filledImageStep3.DOFillAmount(targetStep3, fillDuration).SetEase(fillEase));
@@ -111,16 +107,16 @@ public class CustomProgressController : MonoBehaviour
             else
             {
                 // LÙI LẠI (Chạy ngược):
-                // Bước 3 rỗng trước: Màu text 3 về mặc định -> Image 3 rỗng -> Line 2 rỗng
-                if (hasAnimation != _currentHasAnimation && !hasAnimation)
+                // Nếu lùi về bước nhỏ hơn 3 và trước đó đang ở bước 3
+                if (step < 3 && _currentStep >= 3)
                 {
                     if (step3Text != null) _activeSequence.Append(step3Text.DOColor(targetColor3, fillDuration));
                     if (filledImageStep3 != null) _activeSequence.Append(filledImageStep3.DOFillAmount(targetStep3, fillDuration).SetEase(fillEase));
                     if (filledLine2 != null) _activeSequence.Append(filledLine2.DOFillAmount(targetLine2, fillDuration).SetEase(fillEase));
                 }
 
-                // Bước 2 rỗng sau: Màu text 2 về mặc định -> Image 2 rỗng -> Line 1 rỗng
-                if (hasInstrument != _currentHasInstrument && !hasInstrument)
+                // Nếu lùi về bước nhỏ hơn 2 và trước đó đang ở bước 2 hoặc hơn
+                if (step < 2 && _currentStep >= 2)
                 {
                     if (step2Text != null) _activeSequence.Append(step2Text.DOColor(targetColor2, fillDuration));
                     if (filledImageStep2 != null) _activeSequence.Append(filledImageStep2.DOFillAmount(targetStep2, fillDuration).SetEase(fillEase));
@@ -128,8 +124,8 @@ public class CustomProgressController : MonoBehaviour
                 }
             }
 
-            // Hiệu ứng hoàn thành toàn bộ (punch scale step 3)
-            if (hasCharacter && hasInstrument && hasAnimation && (hasAnimation != _currentHasAnimation))
+            // Hiệu ứng hoàn thành toàn bộ (punch scale step 3) khi tiến lên bước 3
+            if (step >= 3 && _currentStep < 3)
             {
                 _activeSequence.OnComplete(() =>
                 {
@@ -143,6 +139,8 @@ public class CustomProgressController : MonoBehaviour
             }
 
             _activeSequence.Play();
+            _currentStep = step;
+            return _activeSequence;
         }
         else
         {
@@ -160,12 +158,27 @@ public class CustomProgressController : MonoBehaviour
                 step3Parent.transform.DOKill();
                 step3Parent.transform.localScale = Vector3.one;
             }
-        }
 
-        // Lưu lại trạng thái
-        _currentHasCharacter = hasCharacter;
-        _currentHasInstrument = hasInstrument;
-        _currentHasAnimation = hasAnimation;
+            _currentStep = step;
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Cập nhật tiến độ thanh tiến trình dựa trên trạng thái chọn của các bước (Tương thích ngược).
+    /// </summary>
+    public Sequence SetProgress(bool hasCharacter, bool hasInstrument, bool hasAnimation, bool animate = true)
+    {
+        int step = 1;
+        if (hasCharacter && hasInstrument && hasAnimation)
+        {
+            step = 3;
+        }
+        else if (hasCharacter && hasInstrument)
+        {
+            step = 2;
+        }
+        return SetProgress(step, animate);
     }
 
     private void OnDestroy()

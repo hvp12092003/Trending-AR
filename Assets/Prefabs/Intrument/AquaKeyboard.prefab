@@ -152,14 +152,14 @@ MonoBehaviour:
   m_BeatSquashFactor: 0.5
   m_AudioSource: {fileID: 2629559138636851155}
   m_AudioReactiveScaleAxis: {x: 0, y: 0, z: 0.5}
-  m_AudioSensitivity: 2
+  m_AudioSensitivity: 0.08
   m_AudioMinThreshold: 0.01
   m_AudioSmoothSpeed: 15
   m_BeatVFXPrefab: {fileID: 4024555818009781825, guid: ddfac030af4ddec4990238f3ed033376, type: 3}
   m_InitialPoolSize: 10
   m_PoolParent: {fileID: 3216076797708416298}
-  m_LoudnessVFXThreshold: 0.5
-  m_LoudnessVFXCooldown: 0.15
+  m_LoudnessVFXThreshold: 0.05
+  m_LoudnessVFXCooldown: -0.06
 --- !u!114 &9125032839703870366
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -186,7 +186,7 @@ AudioSource:
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
-  m_Resource: {fileID: 8300000, guid: 65f5a9788010e3a409fe9cb08a08070d, type: 3}
+  m_Resource: {fileID: 8300000, guid: b67e39a00f8a3004c915d602a16e32ed, type: 3}
   m_PlayOnAwake: 1
   m_Volume: 1
   m_Pitch: 1

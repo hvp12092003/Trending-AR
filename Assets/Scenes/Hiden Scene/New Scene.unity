@@ -559,6 +559,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: BOLT Test
       objectReference: {fileID: 0}
+    - target: {fileID: 482743668388503947, guid: 9c4bb24df1214504f927315c872336f1, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6549081457449182390, guid: 9c4bb24df1214504f927315c872336f1, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -691,6 +695,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: d5c13fb7064038e4ca84145deea4d376, type: 3}
       propertyPath: m_Name
       value: Meshy_AI_Purple_Tray_0625062509_texture
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: d5c13fb7064038e4ca84145deea4d376, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -836,6 +844,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: DrumBot
       objectReference: {fileID: 0}
+    - target: {fileID: 1789403148053968106, guid: 33707c05fa62e6e4799ae991189b05a2, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4119431307457762074, guid: 33707c05fa62e6e4799ae991189b05a2, type: 3}
       propertyPath: m_LocalPosition.x
       value: 1.032
@@ -933,6 +945,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: AquaKeyboard
       objectReference: {fileID: 0}
+    - target: {fileID: 3283653603558249079, guid: 4244c9d92628d174c94e3fb1d9188db0, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -949,6 +965,10 @@ PrefabInstance:
     - target: {fileID: 3022458226705503695, guid: e3f1b7900ab52474ab8a2eef6af6042f, type: 3}
       propertyPath: m_Name
       value: Dragonpipe
+      objectReference: {fileID: 0}
+    - target: {fileID: 3022458226705503695, guid: e3f1b7900ab52474ab8a2eef6af6042f, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8513414407743569783, guid: e3f1b7900ab52474ab8a2eef6af6042f, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1047,6 +1067,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: PeacockBot
       objectReference: {fileID: 0}
+    - target: {fileID: 8035061807666817717, guid: cba9afe70ed28b2489d8e90457a9391b, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1063,6 +1087,10 @@ PrefabInstance:
     - target: {fileID: 1855446595320537560, guid: 06c3fbea107f8854d9a9930fd8b4e097, type: 3}
       propertyPath: m_Name
       value: OrbBunny
+      objectReference: {fileID: 0}
+    - target: {fileID: 1855446595320537560, guid: 06c3fbea107f8854d9a9930fd8b4e097, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4769139595420612173, guid: 06c3fbea107f8854d9a9930fd8b4e097, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1161,6 +1189,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: BunnyDrum
       objectReference: {fileID: 0}
+    - target: {fileID: 7540815938727888966, guid: 4eaa6220b1ae53a49942d59d9e214a07, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1217,6 +1249,10 @@ PrefabInstance:
     - target: {fileID: 3954287189683364394, guid: 1461a9a4acfb7cd48ba91244d784eee4, type: 3}
       propertyPath: m_Name
       value: Meowbone
+      objectReference: {fileID: 0}
+    - target: {fileID: 3954287189683364394, guid: 1461a9a4acfb7cd48ba91244d784eee4, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1275,6 +1311,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: CatBoombox
       objectReference: {fileID: 0}
+    - target: {fileID: 2767242479302913613, guid: 23b69d08c90a6f24cb72ce6834115437, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1291,6 +1331,10 @@ PrefabInstance:
     - target: {fileID: 5486453212887462166, guid: d6319da12454f7942a4a053a0d001ef5, type: 3}
       propertyPath: m_Name
       value: LeopardSpeak
+      objectReference: {fileID: 0}
+    - target: {fileID: 5486453212887462166, guid: d6319da12454f7942a4a053a0d001ef5, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8923543316397431456, guid: d6319da12454f7942a4a053a0d001ef5, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1389,6 +1433,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: DragonSpeaker
       objectReference: {fileID: 0}
+    - target: {fileID: 7603022949339193808, guid: 8ee85fa72ab69844b837d4ac95ef2527, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1446,6 +1494,18 @@ PrefabInstance:
       propertyPath: m_Name
       value: BunnyBeat
       objectReference: {fileID: 0}
+    - target: {fileID: 6415218764922731276, guid: 960d3308036b150419204f231f1184d8, type: 3}
+      propertyPath: m_LoudnessVFXThreshold
+      value: 0.05
+      objectReference: {fileID: 0}
+    - target: {fileID: 9211508509689279746, guid: 960d3308036b150419204f231f1184d8, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 9211508509689279746, guid: 960d3308036b150419204f231f1184d8, type: 3}
+      propertyPath: m_Resource
+      value: 
+      objectReference: {fileID: 8300000, guid: b67e39a00f8a3004c915d602a16e32ed, type: 3}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1462,6 +1522,10 @@ PrefabInstance:
     - target: {fileID: 5905772277487262173, guid: 30381d9a451567849b4fdd090d129fa5, type: 3}
       propertyPath: m_Name
       value: WingedSpeaker
+      objectReference: {fileID: 0}
+    - target: {fileID: 5905772277487262173, guid: 30381d9a451567849b4fdd090d129fa5, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9201303397368721931, guid: 30381d9a451567849b4fdd090d129fa5, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1559,6 +1623,10 @@ PrefabInstance:
     - target: {fileID: 8091744176689795602, guid: 7eb6d9d147e05824c907a06d5379e9f8, type: 3}
       propertyPath: m_Name
       value: PandaSerenade
+      objectReference: {fileID: 0}
+    - target: {fileID: 8091744176689795602, guid: 7eb6d9d147e05824c907a06d5379e9f8, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

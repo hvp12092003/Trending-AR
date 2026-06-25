@@ -8,18 +8,18 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Main Menu Scene.unity
     guid: 1bcd3ad1c76019c4eb8483207b9762d9
-  - enabled: 0
-    path: Assets/Scenes/Hiden Scene/Band Mode AR Scene.unity
-    guid: a234e963748e0ff449aea513e6115eab
   - enabled: 1
-    path: Assets/Scenes/Band Mode NonAR Scene.unity
-    guid: e69924f7146664d4ca12509a505c0d1f
-  - enabled: 0
-    path: Assets/Scenes/Hiden Scene/Custome AR Scene.unity
-    guid: ccf06ca894affe14ead8fc8c340fc833
+    path: Assets/Scenes/Band NonAR Scene.unity
+    guid: 0584eecccf3254446ae951bf8fff461c
   - enabled: 1
     path: Assets/Scenes/Custome NonAR Scene.unity
     guid: da0f4834276682c4d84d946ef4dd34cf
+  - enabled: 0
+    path: Assets/Scenes/Hiden Scene/Band Mode AR Scene.unity
+    guid: a234e963748e0ff449aea513e6115eab
+  - enabled: 0
+    path: Assets/Scenes/Hiden Scene/Custome AR Scene.unity
+    guid: ccf06ca894affe14ead8fc8c340fc833
   - enabled: 0
     path: Assets/Scenes/Hiden Scene/Mini Game Mode Scene.unity
     guid: 0f32625e825a0a24f82a58116ce34d1c

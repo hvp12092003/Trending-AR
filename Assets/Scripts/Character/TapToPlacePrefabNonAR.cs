@@ -183,33 +183,14 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
                 UpdateDragPosition(pointerPos);
 
                 Vector3 currentPos = m_DraggedObject.transform.position;
+
+                // Dùng chính vị trí tay thả làm điểm đáp xuống
+                // (không snap về mặt đất để mỗi Cast có thể đặt ở độ cao / góc màn hình khác nhau)
                 Vector3 finalPos = currentPos;
 
-                // Tạm thời tắt các collider của nhân vật để tránh Raycast tự chạm trúng chính mình
-                Collider[] colliders = m_DraggedObject.GetComponentsInChildren<Collider>();
-                foreach (var col in colliders) col.enabled = false;
-
-                // Xác định vị trí mặt đất dưới chân nhân vật bằng Raycast hướng xuống dưới
-                Ray ray = new Ray(currentPos + Vector3.up * 0.5f, Vector3.down);
-                if (Physics.Raycast(ray, out RaycastHit hit, m_MaxRaycastDistance))
-                {
-                    finalPos = hit.point;
-                }
-                else
-                {
-                    // Fallback độ cao mặc định nếu không va chạm
-                    finalPos.y = m_FallbackGroundY;
-                }
-
-                // Bật lại các collider
-                foreach (var col in colliders) col.enabled = true;
-
-                // Điểm bắt đầu rơi: Đảm bảo có khoảng cách rơi tối thiểu để thấy rõ hiệu ứng
-                Vector3 startPos = currentPos;
-                if (startPos.y < finalPos.y + m_MinDropHeight)
-                {
-                    startPos.y = finalPos.y + m_MinDropHeight;
-                }
+                // Điểm bắt đầu rơi: nâng lên trên một chút để tạo hiệu ứng rơi từ trên xuống
+                Vector3 startPos = finalPos;
+                startPos.y += m_MinDropHeight;
 
                 // Hủy hẳn parent để cố định nhân vật trong thế giới giả lập
                 m_DraggedObject.transform.SetParent(null);

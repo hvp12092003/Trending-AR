@@ -98,8 +98,18 @@ public class CustomCharacterPanelController : MonoBehaviour
         {
             bool hasChar = !string.IsNullOrEmpty(_selectedPrefabName);
             bool hasInstrument = !string.IsNullOrEmpty(_selectedAudioId);
-            bool hasAnim = !string.IsNullOrEmpty(_selectedAnimationId);
-            progressController.SetProgress(hasChar, hasInstrument, hasAnim, animate);
+
+            int currentStep = 1;
+            if (_currentTab == CustomTab.Instrument && hasChar)
+            {
+                currentStep = 2;
+            }
+            else if (_currentTab == CustomTab.Animation && hasChar && hasInstrument)
+            {
+                currentStep = 3;
+            }
+
+            progressController.SetProgress(currentStep, animate);
         }
     }
 
@@ -326,9 +336,6 @@ public class CustomCharacterPanelController : MonoBehaviour
         // Đảm bảo bật lại Preview Container và PreviewCamera khi Panel Creator hoạt động
         if (previewContainer != null) previewContainer.gameObject.SetActive(true);
         if (previewCamera != null) previewCamera.SetActive(true);
-
-        // Khởi tạo thanh tiến trình trạng thái hiện tại (không chạy hiệu ứng)
-        UpdateProgressBar(false);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -403,6 +410,9 @@ public class CustomCharacterPanelController : MonoBehaviour
         {
             PlayIdleAnimation();
         }
+
+        // Cập nhật thanh tiến trình tương ứng với tab hiện tại
+        UpdateProgressBar(animate);
     }
 
     private void InitCanvasGroups()
@@ -521,7 +531,6 @@ public class CustomCharacterPanelController : MonoBehaviour
                     : audioPanelController.SelectedPrefab.name;
             }
         }
-        UpdateProgressBar(true);
     }
 
     private void PopulateAnimations()
@@ -538,7 +547,6 @@ public class CustomCharacterPanelController : MonoBehaviour
                 PlayPreviewAnimation(_selectedAnimationId);
             }
         }
-        UpdateProgressBar(true);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1082,11 +1090,79 @@ public class CustomCharacterPanelController : MonoBehaviour
 
     private void OnNextButtonClicked()
     {
-        switch (_currentTab)
+        if (_currentTab == CustomTab.Character)
         {
-            case CustomTab.Character:  SwitchTab(CustomTab.Instrument, true); break;
-            case CustomTab.Instrument: SwitchTab(CustomTab.Animation, true); break;
+            // Kiểm tra xem đã chọn nhân vật chưa
+            if (string.IsNullOrEmpty(_selectedPrefabName))
+            {
+                Debug.LogWarning("[CustomCharacterPanelController] Chưa chọn Cast!");
+                return;
+            }
+
+            if (progressController != null)
+            {
+                SetNavigationButtonsInteractable(false);
+                var seq = progressController.SetProgress(2, true);
+                if (seq != null)
+                {
+                    seq.OnComplete(() =>
+                    {
+                        SetNavigationButtonsInteractable(true);
+                        SwitchTab(CustomTab.Instrument, true);
+                    });
+                }
+                else
+                {
+                    SetNavigationButtonsInteractable(true);
+                    SwitchTab(CustomTab.Instrument, true);
+                }
+            }
+            else
+            {
+                SwitchTab(CustomTab.Instrument, true);
+            }
         }
+        else if (_currentTab == CustomTab.Instrument)
+        {
+            // Kiểm tra xem đã chọn nhạc cụ chưa
+            if (string.IsNullOrEmpty(_selectedAudioId))
+            {
+                Debug.LogWarning("[CustomCharacterPanelController] Chưa chọn nhạc cụ!");
+                return;
+            }
+
+            if (progressController != null)
+            {
+                SetNavigationButtonsInteractable(false);
+                var seq = progressController.SetProgress(3, true);
+                if (seq != null)
+                {
+                    seq.OnComplete(() =>
+                    {
+                        SetNavigationButtonsInteractable(true);
+                        SwitchTab(CustomTab.Animation, true);
+                    });
+                }
+                else
+                {
+                    SetNavigationButtonsInteractable(true);
+                    SwitchTab(CustomTab.Animation, true);
+                }
+            }
+            else
+            {
+                SwitchTab(CustomTab.Animation, true);
+            }
+        }
+    }
+
+    private void SetNavigationButtonsInteractable(bool interactable)
+    {
+        if (nextButton != null) nextButton.interactable = interactable;
+        if (prevButton != null) prevButton.interactable = interactable;
+        if (backButton != null) backButton.interactable = interactable;
+        if (startButton != null) startButton.interactable = interactable;
+        if (skipButton != null) skipButton.interactable = interactable;
     }
 
     /// <summary>

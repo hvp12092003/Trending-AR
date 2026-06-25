@@ -1907,31 +1907,31 @@ MonoBehaviour:
     bandName: 
     members:
     - castName: 
-      castPrefabIndex: 0
+      castPrefabIndex: 1
       danceAnimId: 
-      instrumentPrefabIndex: 0
-      audioClip: {fileID: 0}
+      instrumentPrefabIndex: 1
+      audioClip: {fileID: 8300000, guid: a61d714a5fa8644469e86f4135a88402, type: 3}
+      reduceVolumeWhenTogether: 1
+      reduceAmount: 0.5
+    - castName: 
+      castPrefabIndex: 2
+      danceAnimId: 
+      instrumentPrefabIndex: 2
+      audioClip: {fileID: 8300000, guid: b67e39a00f8a3004c915d602a16e32ed, type: 3}
+      reduceVolumeWhenTogether: 1
+      reduceAmount: 0.5
+    - castName: 
+      castPrefabIndex: 3
+      danceAnimId: 
+      instrumentPrefabIndex: 3
+      audioClip: {fileID: 8300000, guid: cd98c05257e59c3409f12e21c709ea85, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
-      castPrefabIndex: 0
+      castPrefabIndex: 4
       danceAnimId: 
-      instrumentPrefabIndex: 0
-      audioClip: {fileID: 0}
-      reduceVolumeWhenTogether: 0
-      reduceAmount: 0
-    - castName: 
-      castPrefabIndex: 0
-      danceAnimId: 
-      instrumentPrefabIndex: 0
-      audioClip: {fileID: 0}
-      reduceVolumeWhenTogether: 0
-      reduceAmount: 0
-    - castName: 
-      castPrefabIndex: 0
-      danceAnimId: 
-      instrumentPrefabIndex: 0
-      audioClip: {fileID: 0}
+      instrumentPrefabIndex: 4
+      audioClip: {fileID: 8300000, guid: ecc0cf9993d00b340a9b0e40dc26eb16, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     fullSongAudio: {fileID: 8300000, guid: a9a5cb9379eb50e43a6e61aacbf0f871, type: 3}

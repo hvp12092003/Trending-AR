@@ -173,15 +173,8 @@ public class ModelLoopEffects : MonoBehaviour
         InitializeVFXPool();
         TryRegisterBeatEvent();
 
-        // Tự động tìm AudioSource trên chính nhân vật/Object cha nếu chưa được gán
-        if (m_AudioSource == null)
-        {
-            m_AudioSource = GetComponent<AudioSource>();
-            if (m_AudioSource == null)
-            {
-                m_AudioSource = GetComponentInParent<AudioSource>();
-            }
-        }
+        // Tự động tìm AudioSource
+        ResolveAudioSource();
     }
 
     private void OnDestroy()
@@ -397,6 +390,7 @@ public class ModelLoopEffects : MonoBehaviour
                     break;
 
                 case ScaleMode.RealtimeAudioLoudness:
+                    ResolveAudioSource();
                     float targetLoudness = 0f;
                     AudioSource activeSource = m_AudioSource;
 
@@ -454,6 +448,37 @@ public class ModelLoopEffects : MonoBehaviour
             // Trả về tỉ lệ scale gốc nếu tắt
             m_TargetTransform.localScale = m_OriginalLocalScale;
             m_LastAppliedScale = m_OriginalLocalScale;
+        }
+    }
+
+    /// <summary>
+    /// Tự động tìm AudioSource từ CastAudioData hoặc các component AudioSource lân cận.
+    /// </summary>
+    private void ResolveAudioSource()
+    {
+        if (m_AudioSource != null) return;
+
+        // Thử lấy CastAudioData từ chính object này, cha hoặc con để lấy preparedSource
+        CastAudioData castAudio = GetComponent<CastAudioData>();
+        if (castAudio == null) castAudio = GetComponentInParent<CastAudioData>();
+        if (castAudio == null) castAudio = GetComponentInChildren<CastAudioData>();
+
+        if (castAudio != null && castAudio.preparedSource != null)
+        {
+            m_AudioSource = castAudio.preparedSource;
+            Debug.Log($"[ModelLoopEffects] ({gameObject.name}) Đã kết hợp tự động AudioSource từ CastAudioData: {m_AudioSource.gameObject.name}");
+            return;
+        }
+
+        // Fallback tìm kiếm AudioSource thông thường
+        m_AudioSource = GetComponent<AudioSource>();
+        if (m_AudioSource == null)
+        {
+            m_AudioSource = GetComponentInParent<AudioSource>();
+        }
+        if (m_AudioSource == null)
+        {
+            m_AudioSource = GetComponentInChildren<AudioSource>();
         }
     }
 }
