@@ -9,6 +9,8 @@ using DG.Tweening;
 /// </summary>
 public class PopupSetting : MonoBehaviour
 {
+    public event Action OnCloseStarted;
+
     [Header("UI Toggles")]
     [Tooltip("Thanh gạt Sound")]
     [SerializeField] private SliceToggle soundToggle;
@@ -116,6 +118,9 @@ public class PopupSetting : MonoBehaviour
     /// </summary>
     public void ClosePopup()
     {
+        OnCloseStarted?.Invoke();
+        _isOpening = false;
+
         CanvasGroup cg = GetComponent<CanvasGroup>();
         if (cg == null) cg = gameObject.AddComponent<CanvasGroup>();
 

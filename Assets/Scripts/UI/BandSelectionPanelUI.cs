@@ -92,7 +92,7 @@ public class BandSelectionPanelUI : MonoBehaviour
         }
     }
 
-    private void PopulateBandCards()
+    private async void PopulateBandCards()
     {
         // Xóa sạch các thẻ card cũ
         if (scrollContent != null)
@@ -109,7 +109,7 @@ public class BandSelectionPanelUI : MonoBehaviour
             return;
         }
 
-        List<EditorBandData> bands = MainMenuDataManager.Instance.PredefinedBands;
+        List<BandData> bands = await MainMenuDataManager.Instance.GetCreatedBandsAsync();
         if (bands == null || bands.Count == 0)
         {
             GameObject emptyTextObj = new GameObject("Txt_Empty");
@@ -119,7 +119,7 @@ public class BandSelectionPanelUI : MonoBehaviour
             textRect.sizeDelta = new Vector2(500, 100);
 
             TextMeshProUGUI txt = emptyTextObj.AddComponent<TextMeshProUGUI>();
-            txt.text = "Không tìm thấy ban nhạc nào cấu hình sẵn trong MainMenuDataManager!";
+            txt.text = "Khong tim thay ban nhac da tao!";
             txt.fontSize = 18;
             txt.alignment = TextAlignmentOptions.Center;
             txt.color = new Color(0.6f, 0.6f, 0.6f, 0.8f);
@@ -132,10 +132,12 @@ public class BandSelectionPanelUI : MonoBehaviour
         }
     }
 
-    private void CreateBandCard(EditorBandData band)
+    private void CreateBandCard(BandData band)
     {
+        string displayName = GetBandDisplayName(band);
+
         // 1. Tạo Card Container
-        GameObject cardObj = new GameObject($"BandCard_{band.bandName}");
+        GameObject cardObj = new GameObject($"BandCard_{displayName}");
         cardObj.transform.SetParent(scrollContent, false);
 
         RectTransform rect = cardObj.AddComponent<RectTransform>();
@@ -143,18 +145,12 @@ public class BandSelectionPanelUI : MonoBehaviour
 
         Image img = cardObj.AddComponent<Image>();
         img.color = new Color(0.15f, 0.15f, 0.18f, 0.9f); // Nền xám đen đặc trưng
+        img.type = Image.Type.Simple;
 
         // Outline bo viền card nhẹ
         Outline outline = cardObj.AddComponent<Outline>();
         outline.effectColor = new Color(1f, 1f, 1f, 0.08f);
         outline.effectDistance = new Vector2(1, -1);
-
-        Sprite uiSprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/UISprite.psd");
-        if (uiSprite != null)
-        {
-            img.sprite = uiSprite;
-            img.type = Image.Type.Sliced;
-        }
 
         Button btn = cardObj.AddComponent<Button>();
         btn.onClick.AddListener(() => OnBandSelected(band));
@@ -179,11 +175,7 @@ public class BandSelectionPanelUI : MonoBehaviour
         logoRect.sizeDelta = new Vector2(80, 80);
 
         Image logoImg = logoObj.AddComponent<Image>();
-        if (uiSprite != null)
-        {
-            logoImg.sprite = uiSprite;
-            logoImg.type = Image.Type.Sliced;
-        }
+        logoImg.type = Image.Type.Simple;
 
         // Nền logo tròn màu ngẫu nhiên dịu mắt
         logoImg.color = new Color(0.25f, 0.25f, 0.3f, 1f);
@@ -197,7 +189,7 @@ public class BandSelectionPanelUI : MonoBehaviour
         itRect.sizeDelta = Vector2.zero;
 
         TextMeshProUGUI initialTxt = initialTextObj.AddComponent<TextMeshProUGUI>();
-        initialTxt.text = !string.IsNullOrEmpty(band.bandName) ? band.bandName[0].ToString().ToUpper() : "B";
+        initialTxt.text = !string.IsNullOrEmpty(displayName) ? displayName[0].ToString().ToUpper() : "B";
         initialTxt.fontSize = 32;
         initialTxt.fontStyle = FontStyles.Bold;
         initialTxt.alignment = TextAlignmentOptions.Center;
@@ -214,7 +206,7 @@ public class BandSelectionPanelUI : MonoBehaviour
         nameRect.sizeDelta = new Vector2(-125f, 25f);
 
         TextMeshProUGUI nameTxt = nameObj.AddComponent<TextMeshProUGUI>();
-        nameTxt.text = band.bandName;
+        nameTxt.text = displayName;
         nameTxt.fontSize = 20;
         nameTxt.fontStyle = FontStyles.Bold;
         nameTxt.color = Color.white;
@@ -236,107 +228,84 @@ public class BandSelectionPanelUI : MonoBehaviour
         layout.childControlWidth = false;
         layout.childControlHeight = false;
 
-        for (int i = 0; i < 4; i++)
+        int castCount = band.casts != null ? Mathf.Min(4, band.casts.Count) : 0;
+        for (int i = 0; i < castCount; i++)
         {
-            if (i < band.members.Count)
+            var cast = band.casts[i];
+            GameObject avObj = new GameObject($"CastAv_{i}");
+            avObj.transform.SetParent(avatarContainer.transform, false);
+            RectTransform avRect = avObj.AddComponent<RectTransform>();
+            avRect.sizeDelta = new Vector2(30, 30);
+
+            Image avImg = avObj.AddComponent<Image>();
+            avImg.color = new Color(0.35f, 0.35f, 0.4f, 1f);
+            avImg.type = Image.Type.Simple;
+
+            Sprite avatar = GetCastAvatar(cast);
+            if (avatar != null)
             {
-                var member = band.members[i];
-                GameObject avObj = new GameObject($"CastAv_{i}");
-                avObj.transform.SetParent(avatarContainer.transform, false);
-                RectTransform avRect = avObj.AddComponent<RectTransform>();
-                avRect.sizeDelta = new Vector2(30, 30);
-
-                Image avImg = avObj.AddComponent<Image>();
                 avImg.color = Color.white;
-
-                if (uiSprite != null)
-                {
-                    avImg.sprite = uiSprite;
-                    avImg.type = Image.Type.Sliced;
-                }
-
-                GameObject castPrefab = null;
-                if (MainMenuDataManager.Instance != null && 
-                    member.castPrefabIndex >= 0 && 
-                    member.castPrefabIndex < MainMenuDataManager.Instance.CharacterPrefabs.Count)
-                {
-                    castPrefab = MainMenuDataManager.Instance.CharacterPrefabs[member.castPrefabIndex];
-                }
-
-                if (castPrefab != null)
-                {
-                    CastPrefab cp = castPrefab.GetComponent<CastPrefab>();
-                    if (cp != null && cp.characterAvatar != null)
-                    {
-                        avImg.sprite = cp.characterAvatar;
-                    }
-                    else
-                    {
-                        Sprite avSprite = Resources.Load<Sprite>("Avatars/" + castPrefab.name);
-                        if (avSprite != null) avImg.sprite = avSprite;
-                        else avImg.color = new Color(0.35f, 0.35f, 0.4f, 1f);
-                    }
-                }
-                else
-                {
-                    avImg.color = new Color(0.35f, 0.35f, 0.4f, 1f);
-                }
+                avImg.sprite = avatar;
             }
         }
     }
 
-    private void OnBandSelected(EditorBandData band)
+    private string GetBandDisplayName(BandData band)
     {
-        Debug.Log($"[BandSelectionPanelUI] Đăng ký ban nhạc được chọn: {band.bandName}");
+        if (band == null || string.IsNullOrEmpty(band.name))
+        {
+            return "Band";
+        }
 
-        // 1. Gán cấu hình ban nhạc cho MainMenuDataManager
+        return band.name;
+    }
+
+    private Sprite GetCastAvatar(CastData cast)
+    {
+        if (cast == null || MainMenuDataManager.Instance == null)
+        {
+            return null;
+        }
+
+        Sprite avatar = MainMenuDataManager.Instance.GetCharacterAvatarSprite(cast.prefabName);
+        if (avatar != null)
+        {
+            return avatar;
+        }
+
+        return Resources.Load<Sprite>("Avatars/" + cast.prefabName);
+    }
+
+    private void OnBandSelected(BandData band)
+    {
+        if (band == null || band.casts == null || band.casts.Count == 0)
+        {
+            Debug.LogWarning("[BandSelectionPanelUI] Band duoc chon khong co du lieu cast hop le.");
+            return;
+        }
+
+        string displayName = GetBandDisplayName(band);
+        Debug.Log($"[BandSelectionPanelUI] Dang ky ban nhac duoc chon: {displayName}");
+
         if (MainMenuDataManager.Instance != null)
         {
-            MainMenuDataManager.Instance.selectedBandData = band;
+            MainMenuDataManager.Instance.selectedBandData = null;
         }
-        BandSelectionManager.SelectedBandName = band.bandName;
 
-        // Đồng bộ ngược với BandData cũ để tương thích với các logic khác
-        List<CastData> oldCastsList = new List<CastData>();
+        List<CastData> castsList = new List<CastData>(band.casts);
         List<Sprite> avatarsList = new List<Sprite>();
-        
-        foreach (var m in band.members)
+        foreach (var cast in castsList)
         {
-            if (m == null) continue;
-            
-            string prefabName = "";
-            GameObject castPrefab = null;
-            if (MainMenuDataManager.Instance != null && 
-                m.castPrefabIndex >= 0 && 
-                m.castPrefabIndex < MainMenuDataManager.Instance.CharacterPrefabs.Count)
-            {
-                castPrefab = MainMenuDataManager.Instance.CharacterPrefabs[m.castPrefabIndex];
-                if (castPrefab != null) prefabName = castPrefab.name;
-            }
-            
-            List<string> anims = new List<string>();
-            if (!string.IsNullOrEmpty(m.danceAnimId)) anims.Add(m.danceAnimId);
-            
-            CastData cd = new CastData(m.castName, prefabName, m.audioClip != null ? m.audioClip.name : "", m.danceAnimId, anims);
-            oldCastsList.Add(cd);
-
-            Sprite avatar = null;
-            if (castPrefab != null)
-            {
-                CastPrefab cp = castPrefab.GetComponent<CastPrefab>();
-                if (cp != null) avatar = cp.characterAvatar;
-            }
-            avatarsList.Add(avatar);
+            avatarsList.Add(GetCastAvatar(cast));
         }
 
-        string bandId = string.IsNullOrEmpty(band.bandName) ? "editor_band" : band.bandName;
-        BandSelectionManager.SelectedBand = new BandData(bandId, band.bandName, oldCastsList);
+        string bandId = string.IsNullOrEmpty(band.bandId) ? displayName : band.bandId;
+        BandSelectionManager.SelectedBand = new BandData(bandId, displayName, castsList);
         BandSelectionManager.SelectedBandAvatars = avatarsList;
+        BandSelectionManager.SelectedBandName = displayName;
 
-        // 2. Ẩn Panel
         Hide();
 
-        // 3. Gọi callback chuyển cảnh trong Hub
         if (m_OnSceneLoadTrigger != null)
         {
             m_OnSceneLoadTrigger.Invoke("Band Mode AR Scene", "Band Mode NonAR Scene");
@@ -382,17 +351,11 @@ public class BandSelectionPanelUI : MonoBehaviour
 
         Image boxImg = containerObj.AddComponent<Image>();
         boxImg.color = new Color(0.08f, 0.08f, 0.1f, 0.95f); // Glassmorphism dark
+        boxImg.type = Image.Type.Simple;
 
         Outline boxOutline = containerObj.AddComponent<Outline>();
         boxOutline.effectColor = new Color(1f, 1f, 1f, 0.06f);
         boxOutline.effectDistance = new Vector2(1, -1);
-
-        Sprite boxSprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/UISprite.psd");
-        if (boxSprite != null)
-        {
-            boxImg.sprite = boxSprite;
-            boxImg.type = Image.Type.Sliced;
-        }
 
         // 4. Tiêu đề chính
         GameObject titleObj = new GameObject("TitleText");
@@ -470,11 +433,7 @@ public class BandSelectionPanelUI : MonoBehaviour
 
         Image closeImg = closeBtnObj.AddComponent<Image>();
         closeImg.color = new Color(0.25f, 0.25f, 0.28f, 1f);
-        if (boxSprite != null)
-        {
-            closeImg.sprite = boxSprite;
-            closeImg.type = Image.Type.Sliced;
-        }
+        closeImg.type = Image.Type.Simple;
 
         closeButton = closeBtnObj.AddComponent<Button>();
         closeButton.onClick.AddListener(Hide);

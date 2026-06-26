@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// Quản lý việc đọc/ghi dữ liệu cục bộ cho màn hình Menu chính – phiên bản Offline.
@@ -11,6 +12,10 @@ using UnityEngine;
 public class MainMenuDataManager : MonoBehaviour
 {
     public static MainMenuDataManager Instance { get; private set; }
+
+    [Header("Tap Audio")]
+    [Tooltip("AudioSource phat am khi VFX dang bat va nguoi dung cham/click man hinh. Neu de trong se tu lay AudioSource tren GameObject nay.")]
+    [SerializeField] private AudioSource tapAudioSource;
 
     [Header("Character Catalog")]
     [Tooltip("Danh sach prefab nhan vat. Keo cac prefab Cast vao day de MainMenuDataManager tu doc CastPrefab.")]
@@ -23,12 +28,6 @@ public class MainMenuDataManager : MonoBehaviour
     [SerializeField] private List<GameObject> instrumentPrefabs = new List<GameObject>();
 
     public List<GameObject> InstrumentPrefabs => instrumentPrefabs;
-
-    [Header("Predefined Bands Configuration")]
-    [Tooltip("Danh sách các ban nhạc được cấu hình sẵn cho chế độ Band Mode.")]
-    [SerializeField] private List<EditorBandData> predefinedBands = new List<EditorBandData>();
-
-    public List<EditorBandData> PredefinedBands => predefinedBands;
 
     /// <summary>
     /// Lưu trữ cấu hình ban nhạc được chọn hiện hành từ Main Menu để truyền sang Scene AR.
@@ -86,12 +85,60 @@ public class MainMenuDataManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
+            if (tapAudioSource == null)
+            {
+                tapAudioSource = GetComponent<AudioSource>();
+            }
             DontDestroyOnLoad(gameObject);
         }
         else
         {
             Destroy(gameObject);
         }
+    }
+
+    private void Update()
+    {
+        if (!IsTapAudioEnabled())
+        {
+            return;
+        }
+
+        if (Touchscreen.current != null)
+        {
+            bool playedTouchAudio = false;
+            var touches = Touchscreen.current.touches;
+            for (int i = 0; i < touches.Count; i++)
+            {
+                if (touches[i].press.wasPressedThisFrame)
+                {
+                    PlayTapAudio();
+                    playedTouchAudio = true;
+                }
+            }
+
+            if (playedTouchAudio)
+            {
+                return;
+            }
+        }
+
+        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+        {
+            PlayTapAudio();
+        }
+    }
+
+    private bool IsTapAudioEnabled()
+    {
+        return PlayerPrefs.GetInt(PopupSetting.VFX_KEY, 1) == 1 &&
+               tapAudioSource != null &&
+               tapAudioSource.clip != null;
+    }
+
+    private void PlayTapAudio()
+    {
+        tapAudioSource.PlayOneShot(tapAudioSource.clip);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

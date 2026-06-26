@@ -1,198 +1,82 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 /// <summary>
-/// Component quản lý hiển thị của nút ghi âm trong ScrollView.
-/// Hỗ trợ 2 trạng thái:
-///   - Chưa ghi âm: hiển thị icon Microphone, click để ghi âm
-///   - Đã ghi âm: hiển thị icon Audio, có nút Delete ở góc trên
-/// Ngoài ra hỗ trợ radial fill và viền đỏ khi đang ghi âm.
+/// Controls the hand-authored record button inside the audio ScrollView content.
+/// Expected children: Delete Button, Icon mic, Filled 1, Filled 2, Text.
 /// </summary>
 public class CustomAudioRecordItemUI : MonoBehaviour
 {
-    [Header("UI Elements")]
-    [SerializeField] private TextMeshProUGUI nameText;
-    [SerializeField] private Image avatarImage;
+    [Header("Main Button")]
     [SerializeField] private Button itemButton;
-
-    [Header("Selection Button Sprites")]
     [SerializeField] private Sprite selectedSprite;
     [SerializeField] private Sprite unselectedSprite;
 
-    [Header("Record State Icons")]
-    [SerializeField] private Sprite micIcon;       // Icon mic khi chưa có ghi âm
-    [SerializeField] private Sprite audioIcon;     // Icon audio/waveform khi đã có ghi âm
+    [Header("Record Button Children")]
+    [SerializeField] private Button deleteButton;
+    [SerializeField] private Image iconMic;
+    [SerializeField] private Image filled1;
+    [SerializeField] private Image filled2;
+    [SerializeField] private TextMeshProUGUI text;
 
-    [Header("Record/Delete Optionals")]
-    [SerializeField] private Button deleteButton;       // Nút xóa ghi âm (biểu tượng thùng rác)
-    [SerializeField] private Image recordBorder;        // Viền đỏ khi thu âm
-    [SerializeField] private Image radialFill;          // Ảnh tiến trình ghi âm (Radial 360)
+    [Header("Labels")]
+    [SerializeField] private string idleLabel = "Record";
+    [SerializeField] private string recordingLabel = "Recording";
+    [SerializeField] private string recordedLabel = "Record 1";
 
     public string ItemId { get; private set; }
 
-    public string GetTitle() => nameText != null ? nameText.text : "";
+    public string GetTitle() => text != null ? text.text : "";
+
+    private bool _referencesResolved;
+    private bool _hasRecording;
 
     private void EnsureReferences()
     {
+        if (_referencesResolved) return;
+
+        if (itemButton == null)
+        {
+            itemButton = GetComponent<Button>();
+        }
+
         if (deleteButton == null)
         {
-            Transform t = transform.Find("DeleteButton");
-            if (t != null) deleteButton = t.GetComponent<Button>();
+            deleteButton = FindChildComponent<Button>("Delete Button", "DeleteButton");
         }
-        if (recordBorder == null)
+
+        if (iconMic == null)
         {
-            Transform t = transform.Find("RecordBorder");
-            if (t != null) recordBorder = t.GetComponent<Image>();
+            iconMic = FindChildComponent<Image>("Icon mic", "Icon Mic", "IconMic", "Mic", "Icon");
         }
-        if (radialFill == null)
+
+        if (filled1 == null)
         {
-            Transform t = transform.Find("RadialFill");
-            if (t != null) radialFill = t.GetComponent<Image>();
+            filled1 = FindChildComponent<Image>("Filled 1", "Filled1", "Fill 1", "Fill1");
         }
+
+        if (filled2 == null)
+        {
+            filled2 = FindChildComponent<Image>("Filled 2", "Filled2", "Fill 2", "Fill2");
+        }
+
+        if (text == null)
+        {
+            text = FindChildComponent<TextMeshProUGUI>("Text", "Label", "Name");
+        }
+
+        ConfigureFilled2();
+        _referencesResolved = true;
     }
 
-    /// <summary>
-    /// Thiết lập nút ghi âm thống nhất.
-    /// Nếu hasRecording = false: hiển thị icon mic, click để bắt đầu ghi âm.
-    /// Nếu hasRecording = true: hiển thị icon audio, nút delete hiện lên, click để phát/chọn bản ghi âm.
-    /// </summary>
     public void SetupRecordButton(bool hasRecording, Action onClickCallback, Action onDeleteCallback)
     {
         EnsureReferences();
 
-        if (hasRecording)
-        {
-            // Trạng thái đã có ghi âm
-            if (nameText != null) nameText.text = "Record";
-            ItemId = "Record_Audio";
-
-            // Đổi sang icon audio
-            if (avatarImage != null)
-            {
-                Sprite icon = audioIcon != null ? audioIcon : micIcon;
-                if (icon != null)
-                {
-                    avatarImage.sprite = icon;
-                    avatarImage.gameObject.SetActive(true);
-                }
-            }
-
-            // Hiện nút delete
-            if (deleteButton != null)
-            {
-                deleteButton.gameObject.SetActive(true);
-                deleteButton.onClick.RemoveAllListeners();
-                deleteButton.onClick.AddListener(() => onDeleteCallback?.Invoke());
-            }
-        }
-        else
-        {
-            // Trạng thái chưa có ghi âm
-            if (nameText != null) nameText.text = "Record";
-            ItemId = "Record_Trigger";
-
-            // Dùng icon mic
-            if (avatarImage != null)
-            {
-                if (micIcon != null)
-                {
-                    avatarImage.sprite = micIcon;
-                    avatarImage.gameObject.SetActive(true);
-                }
-                else
-                {
-                    avatarImage.gameObject.SetActive(false);
-                }
-            }
-
-            // Ẩn nút delete
-            if (deleteButton != null) deleteButton.gameObject.SetActive(false);
-        }
-
-        if (itemButton != null)
-        {
-            itemButton.onClick.RemoveAllListeners();
-            itemButton.onClick.AddListener(() => onClickCallback?.Invoke());
-            itemButton.interactable = true;
-        }
-
-        if (recordBorder != null) recordBorder.gameObject.SetActive(false);
-        if (radialFill != null)
-        {
-            radialFill.gameObject.SetActive(!hasRecording);
-            radialFill.fillAmount = 0f;
-        }
-
-        SetSelected(hasRecording); // Đánh dấu selected nếu đang dùng bản ghi âm
-    }
-
-    /// <summary>
-    /// [Legacy] Thiết lập giao diện cho nút Bắt đầu ghi âm.
-    /// </summary>
-    public void SetupRecordTrigger(Sprite recordIcon, Action onClickCallback)
-    {
-        EnsureReferences();
-
-        if (nameText != null) nameText.text = "Record";
-        if (avatarImage != null)
-        {
-            Sprite icon = recordIcon != null ? recordIcon : micIcon;
-            if (icon != null)
-            {
-                avatarImage.sprite = icon;
-                avatarImage.gameObject.SetActive(true);
-            }
-            else
-            {
-                avatarImage.gameObject.SetActive(false);
-            }
-        }
-
-        ItemId = "Record_Trigger";
-
-        if (itemButton != null)
-        {
-            itemButton.onClick.RemoveAllListeners();
-            itemButton.onClick.AddListener(() => onClickCallback?.Invoke());
-            itemButton.interactable = true;
-        }
-
-        if (deleteButton != null) deleteButton.gameObject.SetActive(false);
-        if (recordBorder != null) recordBorder.gameObject.SetActive(false);
-        if (radialFill != null)
-        {
-            radialFill.gameObject.SetActive(true);
-            radialFill.fillAmount = 0f;
-        }
-
-        SetSelected(false);
-    }
-
-    /// <summary>
-    /// [Legacy] Thiết lập giao diện cho thẻ Âm thanh đã ghi âm.
-    /// </summary>
-    public void SetupRecordedItem(string name, Sprite icon, Action onClickCallback, Action onDeleteCallback)
-    {
-        EnsureReferences();
-
-        if (nameText != null) nameText.text = name;
-        if (avatarImage != null)
-        {
-            Sprite displayIcon = icon != null ? icon : audioIcon;
-            if (displayIcon != null)
-            {
-                avatarImage.sprite = displayIcon;
-                avatarImage.gameObject.SetActive(true);
-            }
-            else
-            {
-                avatarImage.gameObject.SetActive(false);
-            }
-        }
-
-        ItemId = "Record_Audio";
+        _hasRecording = hasRecording;
+        ItemId = hasRecording ? "Record_Audio" : "Record_Trigger";
 
         if (itemButton != null)
         {
@@ -203,58 +87,188 @@ public class CustomAudioRecordItemUI : MonoBehaviour
 
         if (deleteButton != null)
         {
-            deleteButton.gameObject.SetActive(true);
             deleteButton.onClick.RemoveAllListeners();
             deleteButton.onClick.AddListener(() => onDeleteCallback?.Invoke());
         }
 
-        if (recordBorder != null) recordBorder.gameObject.SetActive(false);
-        if (radialFill != null) radialFill.gameObject.SetActive(false);
+        if (hasRecording)
+        {
+            ShowRecordedVisual();
+        }
+        else
+        {
+            ShowIdleVisual();
+        }
 
         SetSelected(false);
     }
 
-    /// <summary>
-    /// Cập nhật viền đỏ và độ tương tác của nút khi đang ghi âm.
-    /// </summary>
+    public void SetupRecordTrigger(Sprite recordIcon, Action onClickCallback)
+    {
+        SetupRecordButton(false, onClickCallback, null);
+    }
+
+    public void SetupRecordedItem(string name, Sprite icon, Action onClickCallback, Action onDeleteCallback)
+    {
+        recordedLabel = string.IsNullOrEmpty(name) ? recordedLabel : name;
+        SetupRecordButton(true, onClickCallback, onDeleteCallback);
+    }
+
     public void SetRecordingState(bool isRecording)
     {
         EnsureReferences();
-        if (recordBorder != null)
+
+        if (isRecording)
         {
-            recordBorder.gameObject.SetActive(isRecording);
+            ShowRecordingVisual();
         }
+        else if (_hasRecording)
+        {
+            ShowRecordedVisual();
+        }
+        else
+        {
+            ShowIdleVisual();
+        }
+
         if (itemButton != null)
         {
             itemButton.interactable = !isRecording;
         }
     }
 
-    /// <summary>
-    /// Cập nhật phần trăm tiến trình ghi âm.
-    /// </summary>
     public void SetRadialFill(float amount)
     {
         EnsureReferences();
-        if (radialFill != null)
+
+        if (filled2 == null) return;
+
+        ConfigureFilled2();
+        filled2.gameObject.SetActive(true);
+        filled2.fillAmount = Mathf.Clamp01(amount);
+    }
+
+    public void SetRecordedState(bool hasRecording)
+    {
+        EnsureReferences();
+
+        _hasRecording = hasRecording;
+        if (hasRecording)
         {
-            radialFill.gameObject.SetActive(true);
-            radialFill.fillAmount = amount;
+            ShowRecordedVisual();
+        }
+        else
+        {
+            ShowIdleVisual();
         }
     }
 
-    /// <summary>
-    /// Thay đổi Sprite của Button tương ứng với trạng thái được chọn hay không.
-    /// </summary>
     public void SetSelected(bool isSelected)
     {
-        if (itemButton != null)
+        EnsureReferences();
+
+        if (itemButton == null) return;
+
+        Image buttonImage = itemButton.image != null ? itemButton.image : itemButton.GetComponent<Image>();
+        if (buttonImage == null) return;
+
+        Sprite targetSprite = isSelected ? selectedSprite : unselectedSprite;
+        if (targetSprite != null)
         {
-            Image btnImage = itemButton.image != null ? itemButton.image : itemButton.GetComponent<Image>();
-            if (btnImage != null)
-            {
-                btnImage.sprite = isSelected ? selectedSprite : unselectedSprite;
-            }
+            buttonImage.sprite = targetSprite;
         }
+    }
+
+    private void ShowIdleVisual()
+    {
+        SetText(idleLabel);
+        SetActive(iconMic, true);
+        SetActive(filled1, false);
+        SetActive(filled2, false);
+        SetActive(deleteButton, false);
+
+        if (filled2 != null)
+        {
+            ConfigureFilled2();
+            filled2.fillAmount = 0f;
+        }
+    }
+
+    private void ShowRecordingVisual()
+    {
+        SetText(recordingLabel);
+        SetActive(iconMic, false);
+        SetActive(filled1, true);
+        SetActive(filled2, true);
+        SetActive(deleteButton, false);
+
+        if (filled2 != null)
+        {
+            ConfigureFilled2();
+            filled2.fillAmount = 0f;
+        }
+    }
+
+    private void ShowRecordedVisual()
+    {
+        SetText(recordedLabel);
+        SetActive(iconMic, false);
+        SetActive(filled1, false);
+        SetActive(filled2, true);
+        SetActive(deleteButton, true);
+
+        if (filled2 != null)
+        {
+            ConfigureFilled2();
+            filled2.fillAmount = 1f;
+        }
+    }
+
+    private void ConfigureFilled2()
+    {
+        if (filled2 == null) return;
+
+        filled2.type = Image.Type.Filled;
+        filled2.fillMethod = Image.FillMethod.Horizontal;
+        filled2.fillOrigin = (int)Image.OriginHorizontal.Left;
+        filled2.fillClockwise = true;
+    }
+
+    private void SetText(string value)
+    {
+        if (text != null)
+        {
+            text.text = value;
+        }
+    }
+
+    private static void SetActive(Graphic graphic, bool active)
+    {
+        if (graphic != null)
+        {
+            graphic.gameObject.SetActive(active);
+        }
+    }
+
+    private static void SetActive(Selectable selectable, bool active)
+    {
+        if (selectable != null)
+        {
+            selectable.gameObject.SetActive(active);
+        }
+    }
+
+    private T FindChildComponent<T>(params string[] names) where T : Component
+    {
+        foreach (string childName in names)
+        {
+            Transform child = transform.Find(childName);
+            if (child == null) continue;
+
+            T component = child.GetComponent<T>();
+            if (component != null) return component;
+        }
+
+        return null;
     }
 }

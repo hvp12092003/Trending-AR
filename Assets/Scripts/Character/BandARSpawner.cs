@@ -64,10 +64,6 @@ public class BandARSpawner : MonoBehaviour
     public Vector3 PedestalLocalRotation => pedestalLocalRotation;
     public Vector3 PedestalLocalScale => pedestalLocalScale;
 
-    [Header("Instrument Prefabs")]
-    [Tooltip("Danh sách các prefab nhạc cụ 3D local làm fallback.")]
-    [SerializeField] private List<GameObject> localInstrumentPrefabs = new List<GameObject>();
-
     private List<GameObject> instrumentPrefabs
     {
         get
@@ -76,7 +72,7 @@ public class BandARSpawner : MonoBehaviour
             {
                 return MainMenuDataManager.Instance.InstrumentPrefabs;
             }
-            return localInstrumentPrefabs;
+            return null;
         }
     }
 
@@ -99,6 +95,7 @@ public class BandARSpawner : MonoBehaviour
 
     // Danh sách các thành viên đã được spawn ra thực tế
     private List<GameObject> _spawnedMembers = new List<GameObject>();
+    private bool _didVibrateForFourPlacedCasts = false;
 
     public SpawnerMode spawnerMode
     {
@@ -194,22 +191,7 @@ public class BandARSpawner : MonoBehaviour
     public void ShowBandSelectionUI()
     {
         // 1. Ưu tiên tìm kiếm các UI Panel tĩnh đã được thiết kế sẵn trong Scene
-        GameObject staticUI = GameObject.Find("UIBand");
-        if (staticUI == null) staticUI = GameObject.Find("UI_Band");
-        if (staticUI == null)
-        {
-            // Tìm các đối tượng ở gốc Scene kể cả khi chúng đang bị disable
-            foreach (GameObject root in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
-            {
-                Transform found = root.transform.Find("UIBand");
-                if (found == null) found = root.transform.Find("UI_Band");
-                if (found != null)
-                {
-                    staticUI = found.gameObject;
-                    break;
-                }
-            }
-        }
+        GameObject staticUI = FindStaticBandSelectionUI();
 
         if (staticUI != null)
         {
@@ -231,6 +213,55 @@ public class BandARSpawner : MonoBehaviour
             // Spawn trực tiếp trong scene hiện tại mà không chuyển cảnh
             SpawnBandAtDefaultPosition();
         });
+    }
+
+    private GameObject FindStaticBandSelectionUI()
+    {
+        string[] knownNames = { "UIBand", "UI_Band", "Band Panel", "BandPanel" };
+
+        foreach (string name in knownNames)
+        {
+            GameObject activeObj = GameObject.Find(name);
+            if (activeObj != null)
+            {
+                return activeObj;
+            }
+        }
+
+        foreach (GameObject root in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            GameObject found = FindChildByName(root.transform, knownNames);
+            if (found != null)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    private GameObject FindChildByName(Transform parent, string[] names)
+    {
+        if (parent == null) return null;
+
+        for (int i = 0; i < names.Length; i++)
+        {
+            if (parent.name == names[i])
+            {
+                return parent.gameObject;
+            }
+        }
+
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            GameObject found = FindChildByName(parent.GetChild(i), names);
+            if (found != null)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     private void Update()
@@ -395,6 +426,13 @@ public class BandARSpawner : MonoBehaviour
 
         if (placedCount >= 4)
         {
+            if (!_didVibrateForFourPlacedCasts)
+            {
+                AndroidUtils.Vibrate(3000);
+                _didVibrateForFourPlacedCasts = true;
+                Debug.Log("[BandARSpawner] Four casts placed. Triggered 3s vibration feedback.");
+            }
+
             // 1. Tắt các bệ đứng còn lại và các nhân vật chưa được kéo ra
             if (pedestals != null && pedestals.Count > 0)
             {
@@ -696,6 +734,27 @@ public class BandARSpawner : MonoBehaviour
                 SetupMemberComponents(memberObj, cast, i == 0, editorMember);
                 _spawnedMembers.Add(memberObj);
             }
+        }
+
+        // Tự động tìm kiếm và kích hoạt giao diện AR UI của Band Mode sau khi spawn xong
+        BandPanelController bandPanel = null;
+        foreach (GameObject root in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            bandPanel = root.GetComponentInChildren<BandPanelController>(true);
+            if (bandPanel != null)
+            {
+                break;
+            }
+        }
+
+        if (bandPanel != null)
+        {
+            Debug.Log($"[BandARSpawner] Phát hiện BandPanelController: {bandPanel.name}. Bắt đầu chuyển cảnh sang AR.");
+            bandPanel.TransitionToAR();
+        }
+        else
+        {
+            Debug.LogWarning("[BandARSpawner] Không tìm thấy BandPanelController trong Scene để kích hoạt AR UI!");
         }
     }
 
@@ -1039,12 +1098,88 @@ public class BandARSpawner : MonoBehaviour
             }
         }
         _spawnedMembers.Clear();
+        _didVibrateForFourPlacedCasts = false;
 
         if (m_FollowContainer != null)
         {
             Destroy(m_FollowContainer.gameObject);
             m_FollowContainer = null;
         }
+    }
+
+    /// <summary>
+    /// Dọn sạch toàn bộ Cast đã spawn trong AR và reset các bệ đứng về trạng thái ban đầu
+    /// (hiển thị lại đầy đủ, sẵn sàng cho lần spawn tiếp theo).
+    /// Được gọi khi người dùng bấm Back từ chế độ AR để quay lại UI tạo nhân vật.
+    /// </summary>
+    public void DestroyAllAndResetPedestals()
+    {
+        // 1. Dừng âm thanh và xóa toàn bộ Cast đã spawn
+        BandAudioManager bandAudio = BandAudioManager.GetOrCreateInstance(null);
+        if (bandAudio != null)
+        {
+            bandAudio.StopAll();
+        }
+
+        ClearSpawnedMembers();
+
+        // 2. Reset toàn bộ bệ đứng: xóa con (Cast cũ nếu còn), restore scale, bật lại
+        if (pedestals != null)
+        {
+            foreach (var pedestal in pedestals)
+            {
+                if (pedestal == null) continue;
+
+                // Dừng tween đang chạy
+                pedestal.transform.DOKill();
+
+                // Xóa tất cả nhân vật con còn sót lại trên bệ
+                for (int i = pedestal.transform.childCount - 1; i >= 0; i--)
+                {
+                    Transform child = pedestal.transform.GetChild(i);
+                    if (child != null)
+                    {
+                        Destroy(child.gameObject);
+                    }
+                }
+
+                // Khôi phục scale gốc và bật lại bệ
+                Vector3 originalScale = GetOriginalPedestalScale(pedestal);
+                pedestal.transform.localScale = originalScale;
+                pedestal.SetActive(true);
+            }
+
+            // Bật lại parent container của bệ đứng nếu bị tắt
+            if (pedestals.Count > 0 && pedestals[0] != null && pedestals[0].transform.parent != null)
+            {
+                pedestals[0].transform.parent.gameObject.SetActive(true);
+            }
+        }
+
+        // 3. Reset trạng thái scroller nếu có
+        if (pedestalsScroller != null)
+        {
+            pedestalsScroller.gameObject.SetActive(true);
+            pedestalsScroller.CalculateScrollLimits();
+        }
+        else
+        {
+            // Tự tìm scroller theo tên phổ biến
+            GameObject scrollerObj = GameObject.Find("Pedestals_ScrollContainer");
+            if (scrollerObj != null)
+            {
+                scrollerObj.SetActive(true);
+                PedestalsScroller sc = scrollerObj.GetComponent<PedestalsScroller>();
+                if (sc != null) sc.CalculateScrollLimits();
+            }
+        }
+
+        // 4. Reset flag hiển thị bệ
+        _pedestalsVisible = true;
+        _originalPedestalScales.Clear();
+        _cachedCastsToSpawn.Clear();
+
+        Debug.Log("[BandARSpawner] DestroyAllAndResetPedestals: Đã dọn sạch Cast AR và reset toàn bộ bệ đứng.");
     }
 
     /// <summary>
@@ -1176,13 +1311,7 @@ public class BandARSpawner : MonoBehaviour
 
         // Thiết lập background đẹp mắt (màu xám đen bo tròn nhẹ)
         img.color = new Color(0.1f, 0.1f, 0.1f, 0.75f);
-        
-        Sprite uiSprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/UISprite.psd");
-        if (uiSprite != null)
-        {
-            img.sprite = uiSprite;
-            img.type = Image.Type.Sliced;
-        }
+        img.type = Image.Type.Simple;
 
         // Tạo Text bên trong nút
         GameObject textObj = new GameObject("Text");
@@ -1272,67 +1401,102 @@ public class BandARSpawner : MonoBehaviour
     public void SetPedestalsAndUnplacedCastsActive(bool active, bool useTransition, float duration)
     {
         // 1. Điều khiển các bệ đứng
-        if (pedestals != null)
+        if (pedestals != null && pedestals.Count > 0)
         {
-            foreach (var pedestal in pedestals)
+            // Lấy parent container của bệ đứng để bật/tắt cùng
+            GameObject pedestalParent = null;
+            if (pedestals[0] != null && pedestals[0].transform.parent != null)
             {
-                if (pedestal != null)
+                pedestalParent = pedestals[0].transform.parent.gameObject;
+            }
+
+            if (!active)
+            {
+                // Tắt: ẩn từng bệ rồi tắt parent container
+                foreach (var pedestal in pedestals)
                 {
+                    if (pedestal == null) continue;
                     pedestal.transform.DOKill();
 
-                    if (!active)
+                    if (useTransition)
                     {
+                        GameObject targetPedestal = pedestal;
+                        pedestal.transform.DOScale(Vector3.zero, duration)
+                            .SetEase(Ease.InQuad)
+                            .OnComplete(() =>
+                            {
+                                targetPedestal.SetActive(false);
+                            });
+                    }
+                    else
+                    {
+                        pedestal.SetActive(false);
+                    }
+                }
+
+                // Tắt parent container sau khi animation kết thúc (hoặc ngay lập tức)
+                if (pedestalParent != null)
+                {
+                    if (useTransition)
+                    {
+                        // Delay tắt parent sau khi tween xong
+                        GameObject targetParent = pedestalParent;
+                        DOVirtual.DelayedCall(duration + 0.05f, () =>
+                        {
+                            if (targetParent != null) targetParent.SetActive(false);
+                        });
+                    }
+                    else
+                    {
+                        pedestalParent.SetActive(false);
+                    }
+                }
+            }
+            else
+            {
+                // Bật: bật parent container trước, rồi bật từng bệ có Cast bên trong
+                if (pedestalParent != null)
+                {
+                    pedestalParent.SetActive(true);
+                }
+
+                foreach (var pedestal in pedestals)
+                {
+                    if (pedestal == null) continue;
+                    pedestal.transform.DOKill();
+
+                    // Kiểm tra xem bệ đứng này có chứa nhân vật chưa kéo ra hay không
+                    bool hasCastInside = false;
+                    for (int i = 0; i < pedestal.transform.childCount; i++)
+                    {
+                        Transform child = pedestal.transform.GetChild(i);
+                        if (child.gameObject.activeInHierarchy && child.GetComponent<Move>() != null)
+                        {
+                            hasCastInside = true;
+                            break;
+                        }
+                    }
+
+                    bool shouldShow = _pedestalsVisible && hasCastInside;
+                    if (shouldShow)
+                    {
+                        pedestal.SetActive(true);
+
                         if (useTransition)
                         {
-                            // Co nhỏ bệ đứng về 0 rồi tắt
-                            GameObject targetPedestal = pedestal;
-                            pedestal.transform.DOScale(Vector3.zero, duration)
-                                .SetEase(Ease.InQuad)
-                                .OnComplete(() =>
-                                {
-                                    targetPedestal.SetActive(false);
-                                });
+                            pedestal.transform.localScale = Vector3.zero;
+                            Vector3 targetScale = GetOriginalPedestalScale(pedestal);
+                            pedestal.transform.DOScale(targetScale, duration + 0.1f)
+                                .SetEase(Ease.OutBack);
                         }
                         else
                         {
-                            pedestal.SetActive(false);
+                            pedestal.transform.localScale = GetOriginalPedestalScale(pedestal);
                         }
                     }
                     else
                     {
-                        // Kiểm tra xem bệ đứng này có chứa nhân vật chưa kéo ra hay không
-                        bool hasCastInside = false;
-                        for (int i = 0; i < pedestal.transform.childCount; i++)
-                        {
-                            Transform child = pedestal.transform.GetChild(i);
-                            if (child.gameObject.activeInHierarchy && child.GetComponent<Move>() != null)
-                            {
-                                hasCastInside = true;
-                                break;
-                            }
-                        }
-
-                        bool shouldShow = _pedestalsVisible && hasCastInside;
-                        if (shouldShow)
-                        {
-                            pedestal.SetActive(true);
-
-                            if (useTransition)
-                            {
-                                pedestal.transform.localScale = Vector3.zero;
-                                Vector3 targetScale = GetOriginalPedestalScale(pedestal);
-                                pedestal.transform.DOScale(targetScale, duration + 0.1f)
-                                    .SetEase(Ease.OutBack);
-                            }
-                            else
-                            {
-                                pedestal.transform.localScale = GetOriginalPedestalScale(pedestal);
-                            }
-                        }
-                        else
-                        {
-                            pedestal.SetActive(false);
-                        }
+                        pedestal.SetActive(false);
                     }
                 }
             }

@@ -56,6 +56,9 @@ public class AudioPanelController : MonoBehaviour
     [Tooltip("Prefab của nút ghi âm (chứa component CustomAudioRecordItemUI)")]
     [SerializeField] private GameObject audioRecordButtonPrefab;
 
+    [Tooltip("Button record dat san trong Content cua ScrollView")]
+    [SerializeField] private CustomAudioRecordItemUI recordItemButton;
+
     [Tooltip("Text hiển thị trạng thái đang ghi âm / tải dữ liệu")]
     [SerializeField] private TextMeshProUGUI recordingStatusText;
 
@@ -94,6 +97,7 @@ public class AudioPanelController : MonoBehaviour
     // Trạng thái lưu trữ các nút đã sinh
     private List<GameObject> _instantiatedButtons = new List<GameObject>();
     private AudioSource _previewAudioSource;
+    private CustomAudioRecordItemUI _resolvedRecordItemButton;
 
     // Trạng thái thu âm
     private string _microphoneName;
@@ -107,6 +111,8 @@ public class AudioPanelController : MonoBehaviour
     public AudioConfig SelectedAudioConfig { get; private set; }
     public int SelectedIndex { get; private set; } = -1;
     public string SelectedCustomAudioId { get; private set; }
+    private bool ShouldShowRecordButton => enableRecording && ResolveRecordItemUI() != null;
+    private bool ShouldInstantiateRecordButton => false;
 
     /// <summary>
     /// Cho phép bật/tắt tính năng ghi âm từ bên ngoài.
@@ -174,6 +180,8 @@ public class AudioPanelController : MonoBehaviour
             recordButton.onClick.AddListener(OnRecordButtonClicked);
         }
 
+        ResetRecordProgressImage();
+
         if (initializeOnStart)
         {
             InitializePanel();
@@ -184,6 +192,8 @@ public class AudioPanelController : MonoBehaviour
     {
         if (!string.IsNullOrEmpty(ExistingCustomAudioId))
         {
+            SelectCustomRecording(ExistingCustomAudioId);
+            if (string.IsNullOrEmpty(ExistingCustomAudioId))
             ShowStatusText("Đã có bản ghi âm cho nhân vật. Vui lòng xóa đi để ghi âm lại!", 3f);
             return;
         }
@@ -194,12 +204,7 @@ public class AudioPanelController : MonoBehaviour
         }
         else
         {
-            CustomAudioRecordItemUI recordItemUI = null;
-            if (_instantiatedButtons.Count > 0 && _instantiatedButtons[0] != null)
-            {
-                recordItemUI = _instantiatedButtons[0].GetComponent<CustomAudioRecordItemUI>();
-            }
-            StartRecording(recordItemUI);
+            StartRecording(GetRecordItemUI());
         }
     }
 
@@ -226,7 +231,9 @@ public class AudioPanelController : MonoBehaviour
         }
 
         // 1. Tạo nút Ghi âm ở đầu danh sách nếu tính năng được bật VÀ nhân vật đã có bản ghi âm
-        if (enableRecording && audioRecordButtonPrefab != null && !string.IsNullOrEmpty(ExistingCustomAudioId))
+        SetupRecordItemButton();
+
+        if (ShouldInstantiateRecordButton && ShouldShowRecordButton && !string.IsNullOrEmpty(ExistingCustomAudioId))
         {
             GameObject recordBtnObj = Instantiate(audioRecordButtonPrefab, scrollViewContent);
             _instantiatedButtons.Add(recordBtnObj);
@@ -314,9 +321,12 @@ public class AudioPanelController : MonoBehaviour
 
         if (scrollViewContent != null)
         {
-            for (int i = scrollViewContent.childCount - 1; i >= 0; i--)
+            for (int i = _instantiatedButtons.Count - 1; i >= 0; i--)
             {
-                Destroy(scrollViewContent.GetChild(i).gameObject);
+                if (_instantiatedButtons[i] != null)
+                {
+                    Destroy(_instantiatedButtons[i]);
+                }
             }
         }
 
@@ -477,8 +487,114 @@ public class AudioPanelController : MonoBehaviour
     // Microphone Recording Logic
     // ─────────────────────────────────────────────────────────────────────────
 
+    private CustomAudioRecordItemUI ResolveRecordItemUI()
+    {
+        if (recordItemButton != null)
+        {
+            _resolvedRecordItemButton = recordItemButton;
+            return _resolvedRecordItemButton;
+        }
+
+        if (_resolvedRecordItemButton != null)
+        {
+            return _resolvedRecordItemButton;
+        }
+
+        if (scrollViewContent != null)
+        {
+            _resolvedRecordItemButton = scrollViewContent.GetComponentInChildren<CustomAudioRecordItemUI>(true);
+        }
+
+        return _resolvedRecordItemButton;
+    }
+
+    private void SetupRecordItemButton()
+    {
+        CustomAudioRecordItemUI recordItem = ResolveRecordItemUI();
+        if (recordItem == null) return;
+
+        if (!enableRecording)
+        {
+            recordItem.gameObject.SetActive(false);
+            return;
+        }
+
+        recordItem.gameObject.SetActive(true);
+        recordItem.transform.SetAsFirstSibling();
+        recordItem.SetupRecordButton(
+            !string.IsNullOrEmpty(ExistingCustomAudioId),
+            OnRecordButtonClicked,
+            () => DeleteCustomRecording(ExistingCustomAudioId)
+        );
+    }
+
+    private CustomAudioRecordItemUI GetRecordItemUI()
+    {
+        return ResolveRecordItemUI();
+    }
+
+    private void ConfigureRecordProgressImage()
+    {
+        if (recordProgressImage == null) return;
+
+        recordProgressImage.type = Image.Type.Filled;
+        recordProgressImage.fillMethod = Image.FillMethod.Horizontal;
+        recordProgressImage.fillOrigin = (int)Image.OriginHorizontal.Left;
+        recordProgressImage.fillClockwise = true;
+    }
+
+    private void SetRecordProgress(float progress, bool visible)
+    {
+        if (recordProgressImage == null) return;
+
+        ConfigureRecordProgressImage();
+        recordProgressImage.gameObject.SetActive(visible);
+        recordProgressImage.fillAmount = Mathf.Clamp01(progress);
+    }
+
+    private void ResetRecordProgressImage()
+    {
+        SetRecordProgress(0f, false);
+    }
+
+    private void StopAllAudioBeforeRecording()
+    {
+        if (_previewAudioSource != null)
+        {
+            _previewAudioSource.Stop();
+        }
+
+        if (MusicSyncManager.Instance != null)
+        {
+            MusicSyncManager.Instance.SetAudioSource(null);
+        }
+
+        AudioSource[] audioSources = Resources.FindObjectsOfTypeAll<AudioSource>();
+        foreach (AudioSource source in audioSources)
+        {
+            if (source == null || source.gameObject == null)
+            {
+                continue;
+            }
+
+            if (!source.gameObject.scene.IsValid())
+            {
+                continue;
+            }
+
+            source.Stop();
+        }
+    }
+
     private void StartRecording(CustomAudioRecordItemUI recordItem)
     {
+        if (recordItem == null)
+        {
+            recordItem = GetRecordItemUI();
+        }
+
+        StopAllAudioBeforeRecording();
+
 #if UNITY_ANDROID && !UNITY_EDITOR
         if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Microphone))
         {
@@ -494,29 +610,17 @@ public class AudioPanelController : MonoBehaviour
             return;
         }
 
-        // Tắt tiếng đang phát thử nếu có
-        if (_previewAudioSource != null)
-        {
-            _previewAudioSource.Stop();
-        }
-
-        // Thử dừng AudioSource trên CustomCharacterPanelController nếu có
-#if UNITY_2023_1_OR_NEWER
-        var customCharPanel = FindAnyObjectByType<CustomCharacterPanelController>();
-#else
-        var customCharPanel = FindObjectOfType<CustomCharacterPanelController>();
-#endif
-        if (customCharPanel != null)
-        {
-            var otherAudioSource = customCharPanel.GetComponent<AudioSource>();
-            if (otherAudioSource != null)
-            {
-                otherAudioSource.Stop();
-            }
-        }
-
         _microphoneName = Microphone.devices[0];
         _recordingClip = Microphone.Start(_microphoneName, false, MaxRecordingDuration, 44100);
+        if (_recordingClip == null)
+        {
+            Debug.LogError("[AudioPanelController] Microphone.Start failed.");
+            ResetRecordProgressImage();
+            ShowStatusText("Recording Failed!", 2f);
+            InitializePanel();
+            return;
+        }
+
         _isRecording = true;
         _recordingStartTime = Time.time;
 
@@ -524,6 +628,7 @@ public class AudioPanelController : MonoBehaviour
 
         // Vô hiệu hóa panel trong khi ghi âm để tránh click loạn
         SetPanelInteractive(false);
+        SetRecordProgress(0f, true);
 
         StartCoroutine(RecordingRoutine(recordItem));
     }
@@ -531,6 +636,13 @@ public class AudioPanelController : MonoBehaviour
     private void SetPanelInteractive(bool interactive)
     {
         // Vô hiệu hóa click của tất cả các button trong ScrollView
+        CustomAudioRecordItemUI recordItem = ResolveRecordItemUI();
+        if (recordItem != null)
+        {
+            Button recordBtn = recordItem.GetComponent<Button>();
+            if (recordBtn != null) recordBtn.interactable = interactive;
+        }
+
         foreach (var btnObj in _instantiatedButtons)
         {
             var btn = btnObj.GetComponent<Button>();
@@ -555,11 +667,7 @@ public class AudioPanelController : MonoBehaviour
             recordItem.SetRecordingState(true);
         }
 
-        if (recordProgressImage != null)
-        {
-            recordProgressImage.gameObject.SetActive(true);
-            recordProgressImage.fillAmount = 0f;
-        }
+        SetRecordProgress(0f, true);
 
         while (elapsed < duration && _isRecording)
         {
@@ -572,10 +680,7 @@ public class AudioPanelController : MonoBehaviour
                 recordItem.SetRadialFill(progress);
             }
 
-            if (recordProgressImage != null)
-            {
-                recordProgressImage.fillAmount = progress;
-            }
+            SetRecordProgress(progress, true);
 
             if (recordingStatusText != null)
             {
@@ -586,13 +691,9 @@ public class AudioPanelController : MonoBehaviour
         if (recordItem != null)
         {
             recordItem.SetRadialFill(1f);
-            recordItem.SetRecordingState(false);
         }
 
-        if (recordProgressImage != null)
-        {
-            recordProgressImage.fillAmount = 1f;
-        }
+        SetRecordProgress(1f, true);
 
         StopRecording();
     }
@@ -614,7 +715,7 @@ public class AudioPanelController : MonoBehaviour
             Debug.LogWarning("[AudioPanelController] Ghi âm trống!");
             HideStatusText();
             if (_recordingClip != null) Destroy(_recordingClip);
-            if (recordProgressImage != null) recordProgressImage.fillAmount = 0f;
+            ResetRecordProgressImage();
             InitializePanel();
             return;
         }
@@ -636,7 +737,7 @@ public class AudioPanelController : MonoBehaviour
         {
             Debug.LogError("[AudioPanelController] Lỗi mã hóa WAV bytes!");
             HideStatusText();
-            if (recordProgressImage != null) recordProgressImage.fillAmount = 0f;
+            ResetRecordProgressImage();
             InitializePanel();
             return;
         }
@@ -665,10 +766,7 @@ public class AudioPanelController : MonoBehaviour
         base64 = null;
         GC.Collect();
 
-        if (recordProgressImage != null)
-        {
-            recordProgressImage.fillAmount = 0f;
-        }
+        ResetRecordProgressImage();
 
         if (success)
         {
@@ -820,6 +918,12 @@ public class AudioPanelController : MonoBehaviour
     /// </summary>
     private void UpdateSelectionVisuals()
     {
+        CustomAudioRecordItemUI recordItem = ResolveRecordItemUI();
+        if (recordItem != null)
+        {
+            recordItem.SetSelected(!string.IsNullOrEmpty(SelectedCustomAudioId));
+        }
+
         for (int i = 0; i < _instantiatedButtons.Count; i++)
         {
             GameObject buttonObj = _instantiatedButtons[i];
@@ -829,7 +933,7 @@ public class AudioPanelController : MonoBehaviour
             var customUI = buttonObj.GetComponent<CustomCharacterItemUI>();
             if (customUI != null)
             {
-                int prefabOffset = (enableRecording && audioRecordButtonPrefab != null && !string.IsNullOrEmpty(ExistingCustomAudioId)) ? 1 : 0;
+                int prefabOffset = 0;
                 int prefabIndex = i - prefabOffset;
 
                 bool isSelected = (prefabIndex == SelectedIndex);
@@ -850,7 +954,7 @@ public class AudioPanelController : MonoBehaviour
             Button standardBtn = buttonObj.GetComponent<Button>();
             if (standardBtn != null)
             {
-                int prefabOffset = (enableRecording && audioRecordButtonPrefab != null && !string.IsNullOrEmpty(ExistingCustomAudioId)) ? 1 : 0;
+                int prefabOffset = 0;
                 int prefabIndex = i - prefabOffset;
                 bool isSelected = (prefabIndex == SelectedIndex);
 

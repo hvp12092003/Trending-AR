@@ -137,29 +137,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ca628d032a1dc3f47ade99f5fcccff1c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ModelLoopEffects
-  m_TargetTransform: {fileID: 3905382480841916663}
-  m_EnableFloating: 1
-  m_FloatingSpeed: 2
-  m_FloatingAmplitude: {x: 0, y: 0.05, z: 0}
-  m_FloatingPhaseOffset: 0
-  m_EnableScaling: 1
-  m_ScaleMode: 3
-  m_ScalingSpeed: 3
-  m_ScalingAmplitude: {x: 0.05, y: 0.05, z: 0.05}
-  m_UniformScaling: 1
-  m_BeatPulseScale: {x: 0.1, y: 0.15, z: 0.1}
-  m_BeatDecaySpeed: 5
-  m_BeatSquashFactor: 0.5
-  m_AudioSource: {fileID: 8423452156013125980}
-  m_AudioReactiveScaleAxis: {x: 0, y: 0, z: 0.5}
-  m_AudioSensitivity: 2
-  m_AudioMinThreshold: 0.01
-  m_AudioSmoothSpeed: 15
-  m_BeatVFXPrefab: {fileID: 4024555818009781825, guid: ddfac030af4ddec4990238f3ed033376, type: 3}
-  m_InitialPoolSize: 10
-  m_PoolParent: {fileID: 629683573657753362}
-  m_LoudnessVFXThreshold: 0.05
-  m_LoudnessVFXCooldown: 0.15
+  targetTransform: {fileID: 0}
+  enableFloating: 1
+  floatingSpeed: 2
+  floatingAmplitude: {x: 0, y: 0.05, z: 0}
+  enableAudioReactive: 1
+  audioSource: {fileID: 0}
+  sensitivity: 8
+  maxScaleAdd: {x: 0.2, y: 0.2, z: 0.2}
+  beatVFXPrefab: {fileID: 4024555818009781825, guid: ddfac030af4ddec4990238f3ed033376, type: 3}
+  vfxLoudnessThreshold: 0.08
+  vfxCooldown: 0.3
+  vfxPoolSize: 5
+  vfxPoolParent: {fileID: 0}
+  noiseThreshold: 0.005
+  attackSpeed: 30
+  releaseSpeed: 10
 --- !u!114 &2786904561048563054
 MonoBehaviour:
   m_ObjectHideFlags: 0

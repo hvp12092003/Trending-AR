@@ -1,11 +1,8 @@
-using System;
 using System.Collections;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR.ARFoundation;
-using DG.Tweening;
 using TMPro;
 
 /// <summary>
@@ -26,6 +23,13 @@ public class HubPanelController : MonoBehaviour
     [Tooltip("Nút bấm chọn chế độ AR MINIGAMES")]
     [SerializeField] private Button arMiniGamesButton;
 
+    [Header("Daily Challenge")]
+    [Tooltip("Nút bấm Daily Challenge")]
+    [SerializeField] private Button dailyChallengeButton;
+
+    [Tooltip("Text TMP hiển thị thông báo Daily Challenge")]
+    [SerializeField] private TextMeshProUGUI textTMPNotifi;
+
     [Header("Scene Configuration")]
     [Tooltip("Tên Scene Custom AR")]
     [SerializeField] private string customArSceneName = "Custome AR Scene";
@@ -42,25 +46,16 @@ public class HubPanelController : MonoBehaviour
     [Tooltip("Tên Scene của chế độ AR MINIGAMES")]
     [SerializeField] private string arMiniGamesSceneName = "Mini Game Mode Scene";
 
-    [Header("UI Loading Transition Overlay")]
-    [Tooltip("Giao diện phủ (Overlay) hiển thị khi đang tải Scene")]
-    [SerializeField] private GameObject loadingOverlay;
+    private const string ComingSoonMessage = "Comming soon";
+    private const float NotificationVisibleSeconds = 3f;
 
-    [Tooltip("Chữ hiển thị phần trăm hoặc trạng thái tải")]
-    [SerializeField] private TextMeshProUGUI loadingText;
-
-    [Tooltip("Thời gian hiệu ứng chuyển động mờ (Fade duration)")]
-    [SerializeField] private float fadeDuration = 0.3f;
+    private Coroutine notificationCoroutine;
 
     private void Start()
     {
-        // 1. Ẩn loading overlay khi bắt đầu
-        if (loadingOverlay != null)
-        {
-            loadingOverlay.SetActive(false);
-        }
+        HideNotification();
 
-        // 2. Đăng ký sự kiện click cho các nút bấm chuyển Scene
+        // 1. Đăng ký sự kiện click cho các nút bấm chuyển Scene
         if (arBandButton != null)
         {
             arBandButton.onClick.AddListener(OnBandButtonClicked);
@@ -87,6 +82,15 @@ public class HubPanelController : MonoBehaviour
         {
             Debug.LogWarning("[HubPanelController] arMiniGamesButton chưa được gán trong Inspector.");
         }
+
+        if (dailyChallengeButton != null)
+        {
+            dailyChallengeButton.onClick.AddListener(OnDailyChallengeButtonClicked);
+        }
+        else
+        {
+            Debug.LogWarning("[HubPanelController] dailyChallengeButton chưa được gán trong Inspector.");
+        }
     }
 
     private void OnCustomButtonClicked()
@@ -105,27 +109,52 @@ public class HubPanelController : MonoBehaviour
         StartCoroutine(CheckARAndLoadScene(bandArSceneName, bandNonArSceneName));
     }
 
+    private void OnDailyChallengeButtonClicked()
+    {
+        ShowTemporaryNotification(ComingSoonMessage);
+    }
+
+    private void ShowTemporaryNotification(string message)
+    {
+        if (notificationCoroutine != null)
+        {
+            StopCoroutine(notificationCoroutine);
+            notificationCoroutine = null;
+        }
+
+        if (textTMPNotifi == null)
+        {
+            Debug.LogWarning("[HubPanelController] textTMPNotifi chưa được gán trong Inspector.");
+            return;
+        }
+
+        textTMPNotifi.text = message;
+        textTMPNotifi.gameObject.SetActive(true);
+        notificationCoroutine = StartCoroutine(HideNotificationAfterDelay());
+    }
+
+    private IEnumerator HideNotificationAfterDelay()
+    {
+        yield return new WaitForSeconds(NotificationVisibleSeconds);
+        HideNotification();
+        notificationCoroutine = null;
+    }
+
+    private void HideNotification()
+    {
+        if (textTMPNotifi != null)
+        {
+            textTMPNotifi.text = string.Empty;
+            textTMPNotifi.gameObject.SetActive(false);
+        }
+    }
+
     private IEnumerator CheckARAndLoadScene(string arScene, string nonArScene)
     {
-        if (loadingOverlay != null)
-        {
-            loadingOverlay.SetActive(true);
-        }
-
-        if (loadingText != null)
-        {
-            loadingText.text = "Checking Device AR Support...";
-        }
-
         // Gọi API ARFoundation để kiểm tra khả năng tương thích của thiết bị
         if (ARSession.state == ARSessionState.None || ARSession.state == ARSessionState.CheckingAvailability)
         {
             yield return ARSession.CheckAvailability();
-        }
-
-        if (loadingOverlay != null)
-        {
-            loadingOverlay.SetActive(false);
         }
 
         // Tạm thời vô hiệu hóa AR theo yêu cầu, luôn định tuyến sang Non-AR

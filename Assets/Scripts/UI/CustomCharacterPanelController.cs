@@ -147,6 +147,26 @@ public class CustomCharacterPanelController : MonoBehaviour
     [SerializeField] private GameObject uiCustome;
     [SerializeField] private GameObject uiAr;
     [SerializeField] private GameObject previewCamera;
+    
+    [Header("UI Hide/Show Settings (Merged from UIController)")]
+    [SerializeField] private Button hideUiButton;
+    [SerializeField] private Button showUiButton;
+    [SerializeField] private List<GameObject> arUiPanels = new List<GameObject>(); // Danh sách các UI AR cần ẩn khi quay màn hình
+
+    [Header("Transition Settings (Black Screen Overlay)")]
+    [SerializeField] private bool useBlackScreenTransition = false; // Chọn true nếu muốn chớp đen toàn màn hình
+    [SerializeField] private Color transitionColor = new Color(0f, 0f, 0f, 1f); // Màu chuyển cảnh (Mặc định là đen)
+    [SerializeField] private float fadeOutDuration = 0.2f; // Thời gian chuyển dần sang màu tối
+    [SerializeField] private float fadeInDuration = 0.25f; // Thời gian trả về trong suốt
+
+    [Header("Transition Settings (Direct UI Fade & Scale)")]
+    [SerializeField] private float uiFadeDuration = 0.35f; // Thời gian mờ/hiện giao diện
+    [SerializeField] private Ease uiFadeEase = Ease.OutQuad; // Loại ease khi mờ dần
+    [SerializeField] private Ease uiShowEase = Ease.OutBack; // Loại ease khi hiển thị lại (nảy nhẹ)
+
+    private Dictionary<GameObject, bool> m_UiActiveStates = new Dictionary<GameObject, bool>();
+    private Dictionary<GameObject, Vector3> m_UiOriginalScales = new Dictionary<GameObject, Vector3>();
+    private Image m_FadeOverlay;
 
     private CanvasGroup _characterCG;
     private CanvasGroup _instrumentCG;
@@ -326,6 +346,35 @@ public class CustomCharacterPanelController : MonoBehaviour
 
         // Đổ dữ liệu ban đầu
         PopulateAnimations();
+
+        // Khởi tạo và thiết lập các sự kiện cho nút Hide/Show UI
+        if (useBlackScreenTransition)
+        {
+            CreateFadeOverlay();
+        }
+
+        AutoAssignUIReferences();
+
+        if (hideUiButton != null)
+        {
+            hideUiButton.onClick.RemoveListener(HideUI);
+            hideUiButton.onClick.AddListener(HideUI);
+            Debug.Log("[CustomCharacterPanelController] Đã gắn sự kiện HideUI cho nút: " + hideUiButton.gameObject.name);
+        }
+
+        if (showUiButton != null)
+        {
+            showUiButton.onClick.RemoveListener(ShowUI);
+            showUiButton.onClick.AddListener(ShowUI);
+            showUiButton.gameObject.SetActive(false);
+            
+            var cgShow = showUiButton.GetComponent<CanvasGroup>();
+            if (cgShow == null) cgShow = showUiButton.gameObject.AddComponent<CanvasGroup>();
+            cgShow.alpha = 0f;
+            showUiButton.transform.localScale = Vector3.zero;
+
+            Debug.Log("[CustomCharacterPanelController] Đã gắn sự kiện ShowUI cho nút: " + showUiButton.gameObject.name);
+        }
     }
 
     private void OnEnable()
@@ -336,6 +385,8 @@ public class CustomCharacterPanelController : MonoBehaviour
         // Đảm bảo bật lại Preview Container và PreviewCamera khi Panel Creator hoạt động
         if (previewContainer != null) previewContainer.gameObject.SetActive(true);
         if (previewCamera != null) previewCamera.SetActive(true);
+
+        HideArPedestalsForCreator();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -357,7 +408,7 @@ public class CustomCharacterPanelController : MonoBehaviour
         {
             string newTitle = tab switch
             {
-                CustomTab.Character  => "NAME",
+                CustomTab.Character  => "CAST",
                 CustomTab.Instrument => "INSTRUMENT",
                 _                    => "ANIMATION",
             };
@@ -396,6 +447,10 @@ public class CustomCharacterPanelController : MonoBehaviour
         else if (tab == CustomTab.Animation)
         {
             PopulateAnimations();
+        }
+        else if (tab == CustomTab.Character)
+        {
+            ClearInstrumentPreview();
         }
 
         // Điều khiển hoạt ảnh tương ứng với Tab
@@ -602,8 +657,8 @@ public class CustomCharacterPanelController : MonoBehaviour
                 PlayPreviewAnimation(_selectedAnimationId);
             }
 
-            // Tự động spawn nhạc cụ đã chọn đứng cạnh nhân vật mới
-            if (audioPanelController != null && audioPanelController.SelectedPrefab != null)
+            // Tự động spawn nhạc cụ đã chọn đứng cạnh nhân vật mới khi không ở tab Cast
+            if (_currentTab != CustomTab.Character && audioPanelController != null && audioPanelController.SelectedPrefab != null)
             {
                 SpawnInstrumentPreview(audioPanelController.SelectedPrefab);
             }
@@ -612,13 +667,7 @@ public class CustomCharacterPanelController : MonoBehaviour
 
     private void SpawnInstrumentPreview(GameObject instrumentPrefab)
     {
-        // Dừng nhạc trên instance cũ trước khi xóa
-        if (_previewInstrumentInstance != null)
-        {
-            AudioSource oldSrc = _previewInstrumentInstance.GetComponentInChildren<AudioSource>(true);
-            if (oldSrc != null) oldSrc.Stop();
-            Destroy(_previewInstrumentInstance);
-        }
+        ClearInstrumentPreview();
 
         if (instrumentPrefab != null && previewContainer != null)
         {
@@ -694,6 +743,22 @@ public class CustomCharacterPanelController : MonoBehaviour
             {
                 MusicSyncManager.Instance.SetAudioSource(null);
             }
+        }
+    }
+
+    private void ClearInstrumentPreview()
+    {
+        if (_previewInstrumentInstance != null)
+        {
+            AudioSource oldSrc = _previewInstrumentInstance.GetComponentInChildren<AudioSource>(true);
+            if (oldSrc != null) oldSrc.Stop();
+            Destroy(_previewInstrumentInstance);
+            _previewInstrumentInstance = null;
+        }
+
+        if (MusicSyncManager.Instance != null)
+        {
+            MusicSyncManager.Instance.SetAudioSource(null);
         }
     }
 
@@ -1426,18 +1491,141 @@ public class CustomCharacterPanelController : MonoBehaviour
 
     private void ClosePanel()
     {
-        if (_previewAudioSource != null) _previewAudioSource.Stop();
-        if (_previewInstance != null) Destroy(_previewInstance);
-        if (_previewInstrumentInstance != null) Destroy(_previewInstrumentInstance);
-        
-        // Chuyển Scene về Main Menu Scene
-        if (SceneTransitionManager.Instance != null)
+        // ── Phân biệt ngữ cảnh: đang ở Custom UI hay đang trải nghiệm AR? ──
+        bool isInArMode = (uiAr != null && uiAr.activeSelf) ||
+                          (uiCustome != null && !uiCustome.activeSelf);
+
+        if (isInArMode)
         {
-            SceneTransitionManager.Instance.TransitionToScene("Main Menu Scene");
+            // Đang ở chế độ AR → Back-from-AR: dọn Cast + hiện lại UI Custom
+            BackFromArToCustomUI();
         }
         else
         {
-            SceneManager.LoadScene("Main Menu Scene");
+            // Đang ở màn hình Custom UI → Về Main Menu như cũ
+            if (_previewAudioSource != null) _previewAudioSource.Stop();
+            if (_previewInstance != null) Destroy(_previewInstance);
+            if (_previewInstrumentInstance != null) Destroy(_previewInstrumentInstance);
+
+            if (SceneTransitionManager.Instance != null)
+            {
+                SceneTransitionManager.Instance.TransitionToScene("Main Menu Scene");
+            }
+            else
+            {
+                UnityEngine.SceneManagement.SceneManager.LoadScene("Main Menu Scene");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Xử lý Back từ chế độ AR về lại giao diện Custom Creator trong cùng Scene:
+    /// 1. Dọn sạch Cast đã spawn trong AR và reset các bệ đứng.
+    /// 2. Ẩn UI AR, hiện lại UI Custom để người dùng tạo nhân vật mới.
+    /// 3. Bật lại Preview Camera và reset trạng thái panel về tab đầu tiên.
+    /// </summary>
+    private void BackFromArToCustomUI()
+    {
+        Debug.Log("[CustomCharacterPanel] Back-from-AR: Dọn Cast và hiện lại UI Custom.");
+
+        // 1. Dọn sạch Cast trong AR và reset bệ đứng
+        BandARSpawner spawner = null;
+#if UNITY_2023_1_OR_NEWER
+        spawner = FindAnyObjectByType<BandARSpawner>();
+#else
+        spawner = FindObjectOfType<BandARSpawner>();
+#endif
+        if (spawner != null)
+        {
+            spawner.DestroyAllAndResetPedestals();
+            HideArPedestalsForCreator(spawner);
+        }
+
+        // 2. Ẩn UI AR với hiệu ứng fade out
+        if (uiAr != null)
+        {
+            CanvasGroup cgAr = uiAr.GetComponent<CanvasGroup>();
+            if (cgAr == null) cgAr = uiAr.AddComponent<CanvasGroup>();
+
+            cgAr.DOKill();
+            uiAr.transform.DOKill();
+            cgAr.interactable = false;
+            cgAr.blocksRaycasts = false;
+            cgAr.DOFade(0f, uiFadeDuration).SetEase(uiFadeEase).OnComplete(() =>
+            {
+                uiAr.SetActive(false);
+            });
+        }
+
+        // 3. Hiện lại UI Custom với hiệu ứng fade in
+        if (uiCustome != null)
+        {
+            CanvasGroup cgCustome = uiCustome.GetComponent<CanvasGroup>();
+            if (cgCustome == null) cgCustome = uiCustome.AddComponent<CanvasGroup>();
+
+            uiCustome.SetActive(true);
+            cgCustome.alpha = 0f;
+            uiCustome.transform.localScale = Vector3.one * 0.95f;
+            cgCustome.interactable = false;
+            cgCustome.blocksRaycasts = false;
+
+            cgCustome.DOKill();
+            uiCustome.transform.DOKill();
+            cgCustome.DOFade(1f, uiFadeDuration).SetEase(uiFadeEase);
+            uiCustome.transform.DOScale(1f, uiFadeDuration + 0.05f).SetEase(uiShowEase).OnComplete(() =>
+            {
+                cgCustome.interactable = true;
+                cgCustome.blocksRaycasts = true;
+            });
+        }
+
+        // 4. Bật lại Preview Camera
+        if (previewCamera != null) previewCamera.SetActive(true);
+        if (previewContainer != null) previewContainer.gameObject.SetActive(true);
+
+        // 5. Reset trạng thái panel về tab đầu tiên, xóa lựa chọn cũ
+        _isCharacterSaved = false;
+        _savedCastData = null;
+        _shouldTransitionAfterSave = false;
+
+        SwitchTab(CustomTab.Character, false);
+        RestoreFirstCharacterPreview();
+        UpdateStartButtonText();
+    }
+
+    private void RestoreFirstCharacterPreview()
+    {
+        if (castPanelController == null)
+        {
+            castPanelController = FindComponentInScene<CastPanelController>();
+        }
+
+        if (castPanelController != null && castPanelController.CharacterPrefabs.Count > 0)
+        {
+            castPanelController.SelectCharacter(0);
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(_selectedPrefabName))
+        {
+            SpawnCharacterPreview(_selectedPrefabName);
+        }
+    }
+
+    private void HideArPedestalsForCreator(BandARSpawner spawner = null)
+    {
+        if (spawner == null)
+        {
+#if UNITY_2023_1_OR_NEWER
+            spawner = FindAnyObjectByType<BandARSpawner>();
+#else
+            spawner = FindObjectOfType<BandARSpawner>();
+#endif
+        }
+
+        if (spawner != null)
+        {
+            spawner.SetPedestalsAndUnplacedCastsActive(false);
         }
     }
 
@@ -1533,6 +1721,406 @@ public class CustomCharacterPanelController : MonoBehaviour
             // Tự động chuyển cảnh sau khi lưu thành công
             BandSelectionManager.ClearSelection();
             StartCoroutine(CheckARCoreAndTransition(_savedCastData));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Giao diện Ẩn/Hiện UI (Gộp từ UIController)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public void HideUI()
+    {
+        if (useBlackScreenTransition)
+        {
+            RunTransition(HideUI_Internal);
+        }
+        else
+        {
+            HideUI_Internal();
+        }
+    }
+
+    private void HideUI_Internal()
+    {
+        if (arUiPanels == null || arUiPanels.Count == 0)
+        {
+            Debug.LogWarning("[CustomCharacterPanelController] Không có phần tử UI nào được thiết lập để ẩn!");
+            return;
+        }
+
+        m_UiActiveStates.Clear();
+
+        foreach (var uiObj in arUiPanels)
+        {
+            if (uiObj == null) continue;
+
+            // Bỏ qua nút showUiButton để nó có thể hiển thị độc lập
+            if (showUiButton != null && uiObj == showUiButton.gameObject)
+            {
+                continue;
+            }
+
+            // Lưu scale ban đầu nếu chưa lưu (chỉ lưu 1 lần duy nhất để giữ đúng scale gốc)
+            if (!m_UiOriginalScales.ContainsKey(uiObj))
+            {
+                m_UiOriginalScales[uiObj] = uiObj.transform.localScale;
+            }
+
+            // Lưu trạng thái hoạt động hiện tại
+            m_UiActiveStates[uiObj] = uiObj.activeSelf;
+            
+            if (uiObj.activeSelf)
+            {
+                if (useBlackScreenTransition)
+                {
+                    // Nếu dùng chớp đen, ẩn đột ngột vì đã có màn đen che phủ
+                    uiObj.SetActive(false);
+                }
+                else
+                {
+                    // Chạy hiệu ứng làm mờ dần và thu nhỏ nhẹ trước khi tắt
+                    CanvasGroup cg = uiObj.GetComponent<CanvasGroup>();
+                    if (cg == null) cg = uiObj.AddComponent<CanvasGroup>();
+
+                    cg.DOKill();
+                    uiObj.transform.DOKill();
+                    cg.interactable = false;
+                    cg.blocksRaycasts = false;
+
+                    GameObject targetObj = uiObj; // Tránh biến đóng kín (closure) thay đổi giá trị
+                    Vector3 targetScale = m_UiOriginalScales[uiObj] * 0.95f; // Thu nhỏ 5% scale gốc
+                    cg.DOFade(0f, uiFadeDuration).SetEase(uiFadeEase);
+                    uiObj.transform.DOScale(targetScale, uiFadeDuration).SetEase(uiFadeEase).OnComplete(() =>
+                    {
+                        targetObj.SetActive(false);
+                    });
+                }
+            }
+        }
+
+        // Hiện nút Show UI lên với hiệu ứng nảy nhẹ
+        if (showUiButton != null)
+        {
+            showUiButton.gameObject.SetActive(true);
+            var cgShow = showUiButton.GetComponent<CanvasGroup>();
+            if (cgShow == null) cgShow = showUiButton.gameObject.AddComponent<CanvasGroup>();
+
+            cgShow.DOKill();
+            showUiButton.transform.DOKill();
+            cgShow.interactable = false;
+            cgShow.blocksRaycasts = false;
+
+            if (useBlackScreenTransition)
+            {
+                cgShow.alpha = 1f;
+                showUiButton.transform.localScale = Vector3.one;
+                cgShow.interactable = true;
+                cgShow.blocksRaycasts = true;
+            }
+            else
+            {
+                cgShow.alpha = 0f;
+                showUiButton.transform.localScale = Vector3.zero;
+                cgShow.DOFade(1f, uiFadeDuration).SetEase(uiFadeEase);
+                showUiButton.transform.DOScale(1f, uiFadeDuration + 0.1f).SetEase(uiShowEase).OnComplete(() =>
+                {
+                    cgShow.interactable = true;
+                    cgShow.blocksRaycasts = true;
+                });
+            }
+        }
+
+        // Ẩn các bệ đứng và Cast chưa đặt trong AR Spawner với transition
+        BandARSpawner spawner = null;
+#if UNITY_2023_1_OR_NEWER
+        spawner = FindAnyObjectByType<BandARSpawner>();
+#else
+        spawner = FindObjectOfType<BandARSpawner>();
+#endif
+        if (spawner != null)
+        {
+            spawner.SetPedestalsAndUnplacedCastsActive(false, !useBlackScreenTransition, uiFadeDuration);
+        }
+    }
+
+    public void ShowUI()
+    {
+        if (useBlackScreenTransition)
+        {
+            RunTransition(ShowUI_Internal);
+        }
+        else
+        {
+            ShowUI_Internal();
+        }
+    }
+
+    private void ShowUI_Internal()
+    {
+        if (arUiPanels == null || arUiPanels.Count == 0) return;
+
+        // Ẩn nút Show UI đi với hiệu ứng thu nhỏ
+        if (showUiButton != null)
+        {
+            var cgShow = showUiButton.GetComponent<CanvasGroup>();
+            if (cgShow == null) cgShow = showUiButton.gameObject.AddComponent<CanvasGroup>();
+
+            cgShow.DOKill();
+            showUiButton.transform.DOKill();
+            cgShow.interactable = false;
+            cgShow.blocksRaycasts = false;
+
+            if (useBlackScreenTransition)
+            {
+                showUiButton.gameObject.SetActive(false);
+            }
+            else
+            {
+                cgShow.DOFade(0f, uiFadeDuration).SetEase(uiFadeEase);
+                showUiButton.transform.DOScale(0f, uiFadeDuration).SetEase(Ease.InBack).OnComplete(() =>
+                {
+                    showUiButton.gameObject.SetActive(false);
+                });
+            }
+        }
+
+        // Khôi phục trạng thái hoạt động của các phần tử
+        foreach (var uiObj in arUiPanels)
+        {
+            if (uiObj == null) continue;
+
+            if (showUiButton != null && uiObj == showUiButton.gameObject)
+            {
+                continue;
+            }
+
+            // Lấy scale ban đầu của đối tượng (hoặc lưu lại nếu chưa có)
+            Vector3 originalScale = Vector3.one;
+            if (m_UiOriginalScales.TryGetValue(uiObj, out Vector3 savedScale))
+            {
+                originalScale = savedScale;
+            }
+            else
+            {
+                originalScale = uiObj.transform.localScale;
+                m_UiOriginalScales[uiObj] = originalScale;
+            }
+
+            if (m_UiActiveStates.TryGetValue(uiObj, out bool wasActive))
+            {
+                if (wasActive)
+                {
+                    if (useBlackScreenTransition)
+                    {
+                        uiObj.SetActive(true);
+                        uiObj.transform.localScale = originalScale;
+                    }
+                    else
+                    {
+                        uiObj.SetActive(true);
+                        CanvasGroup cg = uiObj.GetComponent<CanvasGroup>();
+                        if (cg == null) cg = uiObj.AddComponent<CanvasGroup>();
+
+                        cg.DOKill();
+                        uiObj.transform.DOKill();
+                        cg.interactable = false;
+                        cg.blocksRaycasts = false;
+                        cg.alpha = 0f;
+                        uiObj.transform.localScale = originalScale * 0.95f;
+
+                        cg.DOFade(1f, uiFadeDuration).SetEase(uiFadeEase);
+                        uiObj.transform.DOScale(originalScale, uiFadeDuration + 0.1f).SetEase(uiShowEase).OnComplete(() =>
+                        {
+                            cg.interactable = true;
+                            cg.blocksRaycasts = true;
+                        });
+                    }
+                }
+                else
+                {
+                    uiObj.SetActive(false);
+                }
+            }
+            else
+            {
+                if (useBlackScreenTransition)
+                {
+                    uiObj.SetActive(true);
+                    uiObj.transform.localScale = originalScale;
+                }
+                else
+                {
+                    uiObj.SetActive(true);
+                    CanvasGroup cg = uiObj.GetComponent<CanvasGroup>();
+                    if (cg == null) cg = uiObj.AddComponent<CanvasGroup>();
+
+                    cg.DOKill();
+                    uiObj.transform.DOKill();
+                    cg.interactable = false;
+                    cg.blocksRaycasts = false;
+                    cg.alpha = 0f;
+                    uiObj.transform.localScale = originalScale * 0.95f;
+
+                    cg.DOFade(1f, uiFadeDuration).SetEase(uiFadeEase);
+                    uiObj.transform.DOScale(originalScale, uiFadeDuration + 0.1f).SetEase(uiShowEase).OnComplete(() =>
+                    {
+                        cg.interactable = true;
+                        cg.blocksRaycasts = true;
+                    });
+                }
+            }
+        }
+
+        // Hiện lại các bệ đứng và Cast chưa đặt trong AR Spawner với transition
+        BandARSpawner spawner = null;
+#if UNITY_2023_1_OR_NEWER
+        spawner = FindAnyObjectByType<BandARSpawner>();
+#else
+        spawner = FindObjectOfType<BandARSpawner>();
+#endif
+        if (spawner != null)
+        {
+            spawner.SetPedestalsAndUnplacedCastsActive(true, !useBlackScreenTransition, uiFadeDuration);
+        }
+    }
+
+    private void CreateFadeOverlay()
+    {
+        Canvas canvas = null;
+#if UNITY_2023_1_OR_NEWER
+        canvas = FindAnyObjectByType<Canvas>();
+#else
+        canvas = FindObjectOfType<Canvas>();
+#endif
+        if (canvas != null)
+        {
+            GameObject overlayObj = new GameObject("UI_FadeOverlay_Dynamic");
+            overlayObj.transform.SetParent(canvas.transform, false);
+            overlayObj.transform.SetAsLastSibling();
+
+            RectTransform rect = overlayObj.AddComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.sizeDelta = Vector2.zero;
+
+            m_FadeOverlay = overlayObj.AddComponent<Image>();
+            m_FadeOverlay.color = new Color(transitionColor.r, transitionColor.g, transitionColor.b, 0f);
+            m_FadeOverlay.raycastTarget = false;
+        }
+    }
+
+    private void RunTransition(System.Action middleAction)
+    {
+        if (m_FadeOverlay == null)
+        {
+            middleAction?.Invoke();
+            return;
+        }
+
+        m_FadeOverlay.raycastTarget = true;
+        m_FadeOverlay.transform.SetAsLastSibling();
+        m_FadeOverlay.DOKill();
+        
+        m_FadeOverlay.DOColor(transitionColor, fadeOutDuration)
+            .SetEase(Ease.OutQuad)
+            .OnComplete(() =>
+            {
+                middleAction?.Invoke();
+
+                m_FadeOverlay.DOColor(new Color(transitionColor.r, transitionColor.g, transitionColor.b, 0f), fadeInDuration)
+                    .SetEase(Ease.InQuad)
+                    .OnComplete(() =>
+                    {
+                        m_FadeOverlay.raycastTarget = false;
+                    });
+            });
+    }
+
+    private void AutoAssignUIReferences()
+    {
+        if (hideUiButton == null)
+        {
+            GameObject hideObj = GameObject.Find("Hiden UI");
+            if (hideObj != null)
+            {
+                hideUiButton = hideObj.GetComponent<Button>();
+            }
+            else
+            {
+                Button[] allButtons = Resources.FindObjectsOfTypeAll<Button>();
+                foreach (var btn in allButtons)
+                {
+                    if (btn.gameObject.name == "Hiden UI" || btn.gameObject.name.Contains("HidenUI"))
+                    {
+                        hideUiButton = btn;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (showUiButton == null)
+        {
+            Button[] allButtons = Resources.FindObjectsOfTypeAll<Button>();
+            foreach (var btn in allButtons)
+            {
+                if (btn.gameObject.name == "Show UI Button" || btn.gameObject.name == "Show UI" || btn.gameObject.name.Contains("ShowUI"))
+                {
+                    showUiButton = btn;
+                    break;
+                }
+            }
+        }
+
+        if (arUiPanels == null || arUiPanels.Count == 0)
+        {
+            arUiPanels = new List<GameObject>();
+            GameObject mainUiAr = GameObject.Find("UI AR");
+            if (mainUiAr == null)
+            {
+                Canvas canvas = null;
+#if UNITY_2023_1_OR_NEWER
+                canvas = FindAnyObjectByType<Canvas>();
+#else
+                canvas = FindObjectOfType<Canvas>();
+#endif
+                if (canvas != null)
+                {
+                    Transform arTrans = canvas.transform.Find("UI AR");
+                    if (arTrans != null)
+                    {
+                        mainUiAr = arTrans.gameObject;
+                    }
+                }
+            }
+
+            if (mainUiAr != null)
+            {
+                for (int i = 0; i < mainUiAr.transform.childCount; i++)
+                {
+                    Transform child = mainUiAr.transform.GetChild(i);
+                    if (showUiButton != null && child == showUiButton.transform)
+                    {
+                        continue;
+                    }
+                    arUiPanels.Add(child.gameObject);
+                }
+                Debug.Log($"[CustomCharacterPanelController] Tự động thêm {arUiPanels.Count} phần tử con của 'UI AR' vào danh sách ẩn.");
+            }
+            else if (hideUiButton != null && hideUiButton.transform.parent != null)
+            {
+                Transform parentTrans = hideUiButton.transform.parent;
+                for (int i = 0; i < parentTrans.childCount; i++)
+                {
+                    Transform child = parentTrans.GetChild(i);
+                    if (showUiButton != null && child == showUiButton.transform)
+                    {
+                        continue;
+                    }
+                    arUiPanels.Add(child.gameObject);
+                }
+                Debug.Log($"[CustomCharacterPanelController] Fallback: Tự động thêm {arUiPanels.Count} phần tử con của parent vào danh sách ẩn.");
+            }
         }
     }
 

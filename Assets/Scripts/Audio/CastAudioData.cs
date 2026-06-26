@@ -4,6 +4,7 @@ using UnityEngine;
 /// Lưu trữ thông tin âm thanh nhạc cụ của một Cast (audioId + AudioSource đã cấu hình sẵn clip).
 /// Script này được BandARSpawner gắn vào mỗi nhân vật khi spawn.
 /// TapToPlacePrefab / TapToPlacePrefabNonAR sẽ gọi PlayAudio() khi người dùng thả Cast ra thế giới AR/NonAR.
+/// Đăng ký với BandAudioManager để tránh FindObjectsByType mỗi frame.
 /// </summary>
 public class CastAudioData : MonoBehaviour
 {
@@ -22,8 +23,27 @@ public class CastAudioData : MonoBehaviour
     [HideInInspector]
     public float originalVolume = 1f;
 
+    private void Start()
+    {
+        // Đăng ký với BandAudioManager để tránh FindObjectsByType mỗi 100ms
+        if (BandAudioManager.Instance != null)
+        {
+            BandAudioManager.Instance.RegisterCast(this);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        // Hủy đăng ký khi bị destroy để tránh null reference
+        if (BandAudioManager.Instance != null)
+        {
+            BandAudioManager.Instance.UnregisterCast(this);
+        }
+    }
+
     /// <summary>
-    /// Phát nhạc nhạc cụ. Gọi hàm này sau khi người dùng thả Cast ra thế giới AR.
+    /// Phát nhạc nhạc cụ, đồng bộ tức thì với các Cast đang phát.
+    /// Gọi hàm này sau khi người dùng thả Cast ra thế giới AR.
     /// </summary>
     public void PlayAudio()
     {
@@ -44,6 +64,20 @@ public class CastAudioData : MonoBehaviour
         if (!preparedSource.isPlaying)
         {
             preparedSource.Play();
+
+            // ── Sync tức thì: lấy referenceTime từ Cast đang phát ổn định nhất ──
+            if (BandAudioManager.Instance != null)
+            {
+                float refTime = BandAudioManager.Instance.GetCurrentReferenceTime();
+                if (refTime >= 0f &&
+                    preparedSource.clip.loadState == AudioDataLoadState.Loaded &&
+                    refTime < preparedSource.clip.length)
+                {
+                    preparedSource.time = refTime;
+                    Debug.Log($"[CastAudioData] ({gameObject.name}) Sync tức thì → t={refTime:F3}s");
+                }
+            }
+
             Debug.Log($"[CastAudioData] ({gameObject.name}) Đã phát nhạc: {audioId}");
         }
     }

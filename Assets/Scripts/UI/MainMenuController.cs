@@ -42,6 +42,13 @@ public class MainMenuController : MonoBehaviour
     [Header("Setting Popup")]
     [SerializeField] private Button settingButton;
     [SerializeField] private PopupSetting settingPopup;
+    [SerializeField] private RectTransform settingButtonRotationTarget;
+    [SerializeField] private float settingButtonRotationAngle = 45f;
+    [SerializeField] private float settingButtonRotationDuration = 0.25f;
+
+    private Vector3 _settingButtonClosedEulerAngles;
+    private bool _hasSettingButtonInitialRotation;
+    private RectTransform _resolvedSettingButtonRotationTarget;
 
     private void Awake()
     {
@@ -131,10 +138,10 @@ public class MainMenuController : MonoBehaviour
         if (settingButton != null && settingPopup != null)
         {
             settingPopup.gameObject.SetActive(false); // Đảm bảo ẩn khi khởi động
-            settingButton.onClick.AddListener(() =>
-            {
-                settingPopup.OpenPopup();
-            });
+            PrepareSettingButtonRotationTarget();
+            CacheSettingButtonRotation();
+            settingPopup.OnCloseStarted += OnSettingPopupCloseStarted;
+            settingButton.onClick.AddListener(OnSettingButtonClicked);
         }
     }
 
@@ -249,9 +256,90 @@ public class MainMenuController : MonoBehaviour
         UpdateUserNameUI();
     }
 
-    /// <summary>
-    /// Cập nhật tên hiển thị của người dùng ở cạnh Avatar trên Menu chính.
-    /// </summary>
+    private void OnSettingButtonClicked()
+    {
+        if (settingPopup == null) return;
+
+        AnimateSettingButtonRotation(true);
+        settingPopup.OpenPopup();
+    }
+
+    private void OnSettingPopupCloseStarted()
+    {
+        AnimateSettingButtonRotation(false);
+    }
+
+    private void CacheSettingButtonRotation()
+    {
+        RectTransform rotationTarget = GetSettingButtonRotationTarget();
+        if (rotationTarget == null) return;
+
+        _settingButtonClosedEulerAngles = rotationTarget.localEulerAngles;
+        _hasSettingButtonInitialRotation = true;
+    }
+
+    private void AnimateSettingButtonRotation(bool isOpen)
+    {
+        RectTransform rotationTarget = GetSettingButtonRotationTarget();
+        if (rotationTarget == null) return;
+
+        if (!_hasSettingButtonInitialRotation)
+        {
+            CacheSettingButtonRotation();
+        }
+
+        Vector3 targetEulerAngles = _settingButtonClosedEulerAngles;
+        if (isOpen)
+        {
+            targetEulerAngles.z += settingButtonRotationAngle;
+        }
+
+        rotationTarget.DOKill();
+        rotationTarget
+            .DOLocalRotate(targetEulerAngles, settingButtonRotationDuration, RotateMode.Fast)
+            .SetEase(isOpen ? Ease.OutBack : Ease.OutQuad);
+    }
+
+    private RectTransform GetSettingButtonRotationTarget()
+    {
+        if (_resolvedSettingButtonRotationTarget != null)
+        {
+            return _resolvedSettingButtonRotationTarget;
+        }
+
+        if (settingButtonRotationTarget != null)
+        {
+            _resolvedSettingButtonRotationTarget = settingButtonRotationTarget;
+            return _resolvedSettingButtonRotationTarget;
+        }
+
+        if (settingButton != null && settingButton.targetGraphic != null)
+        {
+            _resolvedSettingButtonRotationTarget = settingButton.targetGraphic.rectTransform;
+            return _resolvedSettingButtonRotationTarget;
+        }
+
+        _resolvedSettingButtonRotationTarget = settingButton != null
+            ? settingButton.GetComponent<RectTransform>()
+            : null;
+
+        return _resolvedSettingButtonRotationTarget;
+    }
+
+    private void PrepareSettingButtonRotationTarget()
+    {
+        RectTransform rotationTarget = GetSettingButtonRotationTarget();
+        if (rotationTarget == null) return;
+
+        Vector2 centeredPivot = new Vector2(0.5f, 0.5f);
+        Vector2 pivotDelta = centeredPivot - rotationTarget.pivot;
+        if (pivotDelta.sqrMagnitude <= 0.0001f) return;
+
+        Vector2 positionDelta = Vector2.Scale(pivotDelta, rotationTarget.rect.size);
+        rotationTarget.pivot = centeredPivot;
+        rotationTarget.anchoredPosition += positionDelta;
+    }
+
     private void UpdateUserNameUI()
     {
         string userDisplayName = "User";
@@ -368,6 +456,11 @@ public class MainMenuController : MonoBehaviour
         if (permissionPanel != null)
         {
             permissionPanel.OnPermissionsGranted -= OnPermissionsGrantedCallback;
+        }
+
+        if (settingPopup != null)
+        {
+            settingPopup.OnCloseStarted -= OnSettingPopupCloseStarted;
         }
 
         ProfilePanelController.OnAvatarChanged -= UpdateUserAvatarUI;

@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 using TMPro;
 using DG.Tweening;
@@ -17,11 +18,24 @@ public class BottomBarController : MonoBehaviour
         [Tooltip("Nút bấm của Tab")]
         public Button tabButton;
 
+        [Tooltip("Viền / nền sáng của Tab khi được chọn")]
+        [FormerlySerializedAs("buttontab")]
+        [FormerlySerializedAs("buttonTab")]
+        [FormerlySerializedAs("ButtonTab")]
+        public Image ButtonBorder;
+
         [Tooltip("Chữ của Tab (Tùy chọn)")]
         public TMP_Text tabText;
 
-        [Tooltip("Icon của Tab (Tùy chọn)")]
-        public Image tabIcon;
+        [Tooltip("Image icon trong Button để đổi sprite bật/tắt")]
+        [FormerlySerializedAs("tabIcon")]
+        public Image Icon;
+
+        [Tooltip("Icon hiển thị khi Tab được chọn")]
+        public Sprite iconOn;
+
+        [Tooltip("Icon hiển thị khi Tab không được chọn")]
+        public Sprite iconOff;
 
         [Tooltip("Panel tương ứng với Tab này")]
         public GameObject panel;
@@ -76,6 +90,7 @@ public class BottomBarController : MonoBehaviour
             if (tabs[i].tabButton != null)
             {
                 tabs[i].tabButton.onClick.AddListener(() => SelectTab(index));
+                DisableButtonTransitionWhenBorderIsTargetGraphic(tabs[i]);
             }
         }
 
@@ -108,7 +123,7 @@ public class BottomBarController : MonoBehaviour
             bool isSelected = (i == index);
             TabItem tab = tabs[i];
 
-            // 1. Cập nhật trạng thái hiển thị của Tab Button (Chữ và Icon)
+            // 1. Cập nhật trạng thái hiển thị của Tab Button (Border, Icon và Chữ)
             Color targetColor = isSelected ? selectedColor : unselectedColor;
 
             if (tab.tabText != null)
@@ -117,10 +132,13 @@ public class BottomBarController : MonoBehaviour
                 tab.tabText.DOColor(targetColor, tabTransitionDuration);
             }
 
-            if (tab.tabIcon != null)
+            UpdateIconSprite(tab, isSelected);
+
+            Image buttonBorder = GetButtonBorder(tab);
+            if (buttonBorder != null)
             {
-                tab.tabIcon.DOKill();
-                tab.tabIcon.DOColor(targetColor, tabTransitionDuration);
+                buttonBorder.DOKill();
+                buttonBorder.DOFade(isSelected ? 1f : 0f, tabTransitionDuration);
             }
 
             // Tạo hiệu ứng phóng to nhẹ tab được chọn
@@ -172,6 +190,42 @@ public class BottomBarController : MonoBehaviour
 
         // Kích hoạt Event thông báo cho các component khác (như nạp dữ liệu)
         onTabSelected?.Invoke(index);
+    }
+
+    private void UpdateIconSprite(TabItem tab, bool isSelected)
+    {
+        if (tab.Icon == null)
+        {
+            return;
+        }
+
+        Sprite targetIcon = isSelected ? tab.iconOn : tab.iconOff;
+        if (targetIcon != null)
+        {
+            tab.Icon.sprite = targetIcon;
+        }
+
+        tab.Icon.DOKill();
+        tab.Icon.DOFade(1f, tabTransitionDuration);
+    }
+
+    private Image GetButtonBorder(TabItem tab)
+    {
+        if (tab.ButtonBorder != null)
+        {
+            return tab.ButtonBorder;
+        }
+
+        return tab.tabButton != null ? tab.tabButton.targetGraphic as Image : null;
+    }
+
+    private void DisableButtonTransitionWhenBorderIsTargetGraphic(TabItem tab)
+    {
+        Image buttonBorder = GetButtonBorder(tab);
+        if (buttonBorder != null && tab.tabButton.targetGraphic == buttonBorder)
+        {
+            tab.tabButton.transition = Selectable.Transition.None;
+        }
     }
 
     /// <summary>

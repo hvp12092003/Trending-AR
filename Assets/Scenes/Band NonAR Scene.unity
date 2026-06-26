@@ -879,7 +879,7 @@ Canvas:
   serializedVersion: 3
   m_RenderMode: 1
   m_Camera: {fileID: 1912455768}
-  m_PlaneDistance: 1000
+  m_PlaneDistance: 99
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
   m_OverrideSorting: 0
@@ -2730,7 +2730,7 @@ GameObject:
   - component: {fileID: 1652668615}
   - component: {fileID: 1652668614}
   m_Layer: 5
-  m_Name: Show UI Button
+  m_Name: 'Show UI '
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2848,8 +2848,8 @@ GameObject:
   - component: {fileID: 1662375347}
   - component: {fileID: 1662375344}
   - component: {fileID: 1662375346}
-  - component: {fileID: 1662375345}
   - component: {fileID: 1662375343}
+  - component: {fileID: 1662375348}
   m_Layer: 0
   m_Name: Manager
   m_TagString: Untagged
@@ -2880,15 +2880,11 @@ MonoBehaviour:
   - {fileID: 913695148}
   - {fileID: 1504858867}
   - {fileID: 69614036}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
   pedestalsScroller: {fileID: 2006501775}
   togglePedestalsButton: {fileID: 1821640040}
   pedestalLocalPosition: {x: 0, y: 0, z: 0.002}
   pedestalLocalRotation: {x: 0, y: 180, z: 0}
   pedestalLocalScale: {x: 0.02, y: 0.02, z: 0.02}
-  localInstrumentPrefabs: []
   instrumentLocalPosition: {x: -0.4, y: 2, z: 0}
   instrumentLocalRotation: {x: 0, y: 0, z: 0}
   instrumentLocalScale: {x: 1, y: 1, z: 1}
@@ -2912,34 +2908,6 @@ MonoBehaviour:
   m_AutoAlignRawImage: 1
   m_ForceFallback: 0
   m_DontDestroyOnLoad: 0
---- !u!114 &1662375345
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1662375342}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 62e04216ac922b14b9b9332ea43de17b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UIController
-  hideUiButton: {fileID: 352114846}
-  showUiButton: {fileID: 1652668614}
-  uiPanels:
-  - {fileID: 824333688}
-  - {fileID: 877715196}
-  - {fileID: 352114844}
-  - {fileID: 1116294342}
-  - {fileID: 1064066026}
-  - {fileID: 1821640038}
-  useBlackScreenTransition: 0
-  transitionColor: {r: 0, g: 0, b: 0, a: 1}
-  fadeOutDuration: 0.2
-  fadeInDuration: 0.25
-  uiFadeDuration: 0.35
-  uiFadeEase: 6
-  uiShowEase: 27
 --- !u!114 &1662375346
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2974,6 +2942,37 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1662375348
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1662375342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 429110a1e28324d48b74224d4102cd5a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BandPanelController
+  bandPanel: {fileID: 63659986}
+  uiAr: {fileID: 1130910712}
+  backButton: {fileID: 1064066028}
+  hideUiButton: {fileID: 352114846}
+  showUiButton: {fileID: 1652668614}
+  arUiPanels:
+  - {fileID: 824333688}
+  - {fileID: 877715196}
+  - {fileID: 352114844}
+  - {fileID: 1821640038}
+  - {fileID: 1064066026}
+  - {fileID: 1116294342}
+  useBlackScreenTransition: 0
+  transitionColor: {r: 0, g: 0, b: 0, a: 1}
+  fadeOutDuration: 0.2
+  fadeInDuration: 0.25
+  uiFadeDuration: 0.35
+  uiFadeEase: 6
+  uiShowEase: 27
 --- !u!1 &1804248923
 GameObject:
   m_ObjectHideFlags: 0
@@ -3386,7 +3385,7 @@ Camera:
     width: 1
     height: 1
   near clip plane: 0.1
-  far clip plane: 20
+  far clip plane: 100
   field of view: 60
   orthographic: 0
   orthographic size: 5

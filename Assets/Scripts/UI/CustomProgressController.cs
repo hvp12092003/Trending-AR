@@ -36,6 +36,7 @@ public class CustomProgressController : MonoBehaviour
 
     // Trạng thái hiện tại để so sánh khi cập nhật
     private int _currentStep = 1;
+    private int _targetStep = 1;
 
     private Sequence _activeSequence;
 
@@ -59,6 +60,16 @@ public class CustomProgressController : MonoBehaviour
     /// <param name="animate">Có chạy hiệu ứng chuyển động hay không</param>
     public Sequence SetProgress(int step, bool animate = true)
     {
+        step = Mathf.Clamp(step, 1, 3);
+
+        if (animate &&
+            _activeSequence != null &&
+            _activeSequence.IsActive() &&
+            _activeSequence.IsPlaying() &&
+            step == _targetStep)
+        {
+            return _activeSequence;
+        }
         // Xác định các giá trị lượng đầy (fill amount) mục tiêu theo bước hiện tại:
         // - Bước 1: Line 1 = 0, Image 2 = 0, Line 2 = 0, Image 3 = 0, Text 2 & 3 rỗng (màu mặc định).
         // - Bước 2: Line 1 = 1, Image 2 = 1, Line 2 = 0, Image 3 = 0, Text 2 màu active, Text 3 màu mặc định.
@@ -77,6 +88,8 @@ public class CustomProgressController : MonoBehaviour
         {
             _activeSequence.Kill();
         }
+
+        _targetStep = step;
 
         if (animate)
         {
@@ -160,6 +173,7 @@ public class CustomProgressController : MonoBehaviour
             }
 
             _currentStep = step;
+            _targetStep = step;
             return null;
         }
     }
