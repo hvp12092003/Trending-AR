@@ -1354,6 +1354,8 @@ public class CustomCharacterPanelController : MonoBehaviour
         Debug.Log($"[CustomCharacterPanel] Thiết bị hỗ trợ ARCore: {isARCoreSupported}. Loading scene: {targetSceneName}");
 
         // Chuyển scene mượt mà bằng SceneTransitionManager
+        ARFallbackManager.RequestAROnNextSceneLoad();
+
         if (SceneTransitionManager.Instance != null)
         {
             SceneTransitionManager.Instance.TransitionToScene(targetSceneName);
@@ -1370,6 +1372,7 @@ public class CustomCharacterPanelController : MonoBehaviour
     private void TransitionToArModeDirectly(string logMessage)
     {
         Debug.Log(logMessage);
+        ARFallbackManager.ResumeForCurrentScene();
 
         // 1. Lấy hoặc thêm CanvasGroup cho uiCustome và uiAr để chạy fade mượt mà
         CanvasGroup cgCustome = null;
@@ -1503,6 +1506,8 @@ public class CustomCharacterPanelController : MonoBehaviour
         else
         {
             // Đang ở màn hình Custom UI → Về Main Menu như cũ
+            ARFallbackManager.ReleaseDeviceCamera();
+
             if (_previewAudioSource != null) _previewAudioSource.Stop();
             if (_previewInstance != null) Destroy(_previewInstance);
             if (_previewInstrumentInstance != null) Destroy(_previewInstrumentInstance);
@@ -1527,6 +1532,7 @@ public class CustomCharacterPanelController : MonoBehaviour
     private void BackFromArToCustomUI()
     {
         Debug.Log("[CustomCharacterPanel] Back-from-AR: Dọn Cast và hiện lại UI Custom.");
+        ARFallbackManager.ReleaseDeviceCamera();
 
         // 1. Dọn sạch Cast trong AR và reset bệ đứng
         BandARSpawner spawner = null;
@@ -1830,17 +1836,6 @@ public class CustomCharacterPanelController : MonoBehaviour
             }
         }
 
-        // Ẩn các bệ đứng và Cast chưa đặt trong AR Spawner với transition
-        BandARSpawner spawner = null;
-#if UNITY_2023_1_OR_NEWER
-        spawner = FindAnyObjectByType<BandARSpawner>();
-#else
-        spawner = FindObjectOfType<BandARSpawner>();
-#endif
-        if (spawner != null)
-        {
-            spawner.SetPedestalsAndUnplacedCastsActive(false, !useBlackScreenTransition, uiFadeDuration);
-        }
     }
 
     public void ShowUI()
@@ -1971,17 +1966,6 @@ public class CustomCharacterPanelController : MonoBehaviour
             }
         }
 
-        // Hiện lại các bệ đứng và Cast chưa đặt trong AR Spawner với transition
-        BandARSpawner spawner = null;
-#if UNITY_2023_1_OR_NEWER
-        spawner = FindAnyObjectByType<BandARSpawner>();
-#else
-        spawner = FindObjectOfType<BandARSpawner>();
-#endif
-        if (spawner != null)
-        {
-            spawner.SetPedestalsAndUnplacedCastsActive(true, !useBlackScreenTransition, uiFadeDuration);
-        }
     }
 
     private void CreateFadeOverlay()

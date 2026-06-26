@@ -9,7 +9,8 @@ public class ARFallbackManagerEditor : Editor
     private SerializedProperty m_ARPlaneManagerProp;
     private SerializedProperty m_TapToPlacePrefabProp;
     private SerializedProperty m_FallbackRawImageProp;
-    private SerializedProperty m_AutoAlignRawImageProp;
+    private SerializedProperty m_BackgroundRenderTextureProp;
+    private SerializedProperty m_ClearBackgroundTextureOnCleanupProp;
     private SerializedProperty m_ForceFallbackProp;
 
     private void OnEnable()
@@ -19,7 +20,8 @@ public class ARFallbackManagerEditor : Editor
         m_ARPlaneManagerProp = serializedObject.FindProperty("m_ARPlaneManager");
         m_TapToPlacePrefabProp = serializedObject.FindProperty("m_TapToPlacePrefab");
         m_FallbackRawImageProp = serializedObject.FindProperty("m_FallbackRawImage");
-        m_AutoAlignRawImageProp = serializedObject.FindProperty("m_AutoAlignRawImage");
+        m_BackgroundRenderTextureProp = serializedObject.FindProperty("m_BackgroundRenderTexture");
+        m_ClearBackgroundTextureOnCleanupProp = serializedObject.FindProperty("m_ClearBackgroundTextureOnCleanup");
         m_ForceFallbackProp = serializedObject.FindProperty("m_ForceFallback");
     }
 
@@ -51,7 +53,8 @@ public class ARFallbackManagerEditor : Editor
             EditorGUILayout.Space(10);
             EditorGUILayout.LabelField("Fallback Screen Settings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(m_FallbackRawImageProp);
-            EditorGUILayout.PropertyField(m_AutoAlignRawImageProp);
+            EditorGUILayout.PropertyField(m_BackgroundRenderTextureProp);
+            EditorGUILayout.PropertyField(m_ClearBackgroundTextureOnCleanupProp);
             EditorGUILayout.PropertyField(m_ForceFallbackProp);
         }
         else if (currentMode == ARFallbackManager.SceneMode.NonARScene)
@@ -61,7 +64,8 @@ public class ARFallbackManagerEditor : Editor
 
             EditorGUILayout.LabelField("Non-AR Background Settings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(m_FallbackRawImageProp);
-            EditorGUILayout.PropertyField(m_AutoAlignRawImageProp);
+            EditorGUILayout.PropertyField(m_BackgroundRenderTextureProp);
+            EditorGUILayout.PropertyField(m_ClearBackgroundTextureOnCleanupProp);
             
             // Ở Non-AR Scene thì Force Fallback được thiết lập ngầm là true
             GUI.enabled = false;

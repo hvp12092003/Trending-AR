@@ -47,8 +47,8 @@ public class BandARSpawner : MonoBehaviour
     [Tooltip("Component PedestalsScroller được gán bằng tay trong Scene. Nếu để trống, hệ thống sẽ tự động tìm kiếm hoặc tự động tạo tại runtime.")]
     [SerializeField] private PedestalsScroller pedestalsScroller;
 
-    [Tooltip("Nút bấm UI để Ẩn/Hiện bệ đứng (Gán bằng tay từ Scene). Nếu để trống, hệ thống sẽ tự động tìm kiếm theo tên hoặc tự sinh nút tại runtime.")]
-    [SerializeField] private Button togglePedestalsButton;
+    [Tooltip("Legacy pedestal toggle button. Manual pedestal hiding is disabled; pedestals hide automatically after 4 Casts are placed.")]
+    [SerializeField, HideInInspector] private Button togglePedestalsButton;
 
     [Header("Pedestal Offset Settings")]
     [Tooltip("Vị trí cục bộ của nhân vật so với bệ đứng.")]
@@ -92,6 +92,7 @@ public class BandARSpawner : MonoBehaviour
     private List<CastData> _cachedCastsToSpawn = new List<CastData>();
     private Dictionary<GameObject, Vector3> _originalPedestalScales = new Dictionary<GameObject, Vector3>();
     private bool _pedestalsVisible = true;
+    private bool m_ManualPedestalToggleEnabled = false;
 
     // Danh sách các thành viên đã được spawn ra thực tế
     private List<GameObject> _spawnedMembers = new List<GameObject>();
@@ -115,7 +116,9 @@ public class BandARSpawner : MonoBehaviour
     {
         // Tự động cấu hình chế độ hoạt động SpawnerMode dựa trên tên Scene hiện hành
         string activeSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        if (activeSceneName == "Band AR" || activeSceneName == "Band Non AR" || activeSceneName == "Band Mode Scene" ||
+        if (activeSceneName == "Band AR" || activeSceneName == "Band AR Scene" ||
+            activeSceneName == "Band Non AR" || activeSceneName == "Band NonAR Scene" || activeSceneName == "Band Non-AR Scene" ||
+            activeSceneName == "Band Mode Scene" ||
             activeSceneName == "Band Mode AR Scene" || activeSceneName == "Band Mode NonAR Scene")
         {
             m_SpawnerMode = SpawnerMode.Band;
@@ -144,14 +147,19 @@ public class BandARSpawner : MonoBehaviour
         // Tự động spawn ngay khi bắt đầu nếu ở chế độ Band
         if (m_SpawnerMode == SpawnerMode.Band)
         {
-            bool hasSelectedBand = MainMenuDataManager.Instance != null && MainMenuDataManager.Instance.selectedBandData != null;
-            if (hasSelectedBand)
+            EditorBandData selectedEditorBand = MainMenuDataManager.Instance != null ? MainMenuDataManager.Instance.selectedBandData : null;
+            bool hasEditorBand = selectedEditorBand != null && selectedEditorBand.members != null && selectedEditorBand.members.Count > 0;
+            bool hasRuntimeBand = BandSelectionManager.SelectedBand != null && BandSelectionManager.SelectedBand.casts != null && BandSelectionManager.SelectedBand.casts.Count > 0;
+            bool shouldAutoEnterAR = ARFallbackManager.IsARModeRequestedForCurrentScene() && (hasEditorBand || hasRuntimeBand);
+
+            if (shouldAutoEnterAR)
             {
                 SpawnBandAtDefaultPosition();
             }
             else
             {
                 // Chưa chọn Band -> Hiện popup chọn ngay trong Scene chơi nhạc
+                SetPedestalsAndUnplacedCastsActive(false);
                 ShowBandSelectionUI();
             }
         }
@@ -391,8 +399,7 @@ public class BandARSpawner : MonoBehaviour
                 if (pedestal != null && member.transform.parent == pedestal.transform)
                 {
                     member.transform.SetParent(null);
-                    pedestal.SetActive(false); // Ẩn bệ đi khi nhân vật đã được kéo ra đặt vào AR
-                    Debug.Log($"[BandARSpawner] Detached member: {member.name} từ bệ {pedestal.name} và ẩn bệ.");
+                    Debug.Log($"[BandARSpawner] Detached member: {member.name} từ bệ {pedestal.name}. Bệ sẽ chỉ tự ẩn khi đã đặt đủ 4 Cast.");
                     CheckAndLimitCasts();
                     return;
                 }
@@ -669,7 +676,6 @@ public class BandARSpawner : MonoBehaviour
                 scroller.CalculateScrollLimits();
             }
 
-            CreateToggleUI();
         }
         else
         {
@@ -1188,6 +1194,12 @@ public class BandARSpawner : MonoBehaviour
     /// </summary>
     public void TogglePedestalsVisibility()
     {
+        if (!m_ManualPedestalToggleEnabled)
+        {
+            Debug.Log("[BandARSpawner] Manual pedestal toggle is disabled. Pedestals hide automatically after 4 Casts are placed.");
+            return;
+        }
+
         _pedestalsVisible = !_pedestalsVisible;
         Debug.Log($"[BandARSpawner] Chuyển đổi trạng thái hiển thị bệ đứng: _pedestalsVisible = {_pedestalsVisible}");
 
@@ -1255,6 +1267,11 @@ public class BandARSpawner : MonoBehaviour
     /// </summary>
     private void CreateToggleUI()
     {
+        if (!m_ManualPedestalToggleEnabled)
+        {
+            return;
+        }
+
         // 1. Nếu đã được gán trực tiếp qua Inspector
         if (togglePedestalsButton != null)
         {
@@ -1555,7 +1572,8 @@ public class BandARSpawner : MonoBehaviour
         if (activeScene == "AR Scene" || activeScene == "Non-AR Scene" ||
             activeScene == "costom AR" || activeScene == "Custom AR" ||
             activeScene == "costom Non AR" || activeScene == "Custom Non AR" ||
-            activeScene == "Band AR" || activeScene == "Band Non AR" ||
+            activeScene == "Band AR" || activeScene == "Band AR Scene" ||
+            activeScene == "Band Non AR" || activeScene == "Band NonAR Scene" || activeScene == "Band Non-AR Scene" ||
             activeScene == "Custome AR Scene" || activeScene == "Custome NonAR Scene" ||
             activeScene == "Band Mode AR Scene" || activeScene == "Band Mode NonAR Scene")
         {

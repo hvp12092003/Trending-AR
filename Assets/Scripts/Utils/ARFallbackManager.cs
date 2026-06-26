@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.Management;
@@ -40,12 +41,20 @@ public class ARFallbackManager : MonoBehaviour
     private TapToPlacePrefab m_TapToPlacePrefab;
 
     [SerializeField]
-    [Tooltip("RawImage dùng để hiển thị hình nền WebCam. Nếu để trống, script sẽ tự tạo Canvas và RawImage lúc runtime.")]
+    [Tooltip("RawImage nền có sẵn trong Canvas BG. Script không tự tạo RawImage ở runtime.")]
     private RawImage m_FallbackRawImage;
 
     [SerializeField]
-    [Tooltip("Tự động điều chỉnh kích thước, tỉ lệ và hướng xoay của RawImage để lấp đầy màn hình.")]
-    private bool m_AutoAlignRawImage = true;
+    [Tooltip("RenderTexture nền do bạn tự tạo và kéo vào Inspector. Nếu để trống, script sẽ giữ texture đang gán sẵn trên RawImage.")]
+    private RenderTexture m_BackgroundRenderTexture;
+
+    [SerializeField]
+    [Tooltip("Nếu bật, khi thoát AR/Non-AR script sẽ gỡ RenderTexture khỏi RawImage để tránh giữ reference runtime.")]
+    private bool m_ClearBackgroundTextureOnCleanup = true;
+
+    private RawImage m_ActiveBackgroundRawImage;
+    private RenderTexture m_ActiveBackgroundRenderTexture;
+    private bool m_WebCamStartRequested;
 
     private WebCamTexture m_WebCamTexture;
     private GameObject m_FallbackCanvasObj;
@@ -55,6 +64,7 @@ public class ARFallbackManager : MonoBehaviour
     private float m_LastScreenWidth;
     private float m_LastScreenHeight;
     private int m_LastVideoRotationAngle = -1;
+    private bool m_AutoAlignRawImage = false;
 
     [SerializeField]
     [Tooltip("Nếu được bật, script sẽ luôn chạy ở chế độ giả lập mà không cần kiểm tra ARCore.")]
@@ -69,6 +79,10 @@ public class ARFallbackManager : MonoBehaviour
     private bool m_InitialForceFallback;
     private string m_CurrentInitializedScene = "";
     private static ARFallbackManager s_Instance;
+    private static bool s_ARModeRequestedForCurrentScene;
+    private static bool s_StartAROnNextSceneLoad;
+    private bool m_SceneLoadedRegistered;
+    private bool m_IsCleaningUp;
 
     [Header("Persistence Settings")]
     [SerializeField]
@@ -110,20 +124,39 @@ public class ARFallbackManager : MonoBehaviour
         }
 
         // Đăng ký sự kiện load scene để cập nhật cấu hình động
-        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+        string activeSceneName = SceneManager.GetActiveScene().name;
+        if (ShouldDeferCameraUntilARMode(activeSceneName) && !IsCameraRequestedForSceneLoad())
+        {
+            PrepareSceneWithoutCamera(activeSceneName);
+        }
+
+        RegisterSceneLoaded();
+    }
+
+    private void OnEnable()
+    {
+        if (!Application.isPlaying) return;
+
+        RegisterSceneLoaded();
+
+        if (s_Instance == this && !string.IsNullOrEmpty(m_CurrentInitializedScene))
+        {
+            RestartForCurrentScene();
+        }
     }
 
     private void Start()
     {
         // Thực hiện khởi tạo cho scene hiện tại khi vừa bắt đầu
-        InitializeForScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+        InitializeForScene(SceneManager.GetActiveScene().name);
     }
 
-    private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         Debug.Log($"ARFallbackManager: Đã load scene mới = {scene.name}. Đang cấu hình lại...");
 
         Cleanup(false);
+        m_CurrentInitializedScene = "";
 
         // Chuyển reference bị hủy về null hoàn toàn để tránh lỗi C# reference rác
         if (m_FallbackRawImage == null)
@@ -145,6 +178,7 @@ public class ARFallbackManager : MonoBehaviour
                name == "costom AR" || 
                name == "Custom AR" || 
                name == "Band AR" ||
+               name == "Band AR Scene" ||
                name == "Custome AR Scene" ||
                name == "Band Mode AR Scene";
     }
@@ -155,8 +189,38 @@ public class ARFallbackManager : MonoBehaviour
                name == "costom Non AR" || 
                name == "Custom Non AR" || 
                name == "Band Non AR" ||
+               name == "Band NonAR Scene" ||
+               name == "Band Non-AR Scene" ||
                name == "Custome NonAR Scene" ||
                name == "Band Mode NonAR Scene";
+    }
+
+    private bool ShouldDeferCameraUntilARMode(string name)
+    {
+        return name == "Band AR" ||
+               name == "Band AR Scene" ||
+               name == "Band Non AR" ||
+               name == "Band NonAR Scene" ||
+               name == "Band Non-AR Scene" ||
+               name == "Band Mode AR Scene" ||
+               name == "Band Mode NonAR Scene" ||
+               name == "Custome AR Scene" ||
+               name == "Custome NonAR Scene" ||
+               name == "Custom AR" ||
+               name == "Custom Non AR" ||
+               name == "costom AR" ||
+               name == "costom Non AR";
+    }
+
+    private bool IsCameraRequestedForSceneLoad()
+    {
+        return s_ARModeRequestedForCurrentScene || s_StartAROnNextSceneLoad;
+    }
+
+    private void PrepareSceneWithoutCamera(string sceneName)
+    {
+        Debug.Log($"ARFallbackManager: Scene '{sceneName}' dang o menu chon. Tam dung AR/WebCam cho den khi nguoi dung vao AR mode.");
+        Cleanup(false);
     }
 
     private void InitializeForScene(string sceneName)
@@ -172,10 +236,25 @@ public class ARFallbackManager : MonoBehaviour
         StopAllCoroutines();
 
         // 1. Chỉ chạy ở AR Scene và Non-AR Scene. Các scene khác (khởi động, đăng nhập, menu chính, studio...) thì dọn dẹp camera và bỏ qua hoàn toàn.
-        if (!IsARScene(sceneName) && !IsNonARScene(sceneName))
+        bool isArCapableScene = IsARScene(sceneName) || IsNonARScene(sceneName);
+        if (!isArCapableScene)
         {
+            s_ARModeRequestedForCurrentScene = false;
+            s_StartAROnNextSceneLoad = false;
             Debug.Log($"ARFallbackManager: Đang ở scene '{sceneName}', tiến hành dọn dẹp và bỏ qua kích hoạt Camera.");
             Cleanup(false);
+            return;
+        }
+
+        if (s_StartAROnNextSceneLoad)
+        {
+            s_ARModeRequestedForCurrentScene = true;
+            s_StartAROnNextSceneLoad = false;
+        }
+
+        if (ShouldDeferCameraUntilARMode(sceneName) && !s_ARModeRequestedForCurrentScene)
+        {
+            PrepareSceneWithoutCamera(sceneName);
             return;
         }
 
@@ -238,6 +317,7 @@ public class ARFallbackManager : MonoBehaviour
     /// </summary>
     private void ActivateARMode()
     {
+        StopFallbackVisuals();
         StartCoroutine(StartARCoreFlow());
     }
 
@@ -278,15 +358,7 @@ public class ARFallbackManager : MonoBehaviour
             yield break;
         }
 
-        if (m_ARSession != null)
-        {
-            m_ARSession.enabled = true;
-        }
-
-        if (m_ARPlaneManager != null)
-        {
-            m_ARPlaneManager.enabled = true;
-        }
+        EnableARComponentsInScene();
 
         if (m_TapToPlacePrefab != null)
         {
@@ -308,6 +380,9 @@ public class ARFallbackManager : MonoBehaviour
         {
             m_FallbackRawImage.gameObject.SetActive(true);
         }
+
+        DisableARComponentsInScene();
+        StopXRSubsystems();
 
         // 1. Tắt các thành phần quét không gian của ARCore để tránh xung đột
         if (m_ARSession != null)
@@ -342,16 +417,60 @@ public class ARFallbackManager : MonoBehaviour
         }
 
         // 3. Yêu cầu cấp quyền camera và khởi chạy luồng hình ảnh Camera di động làm phông nền (Chỉ chạy ở Non-AR Scene)
-        string activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        string activeScene = SceneManager.GetActiveScene().name;
         if (IsNonARScene(activeScene))
         {
-            StartCoroutine(RequestCameraPermissionAndStartWebCam());
+            ConfigureManualBackground();
         }
         else
         {
             // Ở AR Scene khi chạy giả lập: Chỉ hiển thị hình nền giả lập màu tối, không bật camera phông nền
-            StartFallbackWithoutCamera();
+            ConfigureManualBackground();
         }
+    }
+
+    private void ConfigureManualBackground()
+    {
+        if (m_FallbackRawImage == null)
+        {
+            Debug.LogWarning("ARFallbackManager: Chưa gán Fallback Raw Image. Hãy kéo RawImage trong Canvas BG vào Inspector.");
+            return;
+        }
+
+        m_ActiveBackgroundRawImage = m_FallbackRawImage;
+        m_ActiveBackgroundRawImage.gameObject.SetActive(true);
+        m_ActiveBackgroundRawImage.raycastTarget = false;
+
+        m_ActiveBackgroundRenderTexture = ResolveBackgroundRenderTexture();
+        if (m_ActiveBackgroundRenderTexture != null)
+        {
+            m_ActiveBackgroundRawImage.texture = m_ActiveBackgroundRenderTexture;
+            m_ActiveBackgroundRawImage.color = Color.white;
+            if (!m_WebCamStartRequested && m_WebCamTexture == null)
+            {
+                m_WebCamStartRequested = true;
+                StartCoroutine(RequestCameraPermissionAndStartWebCam());
+            }
+        }
+        else
+        {
+            Debug.LogWarning("ARFallbackManager: Chưa gán Background Render Texture. Bạn có thể kéo RenderTexture vào Manager hoặc gán trực tiếp vào RawImage.");
+        }
+    }
+
+    private RenderTexture ResolveBackgroundRenderTexture()
+    {
+        if (m_BackgroundRenderTexture != null)
+        {
+            return m_BackgroundRenderTexture;
+        }
+
+        if (m_FallbackRawImage != null && m_FallbackRawImage.texture is RenderTexture renderTexture)
+        {
+            return renderTexture;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -376,6 +495,7 @@ public class ARFallbackManager : MonoBehaviour
         }
 #endif
         StartFallbackWebCam();
+        m_WebCamStartRequested = false;
         yield break;
     }
 
@@ -384,7 +504,25 @@ public class ARFallbackManager : MonoBehaviour
     /// </summary>
     private void StartFallbackWebCam()
     {
-        if (m_FallbackCanvasObj != null || m_WebCamRawImage != null) return;
+        if (m_WebCamTexture != null)
+        {
+            if (!m_WebCamTexture.isPlaying)
+            {
+                m_WebCamTexture.Play();
+            }
+            return;
+        }
+
+        if (m_ActiveBackgroundRenderTexture == null)
+        {
+            m_ActiveBackgroundRenderTexture = ResolveBackgroundRenderTexture();
+        }
+
+        if (m_ActiveBackgroundRenderTexture == null)
+        {
+            Debug.LogWarning("ARFallbackManager: Khong co RenderTexture de nhan hinh webcam.");
+            return;
+        }
 
         // Tìm và bật camera sau của điện thoại
         string deviceName = "";
@@ -468,7 +606,6 @@ public class ARFallbackManager : MonoBehaviour
         if (!string.IsNullOrEmpty(deviceName))
         {
             m_WebCamTexture = new WebCamTexture(deviceName, 1280, 720, 30);
-            m_WebCamRawImage.texture = m_WebCamTexture;
             m_WebCamTexture.Play();
             m_WebCamIsFront = isFront;
         }
@@ -536,10 +673,25 @@ public class ARFallbackManager : MonoBehaviour
 
     private void Update()
     {
+        if (m_WebCamTexture != null && m_WebCamTexture.isPlaying && m_ActiveBackgroundRenderTexture != null)
+        {
+            BlitWebCamToRenderTexture();
+        }
+
         if (m_WebCamTexture != null && m_WebCamTexture.isPlaying && m_WebCamRectTransform != null && m_AutoAlignRawImage)
         {
             UpdateWebCamLayout();
         }
+    }
+
+    private void BlitWebCamToRenderTexture()
+    {
+        if (m_WebCamTexture.width < 16 || m_WebCamTexture.height < 16)
+        {
+            return;
+        }
+
+        Graphics.Blit(m_WebCamTexture, m_ActiveBackgroundRenderTexture);
     }
 
     /// <summary>
@@ -600,37 +752,290 @@ public class ARFallbackManager : MonoBehaviour
         m_WebCamRectTransform.localScale = new Vector3(s * scaleXSign, s * scaleYSign, 1.0f);
     }
 
+    public static void ReleaseDeviceCamera()
+    {
+        s_ARModeRequestedForCurrentScene = false;
+
+        if (s_Instance != null)
+        {
+            s_Instance.Cleanup(false);
+        }
+    }
+
+    public static void RequestAROnNextSceneLoad()
+    {
+        s_StartAROnNextSceneLoad = true;
+    }
+
+    public static void ResumeForCurrentScene()
+    {
+        s_ARModeRequestedForCurrentScene = true;
+
+        if (s_Instance != null)
+        {
+            s_Instance.RestartForCurrentScene();
+        }
+    }
+
+    public static bool IsARModeRequestedForCurrentScene()
+    {
+        return s_ARModeRequestedForCurrentScene || s_StartAROnNextSceneLoad;
+    }
+
+    private void RestartForCurrentScene()
+    {
+        if (!isActiveAndEnabled) return;
+
+        m_CurrentInitializedScene = "";
+        InitializeForScene(SceneManager.GetActiveScene().name);
+    }
+
+    private void RegisterSceneLoaded()
+    {
+        if (m_SceneLoadedRegistered) return;
+
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        m_SceneLoadedRegistered = true;
+    }
+
+    private void UnregisterSceneLoaded()
+    {
+        if (!m_SceneLoadedRegistered) return;
+
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        m_SceneLoadedRegistered = false;
+    }
+
     public void Cleanup(bool unregisterEvent = false)
     {
+        if (m_IsCleaningUp) return;
+        m_IsCleaningUp = true;
+
         if (unregisterEvent)
         {
-            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+            UnregisterSceneLoaded();
         }
 
-        if (XRGeneralSettings.Instance != null && XRGeneralSettings.Instance.Manager != null && XRGeneralSettings.Instance.Manager.isInitializationComplete)
-        {
-            Debug.Log("ARFallbackManager: Dừng subsystems và hủy khởi tạo XR Loader...");
-            XRGeneralSettings.Instance.Manager.StopSubsystems();
-            XRGeneralSettings.Instance.Manager.DeinitializeLoader();
-        }
+        StopAllCoroutines();
+        DisableARComponentsInScene();
+        StopXRSubsystems();
+        StopWebCamTexture();
+        ReleaseManualBackgroundTexture();
 
-        if (m_WebCamTexture != null)
+        if (m_FallbackRawImage != null)
         {
-            if (m_WebCamTexture.isPlaying)
-            {
-                m_WebCamTexture.Stop();
-            }
-            m_WebCamTexture = null;
+            m_FallbackRawImage.gameObject.SetActive(false);
         }
 
         if (m_FallbackCanvasObj != null)
         {
-            Destroy(m_FallbackCanvasObj);
+            DestroyUnityObject(m_FallbackCanvasObj);
             m_FallbackCanvasObj = null;
         }
 
         m_WebCamRawImage = null;
         m_WebCamRectTransform = null;
+        m_LastVideoRotationAngle = -1;
+        m_LastScreenWidth = 0f;
+        m_LastScreenHeight = 0f;
+
+        m_IsCleaningUp = false;
+    }
+
+    private void StopWebCamTexture()
+    {
+        if (m_WebCamRawImage != null && m_WebCamRawImage.texture == m_WebCamTexture)
+        {
+            m_WebCamRawImage.texture = null;
+        }
+
+        if (m_FallbackRawImage != null && m_FallbackRawImage.texture == m_WebCamTexture)
+        {
+            m_FallbackRawImage.texture = null;
+        }
+
+        if (m_WebCamTexture == null)
+        {
+            m_WebCamStartRequested = false;
+            return;
+        }
+
+        if (m_WebCamTexture.isPlaying)
+        {
+            m_WebCamTexture.Stop();
+        }
+
+        DestroyUnityObject(m_WebCamTexture);
+        m_WebCamTexture = null;
+        m_WebCamStartRequested = false;
+    }
+
+    private void ReleaseManualBackgroundTexture()
+    {
+        if (!m_ClearBackgroundTextureOnCleanup || m_BackgroundRenderTexture == null)
+        {
+            return;
+        }
+
+        if (m_ActiveBackgroundRawImage != null && m_ActiveBackgroundRawImage.texture == m_BackgroundRenderTexture)
+        {
+            m_ActiveBackgroundRawImage.texture = null;
+        }
+
+        if (m_FallbackRawImage != null && m_FallbackRawImage.texture == m_BackgroundRenderTexture)
+        {
+            m_FallbackRawImage.texture = null;
+        }
+
+        m_ActiveBackgroundRawImage = null;
+    }
+
+    private void StopFallbackVisuals()
+    {
+        StopWebCamTexture();
+        ReleaseManualBackgroundTexture();
+
+        if (m_FallbackRawImage != null)
+        {
+            m_FallbackRawImage.gameObject.SetActive(false);
+        }
+
+        if (m_FallbackCanvasObj != null)
+        {
+            DestroyUnityObject(m_FallbackCanvasObj);
+            m_FallbackCanvasObj = null;
+        }
+
+        m_WebCamRawImage = null;
+        m_WebCamRectTransform = null;
+    }
+
+    private void EnableARComponentsInScene()
+    {
+        if (m_ARSession != null)
+        {
+            m_ARSession.enabled = true;
+        }
+
+        if (m_ARPlaneManager != null)
+        {
+            m_ARPlaneManager.enabled = true;
+        }
+
+        ARCameraManager[] cameraManagers = FindObjectsByType<ARCameraManager>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (ARCameraManager cameraManager in cameraManagers)
+        {
+            if (cameraManager != null)
+            {
+                cameraManager.enabled = true;
+            }
+        }
+
+        ARCameraBackground[] cameraBackgrounds = FindObjectsByType<ARCameraBackground>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (ARCameraBackground cameraBackground in cameraBackgrounds)
+        {
+            if (cameraBackground != null)
+            {
+                cameraBackground.enabled = true;
+            }
+        }
+    }
+
+    private void DisableARComponentsInScene()
+    {
+        if (m_ARSession != null)
+        {
+            m_ARSession.enabled = false;
+        }
+
+        if (m_ARPlaneManager != null)
+        {
+            m_ARPlaneManager.enabled = false;
+        }
+
+        ARSession[] sessions = FindObjectsByType<ARSession>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (ARSession session in sessions)
+        {
+            if (session != null)
+            {
+                session.enabled = false;
+            }
+        }
+
+        ARPlaneManager[] planeManagers = FindObjectsByType<ARPlaneManager>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (ARPlaneManager planeManager in planeManagers)
+        {
+            if (planeManager != null)
+            {
+                planeManager.enabled = false;
+            }
+        }
+
+        ARCameraManager[] cameraManagers = FindObjectsByType<ARCameraManager>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (ARCameraManager cameraManager in cameraManagers)
+        {
+            if (cameraManager != null)
+            {
+                cameraManager.enabled = false;
+            }
+        }
+
+        ARCameraBackground[] cameraBackgrounds = FindObjectsByType<ARCameraBackground>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (ARCameraBackground cameraBackground in cameraBackgrounds)
+        {
+            if (cameraBackground != null)
+            {
+                cameraBackground.enabled = false;
+            }
+        }
+    }
+
+    private void StopXRSubsystems()
+    {
+        XRManagerSettings xrManager = XRGeneralSettings.Instance != null ? XRGeneralSettings.Instance.Manager : null;
+        if (xrManager == null || !xrManager.isInitializationComplete) return;
+
+        Debug.Log("ARFallbackManager: Dừng subsystems và hủy khởi tạo XR Loader...");
+        xrManager.StopSubsystems();
+        xrManager.DeinitializeLoader();
+    }
+
+    private static void DestroyUnityObject(UnityEngine.Object obj)
+    {
+        if (obj == null) return;
+
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            DestroyImmediate(obj);
+            return;
+        }
+#endif
+        Destroy(obj);
+    }
+
+    private void OnDisable()
+    {
+        if (!Application.isPlaying) return;
+
+        Cleanup(false);
+        UnregisterSceneLoaded();
+    }
+
+    private void OnApplicationPause(bool pauseStatus)
+    {
+        if (pauseStatus)
+        {
+            Cleanup(false);
+            return;
+        }
+
+        RestartForCurrentScene();
+    }
+
+    private void OnApplicationQuit()
+    {
+        Cleanup(true);
     }
 
     private void OnDestroy()

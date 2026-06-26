@@ -256,6 +256,8 @@ public class BandDetailPopupUI : MonoBehaviour
         string targetScene = isSupported ? arSceneName : nonArSceneName;
         Debug.Log($"[BandDetailPopupUI] ARCore Routing temporarily disabled. Loading Non-AR scene: {targetScene}");
 
+        ARFallbackManager.RequestAROnNextSceneLoad();
+
         if (SceneTransitionManager.Instance != null)
         {
             SceneTransitionManager.Instance.TransitionToScene(targetScene, TransitionType.Fade);

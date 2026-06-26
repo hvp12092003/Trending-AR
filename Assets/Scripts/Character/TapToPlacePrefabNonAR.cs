@@ -148,7 +148,7 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
                                     CharacterManager.Instance.SelectCharacter(m_DraggedObject);
                                 }
 
-                                // Tách nhân vật ra khỏi bệ của spawner (và ẩn bệ tương ứng)
+                                // Tách nhân vật ra khỏi bệ của spawner. Bệ chỉ tự ẩn khi đã đặt đủ 4 Cast.
                                 spawner.DetachMember(m_DraggedObject);
 
                                 // Đặt scale theo m_PlacedScale ngay khi kéo khỏi bệ đứng và lưu lại

@@ -221,6 +221,8 @@ public class SceneTransitionManager : MonoBehaviour
         // Trễ nhẹ một chút để đảm bảo hoạt ảnh mượt mà
         yield return new WaitForSeconds(0.1f);
 
+        ARFallbackManager.ReleaseDeviceCamera();
+
         // 4. Tải Scene không đồng bộ (Async Loading)
         AsyncOperation op = SceneManager.LoadSceneAsync(sceneName);
         if (op == null)

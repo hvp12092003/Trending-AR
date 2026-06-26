@@ -106,6 +106,8 @@ public class HubPanelController : MonoBehaviour
             MainMenuDataManager.Instance.selectedBandData = null;
         }
 
+        BandSelectionManager.ClearSelection();
+
         StartCoroutine(CheckARAndLoadScene(bandArSceneName, bandNonArSceneName));
     }
 

@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Quản lý giao diện người dùng cho chế độ Band (Band Mode).
-/// Điều khiển quay lại Menu chính, mở popup chọn ban nhạc, ẩn/hiện bệ đứng và ẩn/hiện UI để quay phim.
+/// Điều khiển quay lại Menu chính, mở popup chọn ban nhạc và ẩn/hiện UI để quay phim.
 /// </summary>
 public class BandPanelController : MonoBehaviour
 {
@@ -102,6 +102,8 @@ public class BandPanelController : MonoBehaviour
         else
         {
             // Đang ở màn hình Band Selection → Về Main Menu như cũ
+            ARFallbackManager.ReleaseDeviceCamera();
+
             if (SceneTransitionManager.Instance != null)
             {
                 SceneTransitionManager.Instance.TransitionToScene("Main Menu Scene");
@@ -122,6 +124,7 @@ public class BandPanelController : MonoBehaviour
     private void BackFromArToBandUI()
     {
         Debug.Log("[BandPanelController] Back-from-AR: Dọn Cast và hiện lại UI Band.");
+        ARFallbackManager.ReleaseDeviceCamera();
 
         // 1. Dọn sạch Cast trong AR và reset bệ đứng
         BandARSpawner spawner = null;
@@ -210,20 +213,7 @@ public class BandPanelController : MonoBehaviour
 
     private void TogglePedestals()
     {
-        BandARSpawner spawner = null;
-#if UNITY_2023_1_OR_NEWER
-        spawner = FindAnyObjectByType<BandARSpawner>();
-#else
-        spawner = FindObjectOfType<BandARSpawner>();
-#endif
-        if (spawner != null)
-        {
-            spawner.TogglePedestalsVisibility();
-        }
-        else
-        {
-            Debug.LogWarning("[BandPanelController] Không tìm thấy BandARSpawner để ẩn/hiện bệ đứng!");
-        }
+        Debug.Log("[BandPanelController] Manual pedestal toggle is disabled. Pedestals hide automatically after 4 Casts are placed.");
     }
 
     public void HideUI()
@@ -323,16 +313,6 @@ public class BandPanelController : MonoBehaviour
             }
         }
 
-        BandARSpawner spawner = null;
-#if UNITY_2023_1_OR_NEWER
-        spawner = FindAnyObjectByType<BandARSpawner>();
-#else
-        spawner = FindObjectOfType<BandARSpawner>();
-#endif
-        if (spawner != null)
-        {
-            spawner.SetPedestalsAndUnplacedCastsActive(false, !useBlackScreenTransition, uiFadeDuration);
-        }
     }
 
     public void ShowUI()
@@ -461,16 +441,6 @@ public class BandPanelController : MonoBehaviour
             }
         }
 
-        BandARSpawner spawner = null;
-#if UNITY_2023_1_OR_NEWER
-        spawner = FindAnyObjectByType<BandARSpawner>();
-#else
-        spawner = FindObjectOfType<BandARSpawner>();
-#endif
-        if (spawner != null)
-        {
-            spawner.SetPedestalsAndUnplacedCastsActive(true, animatePedestals && !useBlackScreenTransition, uiFadeDuration);
-        }
     }
 
     /// <summary>
@@ -479,6 +449,7 @@ public class BandPanelController : MonoBehaviour
     public void TransitionToAR()
     {
         InitializeIfNeeded();
+        ARFallbackManager.ResumeForCurrentScene();
 
         Debug.Log("[BandPanelController] Bắt đầu chuyển cảnh vào trải nghiệm AR.");
 
