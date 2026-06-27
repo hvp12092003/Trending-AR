@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
@@ -64,6 +65,7 @@ public class CustomCharacterPanelController : MonoBehaviour
     private GameObject _previewInstance;
     private GameObject _previewInstrumentInstance;
     private AudioSource _previewAudioSource;
+    private int _characterPreviewRequestVersion = 0;
 
     private enum CustomTab { Character, Instrument, Animation }
     private CustomTab _currentTab = CustomTab.Character;
@@ -588,11 +590,11 @@ public class CustomCharacterPanelController : MonoBehaviour
         }
     }
 
-    private void PopulateAnimations()
+    private async void PopulateAnimations()
     {
         if (animPanelController != null)
         {
-            GameObject selectedPrefab = GetCharacterPrefab(_selectedPrefabName);
+            GameObject selectedPrefab = await LoadCharacterPrefabAsync(_selectedPrefabName);
             animPanelController.InitializePanel(selectedPrefab);
             
             // Đồng bộ _selectedAnimationId
@@ -608,14 +610,21 @@ public class CustomCharacterPanelController : MonoBehaviour
     // Xử lý Preview Nhân vật & Hoạt ảnh
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void SpawnCharacterPreview(string prefabName)
+    private async void SpawnCharacterPreview(string prefabName)
     {
+        int requestVersion = ++_characterPreviewRequestVersion;
+
         if (_previewInstance != null)
         {
             Destroy(_previewInstance);
         }
 
-        GameObject prefab = GetCharacterPrefab(prefabName);
+        GameObject prefab = await LoadCharacterPrefabAsync(prefabName);
+        if (requestVersion != _characterPreviewRequestVersion)
+        {
+            return;
+        }
+
         if (prefab != null && previewContainer != null)
         {
             _previewInstance = Instantiate(prefab, previewContainer.position, previewContainer.rotation, previewContainer);
@@ -842,6 +851,38 @@ public class CustomCharacterPanelController : MonoBehaviour
         }
     }
 
+    private async Task<GameObject> LoadCharacterPrefabAsync(string prefabName)
+    {
+        if (string.IsNullOrEmpty(prefabName)) return null;
+
+        if (MainMenuDataManager.Instance != null)
+        {
+            GameObject prefab = await MainMenuDataManager.Instance.LoadCharacterPrefabAsync(prefabName);
+            if (prefab != null)
+            {
+                return prefab;
+            }
+        }
+
+        return GetCharacterPrefab(prefabName);
+    }
+
+    private async Task<GameObject> LoadInstrumentPrefabAsync(string instrumentId)
+    {
+        if (string.IsNullOrEmpty(instrumentId)) return null;
+
+        if (MainMenuDataManager.Instance != null)
+        {
+            GameObject prefab = await MainMenuDataManager.Instance.LoadInstrumentPrefabAsync(instrumentId);
+            if (prefab != null)
+            {
+                return prefab;
+            }
+        }
+
+        return null;
+    }
+
     private GameObject GetCharacterPrefab(string prefabName)
     {
         if (string.IsNullOrEmpty(prefabName)) return null;
@@ -884,6 +925,15 @@ public class CustomCharacterPanelController : MonoBehaviour
 
     private Sprite GetAvatarSprite(string prefabName)
     {
+        if (MainMenuDataManager.Instance != null)
+        {
+            Sprite catalogAvatar = MainMenuDataManager.Instance.GetCharacterAvatarSprite(prefabName);
+            if (catalogAvatar != null)
+            {
+                return catalogAvatar;
+            }
+        }
+
         // Thử lấy avatar từ component CastPrefab của prefab trước
         GameObject prefab = GetCharacterPrefab(prefabName);
         if (prefab != null)

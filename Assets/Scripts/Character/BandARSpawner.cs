@@ -902,7 +902,7 @@ public class BandARSpawner : MonoBehaviour
                 recSource.loop = true;
                 recSource.playOnAwake = false;
                 castAudioData.preparedSource = recSource;
-                PrepareFirebaseRecording(recSource, cast.audioId);
+                PrepareLocalRecording(recSource, cast.audioId);
             }
             else
             {
@@ -1363,7 +1363,7 @@ public class BandARSpawner : MonoBehaviour
     /// Tải bản ghi âm local (base64) vào AudioSource nhưng KHÔNG phát ngay.
     /// Việc phát sẽ do CastAudioData.PlayAudio() trigger sau khi Cast được thả ra AR.
     /// </summary>
-    private async void PrepareFirebaseRecording(AudioSource source, string audioId)
+    private async void PrepareLocalRecording(AudioSource source, string audioId)
     {
         if (source == null || string.IsNullOrEmpty(audioId)) return;
 

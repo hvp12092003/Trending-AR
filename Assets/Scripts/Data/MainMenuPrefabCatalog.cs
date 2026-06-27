@@ -1,46 +1,368 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "MainMenuPrefabCatalog", menuName = "Trending AR/Main Menu Prefab Catalog")]
 public class MainMenuPrefabCatalog : ScriptableObject
 {
+    [Serializable]
+    public class PrefabAssetEntry
+    {
+        [Tooltip("Stable id saved in PlayerPrefs. Keep this unchanged after release.")]
+        [SerializeField] private string id;
+
+        [Tooltip("Addressables address/key. When set, this is preferred over the direct prefab.")]
+        [SerializeField] private string addressKey;
+
+        [Tooltip("Optional direct prefab fallback. Clear this after Addressables migration if you want the prefab out of the base build.")]
+        [SerializeField] private GameObject prefab;
+
+        [Header("UI Metadata")]
+        [SerializeField] private string displayName;
+        [SerializeField] private string category;
+        [SerializeField] private Sprite avatar;
+
+        [Header("Animation Metadata")]
+        [SerializeField] private string defaultAnimationId;
+        [SerializeField] private List<string> animationIds = new List<string>();
+
+        public string Id
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(id)) return id;
+                if (prefab != null) return prefab.name;
+                if (!string.IsNullOrWhiteSpace(addressKey)) return addressKey;
+                return displayName;
+            }
+        }
+
+        public string AddressKey => addressKey;
+        public GameObject DirectPrefab => prefab;
+
+        public string DisplayName
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(displayName)) return displayName;
+
+                CastPrefab castConfig = prefab != null ? prefab.GetComponent<CastPrefab>() : null;
+                if (castConfig != null && !string.IsNullOrWhiteSpace(castConfig.Name)) return castConfig.Name;
+
+                AudioConfig audioConfig = prefab != null ? prefab.GetComponent<AudioConfig>() : null;
+                if (audioConfig != null && !string.IsNullOrWhiteSpace(audioConfig.Name)) return audioConfig.Name;
+
+                return !string.IsNullOrWhiteSpace(Id) ? Id : "Prefab";
+            }
+        }
+
+        public string Category
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(category)) return category;
+
+                CastPrefab castConfig = prefab != null ? prefab.GetComponent<CastPrefab>() : null;
+                return castConfig != null ? castConfig.Category : null;
+            }
+        }
+
+        public Sprite Avatar
+        {
+            get
+            {
+                if (avatar != null) return avatar;
+
+                CastPrefab castConfig = prefab != null ? prefab.GetComponent<CastPrefab>() : null;
+                if (castConfig != null && castConfig.characterAvatar != null) return castConfig.characterAvatar;
+
+                AudioConfig audioConfig = prefab != null ? prefab.GetComponent<AudioConfig>() : null;
+                return audioConfig != null ? audioConfig.avatar : null;
+            }
+        }
+
+        public IReadOnlyList<string> AnimationIds
+        {
+            get
+            {
+                if (animationIds != null && animationIds.Count > 0) return animationIds;
+
+                CastPrefab castConfig = prefab != null ? prefab.GetComponent<CastPrefab>() : null;
+                return GetAnimationIdsFromCastConfig(castConfig);
+            }
+        }
+
+        public string DefaultAnimationId
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(defaultAnimationId)) return defaultAnimationId;
+
+                IReadOnlyList<string> ids = AnimationIds;
+                return ids != null && ids.Count > 0 ? ids[0] : "";
+            }
+        }
+
+        public bool Matches(string lookupId)
+        {
+            if (string.IsNullOrWhiteSpace(lookupId)) return false;
+
+            return EqualsIgnoreCase(Id, lookupId) ||
+                   EqualsIgnoreCase(addressKey, lookupId) ||
+                   EqualsIgnoreCase(displayName, lookupId) ||
+                   (prefab != null && EqualsIgnoreCase(prefab.name, lookupId)) ||
+                   MatchesCastConfigName(lookupId) ||
+                   MatchesAudioConfigName(lookupId);
+        }
+
+        public async Task<GameObject> LoadPrefabAsync()
+        {
+            if (!string.IsNullOrWhiteSpace(addressKey))
+            {
+                GameObject addressablePrefab = await AddressablePrefabLoader.LoadGameObjectAsync(addressKey);
+                if (addressablePrefab != null)
+                {
+                    return addressablePrefab;
+                }
+            }
+
+            return prefab;
+        }
+
+        internal static PrefabAssetEntry FromPrefab(GameObject sourcePrefab)
+        {
+            return new PrefabAssetEntry { prefab = sourcePrefab };
+        }
+
+        private bool MatchesCastConfigName(string lookupId)
+        {
+            CastPrefab castConfig = prefab != null ? prefab.GetComponent<CastPrefab>() : null;
+            return castConfig != null && EqualsIgnoreCase(castConfig.Name, lookupId);
+        }
+
+        private bool MatchesAudioConfigName(string lookupId)
+        {
+            AudioConfig audioConfig = prefab != null ? prefab.GetComponent<AudioConfig>() : null;
+            return audioConfig != null && EqualsIgnoreCase(audioConfig.Name, lookupId);
+        }
+
+        private static bool EqualsIgnoreCase(string a, string b)
+        {
+            return !string.IsNullOrWhiteSpace(a) &&
+                   !string.IsNullOrWhiteSpace(b) &&
+                   a.Equals(b, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     [Header("Character Catalog")]
-    [Tooltip("Drag character prefabs here.")]
-    [SerializeField] private List<GameObject> characterPrefabs = new List<GameObject>();
+    [Tooltip("Addressables-ready character entries.")]
+    [SerializeField] private List<PrefabAssetEntry> characterEntries = new List<PrefabAssetEntry>();
 
     [Header("Instrument Catalog")]
-    [Tooltip("Drag instrument prefabs here.")]
-    [SerializeField] private List<GameObject> instrumentPrefabs = new List<GameObject>();
+    [Tooltip("Addressables-ready instrument entries.")]
+    [SerializeField] private List<PrefabAssetEntry> instrumentEntries = new List<PrefabAssetEntry>();
 
-    public IReadOnlyList<GameObject> CharacterPrefabs => characterPrefabs;
-    public IReadOnlyList<GameObject> InstrumentPrefabs => instrumentPrefabs;
+    private readonly List<PrefabAssetEntry> _mergedCharacterEntries = new List<PrefabAssetEntry>();
+    private readonly List<PrefabAssetEntry> _mergedInstrumentEntries = new List<PrefabAssetEntry>();
+    private readonly List<GameObject> _directCharacterPrefabs = new List<GameObject>();
+    private readonly List<GameObject> _directInstrumentPrefabs = new List<GameObject>();
 
-    public GameObject GetCharacterPrefab(string prefabName)
+    public IReadOnlyList<PrefabAssetEntry> GetCharacterEntries(IEnumerable<GameObject> fallbackPrefabs = null)
     {
-        return GetPrefabByName(characterPrefabs, prefabName);
+        return BuildMergedEntries(_mergedCharacterEntries, characterEntries, fallbackPrefabs);
     }
 
-    public GameObject GetInstrumentPrefab(string prefabName)
+    public IReadOnlyList<PrefabAssetEntry> GetInstrumentEntries(IEnumerable<GameObject> fallbackPrefabs = null)
     {
-        return GetPrefabByName(instrumentPrefabs, prefabName);
+        return BuildMergedEntries(_mergedInstrumentEntries, instrumentEntries, fallbackPrefabs);
     }
 
-    private static GameObject GetPrefabByName(List<GameObject> prefabs, string prefabName)
+    public List<GameObject> GetDirectCharacterPrefabs(IEnumerable<GameObject> fallbackPrefabs = null)
     {
-        if (string.IsNullOrEmpty(prefabName) || prefabs == null)
+        return BuildDirectPrefabs(_directCharacterPrefabs, characterEntries, fallbackPrefabs);
+    }
+
+    public List<GameObject> GetDirectInstrumentPrefabs(IEnumerable<GameObject> fallbackPrefabs = null)
+    {
+        return BuildDirectPrefabs(_directInstrumentPrefabs, instrumentEntries, fallbackPrefabs);
+    }
+
+    public PrefabAssetEntry GetCharacterEntry(string prefabName, IEnumerable<GameObject> fallbackPrefabs = null)
+    {
+        return GetEntryById(GetCharacterEntries(fallbackPrefabs), prefabName);
+    }
+
+    public PrefabAssetEntry GetInstrumentEntry(string prefabName, IEnumerable<GameObject> fallbackPrefabs = null)
+    {
+        return GetEntryById(GetInstrumentEntries(fallbackPrefabs), prefabName);
+    }
+
+    public GameObject GetCharacterPrefab(string prefabName, IEnumerable<GameObject> fallbackPrefabs = null)
+    {
+        PrefabAssetEntry entry = GetCharacterEntry(prefabName, fallbackPrefabs);
+        return entry != null ? entry.DirectPrefab : null;
+    }
+
+    public GameObject GetInstrumentPrefab(string prefabName, IEnumerable<GameObject> fallbackPrefabs = null)
+    {
+        PrefabAssetEntry entry = GetInstrumentEntry(prefabName, fallbackPrefabs);
+        return entry != null ? entry.DirectPrefab : null;
+    }
+
+    public async Task<GameObject> LoadCharacterPrefabAsync(string prefabName, IEnumerable<GameObject> fallbackPrefabs = null)
+    {
+        PrefabAssetEntry entry = GetCharacterEntry(prefabName, fallbackPrefabs);
+        return entry != null ? await entry.LoadPrefabAsync() : null;
+    }
+
+    public async Task<GameObject> LoadInstrumentPrefabAsync(string prefabName, IEnumerable<GameObject> fallbackPrefabs = null)
+    {
+        PrefabAssetEntry entry = GetInstrumentEntry(prefabName, fallbackPrefabs);
+        return entry != null ? await entry.LoadPrefabAsync() : null;
+    }
+
+    public static List<PrefabAssetEntry> CreateRuntimeEntries(IEnumerable<GameObject> prefabs)
+    {
+        List<PrefabAssetEntry> entries = new List<PrefabAssetEntry>();
+        AddLegacyPrefabs(entries, prefabs);
+        return entries;
+    }
+
+    public static List<string> GetAnimationIdsFromCastConfig(CastPrefab config)
+    {
+        List<string> ids = new List<string>();
+        if (config == null || config.animations == null)
+        {
+            return ids;
+        }
+
+        for (int i = 0; i < config.animations.Count; i++)
+        {
+            CastAnimation anim = config.animations[i];
+            if (anim.animation == null || string.IsNullOrWhiteSpace(anim.animation.name))
+            {
+                continue;
+            }
+
+            if (!ids.Contains(anim.animation.name))
+            {
+                ids.Add(anim.animation.name);
+            }
+        }
+
+        return ids;
+    }
+
+    private static IReadOnlyList<PrefabAssetEntry> BuildMergedEntries(
+        List<PrefabAssetEntry> output,
+        List<PrefabAssetEntry> configuredEntries,
+        IEnumerable<GameObject> fallbackPrefabs)
+    {
+        output.Clear();
+
+        if (configuredEntries != null)
+        {
+            for (int i = 0; i < configuredEntries.Count; i++)
+            {
+                PrefabAssetEntry entry = configuredEntries[i];
+                if (entry != null && !string.IsNullOrWhiteSpace(entry.Id) && !ContainsEntry(output, entry.Id))
+                {
+                    output.Add(entry);
+                }
+            }
+        }
+
+        AddLegacyPrefabs(output, fallbackPrefabs);
+        return output;
+    }
+
+    private static List<GameObject> BuildDirectPrefabs(
+        List<GameObject> output,
+        List<PrefabAssetEntry> configuredEntries,
+        IEnumerable<GameObject> fallbackPrefabs)
+    {
+        output.Clear();
+
+        if (configuredEntries != null)
+        {
+            for (int i = 0; i < configuredEntries.Count; i++)
+            {
+                GameObject prefab = configuredEntries[i] != null ? configuredEntries[i].DirectPrefab : null;
+                AddPrefab(output, prefab);
+            }
+        }
+
+        AddPrefabs(output, fallbackPrefabs);
+        return output;
+    }
+
+    private static PrefabAssetEntry GetEntryById(IReadOnlyList<PrefabAssetEntry> entries, string prefabName)
+    {
+        if (entries == null || string.IsNullOrWhiteSpace(prefabName))
         {
             return null;
         }
 
-        foreach (GameObject prefab in prefabs)
+        for (int i = 0; i < entries.Count; i++)
         {
-            if (prefab != null && prefab.name.Equals(prefabName, StringComparison.OrdinalIgnoreCase))
+            PrefabAssetEntry entry = entries[i];
+            if (entry != null && entry.Matches(prefabName))
             {
-                return prefab;
+                return entry;
             }
         }
 
         return null;
+    }
+
+    private static void AddLegacyPrefabs(List<PrefabAssetEntry> output, IEnumerable<GameObject> prefabs)
+    {
+        if (prefabs == null) return;
+
+        foreach (GameObject prefab in prefabs)
+        {
+            if (prefab == null || ContainsEntry(output, prefab.name))
+            {
+                continue;
+            }
+
+            output.Add(PrefabAssetEntry.FromPrefab(prefab));
+        }
+    }
+
+    private static bool ContainsEntry(List<PrefabAssetEntry> entries, string id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return false;
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            if (entries[i] != null && entries[i].Matches(id))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void AddPrefabs(List<GameObject> output, IEnumerable<GameObject> prefabs)
+    {
+        if (prefabs == null) return;
+
+        foreach (GameObject prefab in prefabs)
+        {
+            AddPrefab(output, prefab);
+        }
+    }
+
+    private static void AddPrefab(List<GameObject> output, GameObject prefab)
+    {
+        if (prefab == null || output.Contains(prefab))
+        {
+            return;
+        }
+
+        output.Add(prefab);
     }
 }

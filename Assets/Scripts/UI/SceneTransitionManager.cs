@@ -223,6 +223,9 @@ public class SceneTransitionManager : MonoBehaviour
 
         ARFallbackManager.ReleaseDeviceCamera();
 
+        // Giải phóng các prefab Addressables đã load ở scene cũ để giải phóng RAM
+        AddressablePrefabLoader.ReleaseAll();
+
         // 4. Tải Scene không đồng bộ (Async Loading)
         AsyncOperation op = SceneManager.LoadSceneAsync(sceneName);
         if (op == null)

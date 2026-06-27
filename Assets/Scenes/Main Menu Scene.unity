@@ -272,7 +272,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 1043482d95d77e2478b09b9328af967d, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 4a3841e1d97f13b4ba62a2698ce6d7d3, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -2975,50 +2975,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MainMenuDataManager
   tapAudioSource: {fileID: 0}
-  characterPrefabs:
-  - {fileID: 482743668388503947, guid: e1eddeac2ea775d4e838af6c4f1f5c37, type: 3}
-  - {fileID: 7613429479434260031, guid: faa5b7b2f6f91d84a990c6359ea84ad2, type: 3}
-  - {fileID: 8202630140612757546, guid: df18bc5ffc3a4d14498fe51b05a31460, type: 3}
-  - {fileID: 8306163405880721503, guid: d663cc32f6d30a44092612ae68aa801f, type: 3}
-  - {fileID: 6216962501929260323, guid: 9231fcedeb096af47b47242aeb37c25d, type: 3}
-  - {fileID: 5762985877574039707, guid: a3dc746ef7ff7834aba96c06b5b880a2, type: 3}
-  - {fileID: 1009214661300130650, guid: 8b49034c8089da745a62ef94cd237f1e, type: 3}
-  - {fileID: 6192832573687615545, guid: 75023cc826138424dbf8ff3df18950f6, type: 3}
-  - {fileID: 9186683328866597294, guid: 9550af5bbef279f41b5e682f568128b6, type: 3}
-  - {fileID: 4700899984438439489, guid: c0fabf15a7006c944a1e2d6996555d87, type: 3}
-  - {fileID: 5415234517305392304, guid: 8e9fa3456f628d24190dbfdfd187cd07, type: 3}
-  - {fileID: 1651425656292829476, guid: 209c8a7bc8e618c4aa20d644bed15829, type: 3}
-  - {fileID: 6353484692813370339, guid: 05e93bd54699b0e48ab9180bea4075d2, type: 3}
-  - {fileID: 5794213055539296154, guid: 837299f2a1f7c234882fce359f107fc5, type: 3}
-  - {fileID: 3377443918337677895, guid: 35f6fee99c5cf1649bcdf34b3064bbb2, type: 3}
-  - {fileID: 989838965844720316, guid: 774e86a1fb5526e4db3a616455ae8399, type: 3}
-  - {fileID: 1113468114221230703, guid: 8f7708aa63e1add428fce60ccf8e3089, type: 3}
-  - {fileID: 688278128549168538, guid: 3d05bc012282f3e4da1816cd1af68c77, type: 3}
-  - {fileID: 8785058710625688465, guid: f8374fc1d43c07e49802e1fb532004ca, type: 3}
-  - {fileID: 6713570160723811784, guid: 43ba01593c94b8f4eb99a6c475d1c5fc, type: 3}
-  - {fileID: 3289783762035347462, guid: faad96e7caca49244aacb7ab94dc92b3, type: 3}
-  - {fileID: 6673136764750956518, guid: 475efa1d8afbc17459c761f71b5ca549, type: 3}
-  - {fileID: 7194412397769810917, guid: c438b7eda87b3284d96a4e21cf81ac56, type: 3}
-  - {fileID: 1741689410529708865, guid: b645e815bae5fa3429e0c2477303df32, type: 3}
-  - {fileID: 5317687350150773791, guid: 07ac5a9642249ab4ba2db146d8cf240d, type: 3}
-  - {fileID: 5841568976064379194, guid: 7a0adc36f98b53e47aca897a825167e1, type: 3}
-  - {fileID: 8432990393616522912, guid: e85dcd300471a724b94d733e623fb168, type: 3}
-  - {fileID: 6374167709222688181, guid: a0b7b6a0accf95540ba8ff31a27929ef, type: 3}
-  - {fileID: 8477590171365038178, guid: dcaff1e459d908b4cb20eaf23426a24e, type: 3}
-  instrumentPrefabs:
-  - {fileID: 3283653603558249079, guid: 4244c9d92628d174c94e3fb1d9188db0, type: 3}
-  - {fileID: 5475587430417702355, guid: 960d3308036b150419204f231f1184d8, type: 3}
-  - {fileID: 7540815938727888966, guid: 4eaa6220b1ae53a49942d59d9e214a07, type: 3}
-  - {fileID: 2767242479302913613, guid: 23b69d08c90a6f24cb72ce6834115437, type: 3}
-  - {fileID: 3022458226705503695, guid: e3f1b7900ab52474ab8a2eef6af6042f, type: 3}
-  - {fileID: 7603022949339193808, guid: 8ee85fa72ab69844b837d4ac95ef2527, type: 3}
-  - {fileID: 1789403148053968106, guid: 33707c05fa62e6e4799ae991189b05a2, type: 3}
-  - {fileID: 5486453212887462166, guid: d6319da12454f7942a4a053a0d001ef5, type: 3}
-  - {fileID: 3954287189683364394, guid: 1461a9a4acfb7cd48ba91244d784eee4, type: 3}
-  - {fileID: 1855446595320537560, guid: 06c3fbea107f8854d9a9930fd8b4e097, type: 3}
-  - {fileID: 8091744176689795602, guid: 7eb6d9d147e05824c907a06d5379e9f8, type: 3}
-  - {fileID: 8035061807666817717, guid: cba9afe70ed28b2489d8e90457a9391b, type: 3}
-  - {fileID: 5905772277487262173, guid: 30381d9a451567849b4fdd090d129fa5, type: 3}
+  prefabCatalog: {fileID: 11400000, guid: 3046dd6bbaf543e8b95296d429f5372f, type: 2}
   selectedBandData:
     bandName: 
     members: []
@@ -3617,7 +3574,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &569560889
 MonoBehaviour:
   m_ObjectHideFlags: 0

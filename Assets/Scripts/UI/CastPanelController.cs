@@ -45,6 +45,7 @@ public class CastPanelController : MonoBehaviour
 
     // Trạng thái lưu trữ các nút đã sinh
     private List<GameObject> _instantiatedButtons = new List<GameObject>();
+    private int _selectionRequestVersion = 0;
     
     // Thuộc tính công khai để truy xuất dữ liệu đang chọn
     public GameObject SelectedPrefab { get; private set; }
@@ -59,6 +60,19 @@ public class CastPanelController : MonoBehaviour
                 return MainMenuDataManager.Instance.CharacterPrefabs;
             }
             return new List<GameObject>();
+        }
+    }
+
+    private IReadOnlyList<MainMenuPrefabCatalog.PrefabAssetEntry> CharacterEntries
+    {
+        get
+        {
+            if (MainMenuDataManager.Instance != null)
+            {
+                return MainMenuDataManager.Instance.CharacterEntries;
+            }
+
+            return MainMenuPrefabCatalog.CreateRuntimeEntries(CharacterPrefabs);
         }
     }
 
@@ -89,29 +103,28 @@ public class CastPanelController : MonoBehaviour
             return;
         }
 
-        List<GameObject> prefabs = CharacterPrefabs;
+        IReadOnlyList<MainMenuPrefabCatalog.PrefabAssetEntry> entries = CharacterEntries;
 
-        if (prefabs == null || prefabs.Count == 0)
+        if (entries == null || entries.Count == 0)
         {
             Debug.LogWarning("[CastPanelController] Danh sách nhân vật từ MainMenuDataManager trống!");
             return;
         }
 
-        for (int i = 0; i < prefabs.Count; i++)
+        for (int i = 0; i < entries.Count; i++)
         {
-            GameObject prefab = prefabs[i];
-            if (prefab == null) continue;
+            MainMenuPrefabCatalog.PrefabAssetEntry entry = entries[i];
+            if (entry == null) continue;
 
             // 1. Lấy thông tin từ prefab nhân vật
-            CastPrefab config = prefab.GetComponent<CastPrefab>();
-            string displayName = (config != null && !string.IsNullOrEmpty(config.Name)) ? config.Name : prefab.name;
-            string category = (config != null && !string.IsNullOrEmpty(config.Category)) ? config.Category : null;
-            Sprite avatar = (config != null) ? config.characterAvatar : null;
+            string displayName = entry.DisplayName;
+            string category = entry.Category;
+            Sprite avatar = entry.Avatar;
 
             // Nếu avatar trên prefab trống, thử lấy từ danh sách avatarSprites hoặc load Resources
             if (avatar == null)
             {
-                avatar = GetAvatarSprite(prefab.name);
+                avatar = GetAvatarSprite(entry.Id);
             }
 
             // 2. Sinh nút bấm trong ScrollView
@@ -122,7 +135,7 @@ public class CastPanelController : MonoBehaviour
             buttonObj.name = $"Btn_Character_{displayName}";
 
             // 3. Thiết lập logic và hiển thị cho nút dựa trên Component có sẵn
-            SetupButtonComponent(buttonObj, prefab, displayName, avatar, i, category);
+            SetupButtonComponent(buttonObj, entry, displayName, avatar, i, category);
         }
 
         // Tự động chọn nhân vật đầu tiên nếu được cấu hình
@@ -156,26 +169,57 @@ public class CastPanelController : MonoBehaviour
     /// </summary>
     public void SelectCharacter(int index)
     {
-        List<GameObject> prefabs = CharacterPrefabs;
-        if (index < 0 || index >= prefabs.Count)
+        SelectCharacterAsync(index);
+    }
+
+    private async void SelectCharacterAsync(int index)
+    {
+        IReadOnlyList<MainMenuPrefabCatalog.PrefabAssetEntry> entries = CharacterEntries;
+        if (index < 0 || entries == null || index >= entries.Count)
         {
             Debug.LogWarning($"[CastPanelController] Index {index} vượt quá giới hạn danh sách nhân vật.");
             return;
         }
 
-        GameObject selectedPrefab = prefabs[index];
-        if (selectedPrefab == null) return;
+        MainMenuPrefabCatalog.PrefabAssetEntry selectedEntry = entries[index];
+        if (selectedEntry == null) return;
 
+        int requestVersion = ++_selectionRequestVersion;
         SelectedIndex = index;
-        SelectedPrefab = selectedPrefab;
+        SelectedPrefab = null;
 
         // Tạo CastData cho nhân vật được chọn
-        SelectedCastData = CreateCastDataFromPrefab(selectedPrefab);
+        SelectedCastData = CreateCastDataFromEntry(selectedEntry);
 
         // Cập nhật giao diện chọn của tất cả các nút
         UpdateSelectionVisuals();
 
         // Kích hoạt các sự kiện
+        GameObject selectedPrefab = null;
+        if (MainMenuDataManager.Instance != null)
+        {
+            selectedPrefab = await MainMenuDataManager.Instance.LoadCharacterPrefabAsync(selectedEntry.Id);
+        }
+        else
+        {
+            selectedPrefab = selectedEntry.DirectPrefab;
+        }
+
+        if (requestVersion != _selectionRequestVersion)
+        {
+            return;
+        }
+
+        if (selectedPrefab != null)
+        {
+            SelectedPrefab = selectedPrefab;
+            SelectedCastData = CreateCastDataFromPrefab(selectedPrefab);
+        }
+        else
+        {
+            Debug.LogWarning($"[CastPanelController] Khong load duoc prefab nhan vat: {selectedEntry.Id}");
+        }
+
         OnCharacterSelected?.Invoke(SelectedPrefab);
         onCharacterSelectedEvent?.Invoke(SelectedPrefab);
 
@@ -188,7 +232,7 @@ public class CastPanelController : MonoBehaviour
     /// <summary>
     /// Thiết lập hiển thị và gán sự kiện click cho nút bấm.
     /// </summary>
-    private void SetupButtonComponent(GameObject buttonObj, GameObject prefab, string displayName, Sprite avatar, int index, string subtitle = null)
+    private void SetupButtonComponent(GameObject buttonObj, MainMenuPrefabCatalog.PrefabAssetEntry entry, string displayName, Sprite avatar, int index, string subtitle = null)
     {
         // TH 1: Nút sử dụng CustomCharacterItemUI
         var customUI = buttonObj.GetComponent<CustomCharacterItemUI>();
@@ -202,7 +246,7 @@ public class CastPanelController : MonoBehaviour
         var castUI = buttonObj.GetComponent<CastButtonUI>();
         if (castUI != null)
         {
-            CastData tempCastData = CreateCastDataFromPrefab(prefab);
+            CastData tempCastData = CreateCastDataFromEntry(entry);
             castUI.Setup(tempCastData, avatar);
 
             // Ghi đè sự kiện click của button gốc
@@ -291,6 +335,37 @@ public class CastPanelController : MonoBehaviour
     /// <summary>
     /// Tạo đối tượng CastData chứa đầy đủ thông tin tên, prefabName và danh sách animation nhảy từ prefab.
     /// </summary>
+    private CastData CreateCastDataFromEntry(MainMenuPrefabCatalog.PrefabAssetEntry entry)
+    {
+        if (entry == null) return null;
+
+        GameObject prefab = entry.DirectPrefab;
+        if (prefab != null)
+        {
+            return CreateCastDataFromPrefab(prefab);
+        }
+
+        List<string> danceAnimIds = new List<string>();
+        IReadOnlyList<string> entryAnimationIds = entry.AnimationIds;
+        if (entryAnimationIds != null)
+        {
+            for (int i = 0; i < entryAnimationIds.Count; i++)
+            {
+                string animationId = entryAnimationIds[i];
+                if (!string.IsNullOrEmpty(animationId) && !danceAnimIds.Contains(animationId))
+                {
+                    danceAnimIds.Add(animationId);
+                }
+            }
+        }
+
+        string defaultDanceAnimId = !string.IsNullOrEmpty(entry.DefaultAnimationId)
+            ? entry.DefaultAnimationId
+            : (danceAnimIds.Count > 0 ? danceAnimIds[0] : "");
+
+        return new CastData(entry.DisplayName, entry.Id, "", defaultDanceAnimId, danceAnimIds);
+    }
+
     private CastData CreateCastDataFromPrefab(GameObject prefab)
     {
         if (prefab == null) return null;

@@ -35,6 +35,19 @@ public class AudioPanelController : MonoBehaviour
         }
     }
 
+    private IReadOnlyList<MainMenuPrefabCatalog.PrefabAssetEntry> audioEntries
+    {
+        get
+        {
+            if (MainMenuDataManager.Instance != null)
+            {
+                return MainMenuDataManager.Instance.InstrumentEntries;
+            }
+
+            return MainMenuPrefabCatalog.CreateRuntimeEntries(localAudioPrefabs);
+        }
+    }
+
     [Header("Aesthetic Fallbacks (Optional)")]
     [Tooltip("Sprite nền của nút khi được chọn (dành cho Button tiêu chuẩn)")]
     [SerializeField] private Sprite selectedButtonSprite;
@@ -98,6 +111,8 @@ public class AudioPanelController : MonoBehaviour
     private List<GameObject> _instantiatedButtons = new List<GameObject>();
     private AudioSource _previewAudioSource;
     private CustomAudioRecordItemUI _resolvedRecordItemButton;
+    private int _selectionRequestVersion = 0;
+    private string _selectedAudioDisplayName;
 
     // Trạng thái thu âm
     private string _microphoneName;
@@ -137,6 +152,7 @@ public class AudioPanelController : MonoBehaviour
             SelectedIndex = -1;
             SelectedPrefab = null;
             SelectedAudioConfig = null;
+            _selectedAudioDisplayName = null;
         }
         else
         {
@@ -144,20 +160,19 @@ public class AudioPanelController : MonoBehaviour
             SelectedIndex = -1;
             SelectedPrefab = null;
             SelectedAudioConfig = null;
+            _selectedAudioDisplayName = null;
 
-            for (int i = 0; i < audioPrefabs.Count; i++)
+            IReadOnlyList<MainMenuPrefabCatalog.PrefabAssetEntry> entries = audioEntries;
+            for (int i = 0; entries != null && i < entries.Count; i++)
             {
-                if (audioPrefabs[i] != null)
+                MainMenuPrefabCatalog.PrefabAssetEntry entry = entries[i];
+                if (entry != null && entry.Matches(audioId))
                 {
-                    AudioConfig config = audioPrefabs[i].GetComponent<AudioConfig>();
-                    string name = (config != null && !string.IsNullOrEmpty(config.Name)) ? config.Name : audioPrefabs[i].name;
-                    if (name.Equals(audioId, StringComparison.OrdinalIgnoreCase))
-                    {
-                        SelectedIndex = i;
-                        SelectedPrefab = audioPrefabs[i];
-                        SelectedAudioConfig = config;
-                        break;
-                    }
+                    SelectedIndex = i;
+                    SelectedPrefab = entry.DirectPrefab;
+                    SelectedAudioConfig = SelectedPrefab != null ? SelectedPrefab.GetComponent<AudioConfig>() : null;
+                    _selectedAudioDisplayName = entry.DisplayName;
+                    break;
                 }
             }
         }
@@ -260,22 +275,22 @@ public class AudioPanelController : MonoBehaviour
             return;
         }
 
-        if (audioPrefabs != null && audioPrefabs.Count > 0)
+        IReadOnlyList<MainMenuPrefabCatalog.PrefabAssetEntry> entries = audioEntries;
+        if (entries != null && entries.Count > 0)
         {
-            for (int i = 0; i < audioPrefabs.Count; i++)
+            for (int i = 0; i < entries.Count; i++)
             {
-                GameObject prefab = audioPrefabs[i];
-                if (prefab == null) continue;
+                MainMenuPrefabCatalog.PrefabAssetEntry entry = entries[i];
+                if (entry == null) continue;
 
                 // Lấy thông tin cấu hình AudioConfig từ prefab nhạc cụ
-                AudioConfig config = prefab.GetComponent<AudioConfig>();
-                string displayName = (config != null && !string.IsNullOrEmpty(config.Name)) ? config.Name : prefab.name;
-                Sprite avatar = (config != null) ? config.avatar : null;
+                string displayName = entry.DisplayName;
+                Sprite avatar = entry.Avatar;
 
                 // Nếu avatar trống, thử load từ Resources làm dự phòng
                 if (avatar == null)
                 {
-                    avatar = Resources.Load<Sprite>("Avatars/" + prefab.name);
+                    avatar = Resources.Load<Sprite>("Avatars/" + entry.Id);
                 }
 
                 GameObject buttonObj = Instantiate(audioButtonPrefab, scrollViewContent);
@@ -295,7 +310,7 @@ public class AudioPanelController : MonoBehaviour
                 // Ưu tiên chọn bản ghi âm tự thu trước nếu có
                 SelectCustomRecording(SelectedCustomAudioId);
             }
-            else if (audioPrefabs != null && audioPrefabs.Count > 0)
+            else if (entries != null && entries.Count > 0)
             {
                 // Ngược lại chọn prefab nhạc cụ đầu tiên
                 SelectAudio(0);
@@ -334,6 +349,7 @@ public class AudioPanelController : MonoBehaviour
         SelectedPrefab = null;
         SelectedAudioConfig = null;
         SelectedIndex = -1;
+        _selectedAudioDisplayName = null;
         // Chú ý: Không xóa SelectedCustomAudioId ở đây để bảo toàn ID âm thanh khi reload UI panel
     }
 
@@ -342,24 +358,56 @@ public class AudioPanelController : MonoBehaviour
     /// </summary>
     public void SelectAudio(int index)
     {
-        if (index < 0 || index >= audioPrefabs.Count)
+        SelectAudioAsync(index);
+    }
+
+    private async void SelectAudioAsync(int index)
+    {
+        IReadOnlyList<MainMenuPrefabCatalog.PrefabAssetEntry> entries = audioEntries;
+        if (index < 0 || entries == null || index >= entries.Count)
         {
             Debug.LogWarning($"[AudioPanelController] Index {index} vượt quá giới hạn danh sách audio.");
             return;
         }
 
-        GameObject selectedPrefab = audioPrefabs[index];
-        if (selectedPrefab == null) return;
+        MainMenuPrefabCatalog.PrefabAssetEntry selectedEntry = entries[index];
+        if (selectedEntry == null) return;
 
+        int requestVersion = ++_selectionRequestVersion;
         SelectedIndex = index;
-        SelectedPrefab = selectedPrefab;
-        SelectedAudioConfig = selectedPrefab.GetComponent<AudioConfig>();
+        SelectedPrefab = null;
+        SelectedAudioConfig = null;
         SelectedCustomAudioId = null; // Bỏ chọn âm thanh tự thu
 
         // Cập nhật trạng thái hiển thị được chọn/không được chọn trên UI
+        _selectedAudioDisplayName = selectedEntry.DisplayName;
         UpdateSelectionVisuals();
 
         // Phát thử âm thanh (Preview)
+        GameObject selectedPrefab = null;
+        if (MainMenuDataManager.Instance != null)
+        {
+            selectedPrefab = await MainMenuDataManager.Instance.LoadInstrumentPrefabAsync(selectedEntry.Id);
+        }
+        else
+        {
+            selectedPrefab = selectedEntry.DirectPrefab;
+        }
+
+        if (requestVersion != _selectionRequestVersion)
+        {
+            return;
+        }
+
+        if (selectedPrefab == null)
+        {
+            Debug.LogWarning($"[AudioPanelController] Khong load duoc prefab nhac cu: {selectedEntry.Id}");
+            return;
+        }
+
+        SelectedPrefab = selectedPrefab;
+        SelectedAudioConfig = selectedPrefab.GetComponent<AudioConfig>();
+
         PlayPreviewSound();
 
         // Kích hoạt các sự kiện thông báo
@@ -383,9 +431,11 @@ public class AudioPanelController : MonoBehaviour
         if (string.IsNullOrEmpty(recordingId)) return;
 
         SelectedCustomAudioId = recordingId;
+        _selectionRequestVersion++;
         SelectedIndex = -1;
         SelectedPrefab = null;
         SelectedAudioConfig = null;
+        _selectedAudioDisplayName = null;
 
         // Cập nhật hiển thị các nút
         UpdateSelectionVisuals();
@@ -803,7 +853,8 @@ public class AudioPanelController : MonoBehaviour
             }
 
             // Nếu âm thanh đang chọn là bản ghi âm bị xóa, tự động chọn nhạc cụ mặc định đầu tiên
-            if (audioPrefabs != null && audioPrefabs.Count > 0)
+            IReadOnlyList<MainMenuPrefabCatalog.PrefabAssetEntry> entries = audioEntries;
+            if (entries != null && entries.Count > 0)
             {
                 SelectAudio(0);
             }
@@ -980,6 +1031,10 @@ public class AudioPanelController : MonoBehaviour
         if (SelectedAudioConfig != null && !string.IsNullOrEmpty(SelectedAudioConfig.Name))
         {
             return SelectedAudioConfig.Name;
+        }
+        if (!string.IsNullOrEmpty(_selectedAudioDisplayName))
+        {
+            return _selectedAudioDisplayName;
         }
         return SelectedPrefab != null ? SelectedPrefab.name : "None";
     }

@@ -5,33 +5,8 @@ apply from: '../shared/common.gradle'
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-// Android Resolver Dependencies Start
-    implementation 'com.google.android.gms:play-services-base:18.10.0' // Assets/Firebase/Editor/DatabaseDependencies.xml:20
-    implementation 'com.google.firebase:firebase-analytics:23.2.0' // Assets/Firebase/Editor/FirestoreDependencies.xml:18
-    implementation 'com.google.firebase:firebase-analytics-unity:13.12.0' // Assets/Firebase/Editor/AnalyticsDependencies.xml:21
-    implementation 'com.google.firebase:firebase-app-unity:13.12.0' // Assets/Firebase/Editor/AppDependencies.xml:25
-    implementation 'com.google.firebase:firebase-auth:24.1.0' // Assets/Firebase/Editor/AuthDependencies.xml:16
-    implementation 'com.google.firebase:firebase-auth-unity:13.12.0' // Assets/Firebase/Editor/AuthDependencies.xml:23
-    implementation 'com.google.firebase:firebase-common:22.0.1' // Assets/Firebase/Editor/AppDependencies.xml:16
-    implementation 'com.google.firebase:firebase-database:22.0.1' // Assets/Firebase/Editor/DatabaseDependencies.xml:16
-    implementation 'com.google.firebase:firebase-database-unity:13.12.0' // Assets/Firebase/Editor/DatabaseDependencies.xml:25
-    implementation 'com.google.firebase:firebase-firestore:26.3.0' // Assets/Firebase/Editor/FirestoreDependencies.xml:16
-    implementation 'com.google.firebase:firebase-firestore-unity:13.12.0' // Assets/Firebase/Editor/FirestoreDependencies.xml:23
-// Android Resolver Dependencies End
 **DEPS**}
 
-// Android Resolver Exclusions Start
-android {
-  packaging {
-      exclude ('/lib/armeabi/*' + '*')
-      exclude ('/lib/armeabi-v7a/*' + '*')
-      exclude ('/lib/mips/*' + '*')
-      exclude ('/lib/mips64/*' + '*')
-      exclude ('/lib/x86/*' + '*')
-      exclude ('/lib/x86_64/*' + '*')
-  }
-}
-// Android Resolver Exclusions End
 android {
     namespace "com.unity3d.player"
     ndkPath "**NDKPATH**"
@@ -67,3 +42,81 @@ android {
 **IL_CPP_BUILD_SETUP**
 **SOURCE_BUILD_SETUP**
 **EXTERNAL_SOURCES**
+
+// Patch unityandroidpermissions.aar without deleting the original until the patched AAR is ready.
+tasks.register('patchUnityAndroidPermissions') {
+    def aarFile = layout.projectDirectory.file('libs/unityandroidpermissions.aar').asFile
+    def tempDir = layout.buildDirectory.dir('tmp/patch_unityandroidpermissions').get().asFile
+    def patchedAarFile = layout.buildDirectory.file('tmp/unityandroidpermissions-patched.aar').get().asFile
+
+    doLast {
+        if (aarFile.exists()) {
+            logger.lifecycle("Antigravity-Fix: Patching unityandroidpermissions.aar to resolve namespace conflict...")
+            if (tempDir.exists()) {
+                tempDir.deleteDir()
+            }
+            tempDir.mkdirs()
+            if (patchedAarFile.exists()) {
+                patchedAarFile.delete()
+            }
+
+            // Unzip the AAR
+            copy {
+                from zipTree(aarFile)
+                into tempDir
+            }
+
+            // Modify AndroidManifest.xml to change the package/namespace to a unique one.
+            def manifestFile = file("${tempDir}/AndroidManifest.xml")
+            def manifestChanged = false
+            if (manifestFile.exists()) {
+                def content = manifestFile.text
+                if (content.contains('package="com.google.ar.core"')) {
+                    logger.lifecycle("Antigravity-Fix: Found package=\"com.google.ar.core\" in manifest, changing to com.google.ar.core.permissions")
+                    content = content.replace('package="com.google.ar.core"', 'package="com.google.ar.core.permissions"')
+                    manifestFile.text = content
+                    manifestChanged = true
+                }
+            }
+
+            if (!manifestChanged) {
+                logger.lifecycle("Antigravity-Fix: unityandroidpermissions.aar already patched or no conflicting package found.")
+                return
+            }
+
+            // Re-zip to a temporary AAR first so the original dependency never disappears on failure.
+            ant.zip(destfile: patchedAarFile) {
+                fileset(dir: tempDir)
+            }
+
+            if (!patchedAarFile.exists() || patchedAarFile.length() == 0) {
+                throw new GradleException("Antigravity-Fix: Failed to create patched unityandroidpermissions.aar")
+            }
+
+            try {
+                java.nio.file.Files.move(
+                    patchedAarFile.toPath(),
+                    aarFile.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE
+                )
+            } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
+                java.nio.file.Files.move(
+                    patchedAarFile.toPath(),
+                    aarFile.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                )
+            }
+            logger.lifecycle("Antigravity-Fix: Successfully patched unityandroidpermissions.aar!")
+        } else {
+            logger.lifecycle("Antigravity-Fix: unityandroidpermissions.aar not found at: ${aarFile.absolutePath}")
+        }
+    }
+}
+
+// Hook our patch task to run before preBuild
+project.afterEvaluate {
+    if (tasks.findByName('preBuild')) {
+        tasks.findByName('preBuild').dependsOn('patchUnityAndroidPermissions')
+    }
+}

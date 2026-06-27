@@ -54,9 +54,14 @@ public class ARFallbackManager : MonoBehaviour
 
     private RawImage m_ActiveBackgroundRawImage;
     private RenderTexture m_ActiveBackgroundRenderTexture;
+    private RenderTexture m_RuntimeBackgroundRenderTexture;
     private bool m_WebCamStartRequested;
 
     private WebCamTexture m_WebCamTexture;
+    private float m_WebCamStartTime;
+    private bool m_WebCamFrameLogged;
+    private bool m_WebCamNoFrameWarned;
+    private bool m_BackgroundRenderTextureResizeLogged;
     private GameObject m_FallbackCanvasObj;
     private RawImage m_WebCamRawImage;
     private RectTransform m_WebCamRectTransform;
@@ -440,6 +445,7 @@ public class ARFallbackManager : MonoBehaviour
         m_ActiveBackgroundRawImage = m_FallbackRawImage;
         m_ActiveBackgroundRawImage.gameObject.SetActive(true);
         m_ActiveBackgroundRawImage.raycastTarget = false;
+        m_ActiveBackgroundRawImage.uvRect = new Rect(0f, 0f, 1f, 1f);
 
         m_ActiveBackgroundRenderTexture = ResolveBackgroundRenderTexture();
         if (m_ActiveBackgroundRenderTexture != null)
@@ -551,6 +557,7 @@ public class ARFallbackManager : MonoBehaviour
             // Sử dụng RawImage do người dùng truyền vào
             m_WebCamRawImage = m_FallbackRawImage;
             m_WebCamRectTransform = m_WebCamRawImage.GetComponent<RectTransform>();
+            m_AutoAlignRawImage = true;
             
             if (m_AutoAlignRawImage)
             {
@@ -608,6 +615,10 @@ public class ARFallbackManager : MonoBehaviour
             m_WebCamTexture = new WebCamTexture(deviceName, 1280, 720, 30);
             m_WebCamTexture.Play();
             m_WebCamIsFront = isFront;
+            m_WebCamStartTime = Time.unscaledTime;
+            m_WebCamFrameLogged = false;
+            m_WebCamNoFrameWarned = false;
+            Debug.Log($"ARFallbackManager: Dang mo WebCamTexture device='{deviceName}', front={isFront}.");
         }
         else
         {
@@ -688,10 +699,92 @@ public class ARFallbackManager : MonoBehaviour
     {
         if (m_WebCamTexture.width < 16 || m_WebCamTexture.height < 16)
         {
+            WarnIfWebCamHasNoFrameYet();
             return;
         }
 
+        if (!m_WebCamFrameLogged && m_WebCamTexture.didUpdateThisFrame)
+        {
+            m_WebCamFrameLogged = true;
+            Debug.Log($"ARFallbackManager: Da nhan frame webcam dau tien {m_WebCamTexture.width}x{m_WebCamTexture.height}, rotation={m_WebCamTexture.videoRotationAngle}, mirrored={m_WebCamTexture.videoVerticallyMirrored}.");
+        }
+
+        EnsureBackgroundRenderTextureMatchesWebCam();
         Graphics.Blit(m_WebCamTexture, m_ActiveBackgroundRenderTexture);
+    }
+
+    private void WarnIfWebCamHasNoFrameYet()
+    {
+        if (m_WebCamNoFrameWarned || m_WebCamStartTime <= 0f)
+        {
+            return;
+        }
+
+        if (Time.unscaledTime - m_WebCamStartTime < 3f)
+        {
+            return;
+        }
+
+        m_WebCamNoFrameWarned = true;
+        Debug.LogWarning("ARFallbackManager: Camera da duoc mo nhung WebCamTexture chua tra frame hop le sau 3 giay. Kiem tra device camera, quyen camera, hoac thu doi camera mac dinh trong he dieu hanh.");
+    }
+
+    private void EnsureBackgroundRenderTextureMatchesWebCam()
+    {
+        if (m_ActiveBackgroundRenderTexture == null)
+        {
+            return;
+        }
+
+        int sourceWidth = Mathf.Max(16, m_WebCamTexture.width);
+        int sourceHeight = Mathf.Max(16, m_WebCamTexture.height);
+        if (m_ActiveBackgroundRenderTexture.width == sourceWidth &&
+            m_ActiveBackgroundRenderTexture.height == sourceHeight)
+        {
+            return;
+        }
+
+        if (m_RuntimeBackgroundRenderTexture != null &&
+            m_RuntimeBackgroundRenderTexture.width == sourceWidth &&
+            m_RuntimeBackgroundRenderTexture.height == sourceHeight)
+        {
+            m_ActiveBackgroundRenderTexture = m_RuntimeBackgroundRenderTexture;
+            if (m_ActiveBackgroundRawImage != null)
+            {
+                m_ActiveBackgroundRawImage.texture = m_ActiveBackgroundRenderTexture;
+            }
+            return;
+        }
+
+        RenderTexture sourceSettings = m_BackgroundRenderTexture != null ? m_BackgroundRenderTexture : m_ActiveBackgroundRenderTexture;
+        RenderTextureFormat colorFormat = sourceSettings != null ? sourceSettings.format : RenderTextureFormat.ARGB32;
+        FilterMode filterMode = sourceSettings != null ? sourceSettings.filterMode : FilterMode.Bilinear;
+        TextureWrapMode wrapMode = sourceSettings != null ? sourceSettings.wrapMode : TextureWrapMode.Clamp;
+
+        ReleaseRuntimeBackgroundRenderTexture();
+
+        m_RuntimeBackgroundRenderTexture = new RenderTexture(sourceWidth, sourceHeight, 0, colorFormat)
+        {
+            name = "ARFallbackWebCamBackground_Runtime",
+            antiAliasing = 1,
+            useMipMap = false,
+            autoGenerateMips = false,
+            filterMode = filterMode,
+            wrapMode = wrapMode
+        };
+        m_RuntimeBackgroundRenderTexture.Create();
+
+        m_ActiveBackgroundRenderTexture = m_RuntimeBackgroundRenderTexture;
+        if (m_ActiveBackgroundRawImage != null)
+        {
+            m_ActiveBackgroundRawImage.texture = m_ActiveBackgroundRenderTexture;
+        }
+
+        if (!m_BackgroundRenderTextureResizeLogged)
+        {
+            m_BackgroundRenderTextureResizeLogged = true;
+            Debug.Log($"ARFallbackManager: Da tao Background RenderTexture runtime {sourceWidth}x{sourceHeight} de tranh keo dan webcam.");
+        }
     }
 
     /// <summary>
@@ -820,6 +913,7 @@ public class ARFallbackManager : MonoBehaviour
         DisableARComponentsInScene();
         StopXRSubsystems();
         StopWebCamTexture();
+        ReleaseRuntimeBackgroundRenderTexture();
         ReleaseManualBackgroundTexture();
 
         if (m_FallbackRawImage != null)
@@ -868,6 +962,10 @@ public class ARFallbackManager : MonoBehaviour
         DestroyUnityObject(m_WebCamTexture);
         m_WebCamTexture = null;
         m_WebCamStartRequested = false;
+        m_WebCamStartTime = 0f;
+        m_WebCamFrameLogged = false;
+        m_WebCamNoFrameWarned = false;
+        m_BackgroundRenderTextureResizeLogged = false;
     }
 
     private void ReleaseManualBackgroundTexture()
@@ -890,9 +988,37 @@ public class ARFallbackManager : MonoBehaviour
         m_ActiveBackgroundRawImage = null;
     }
 
+    private void ReleaseRuntimeBackgroundRenderTexture()
+    {
+        if (m_RuntimeBackgroundRenderTexture == null)
+        {
+            return;
+        }
+
+        if (m_ActiveBackgroundRawImage != null && m_ActiveBackgroundRawImage.texture == m_RuntimeBackgroundRenderTexture)
+        {
+            m_ActiveBackgroundRawImage.texture = null;
+        }
+
+        if (m_FallbackRawImage != null && m_FallbackRawImage.texture == m_RuntimeBackgroundRenderTexture)
+        {
+            m_FallbackRawImage.texture = null;
+        }
+
+        if (m_ActiveBackgroundRenderTexture == m_RuntimeBackgroundRenderTexture)
+        {
+            m_ActiveBackgroundRenderTexture = null;
+        }
+
+        m_RuntimeBackgroundRenderTexture.Release();
+        DestroyUnityObject(m_RuntimeBackgroundRenderTexture);
+        m_RuntimeBackgroundRenderTexture = null;
+    }
+
     private void StopFallbackVisuals()
     {
         StopWebCamTexture();
+        ReleaseRuntimeBackgroundRenderTexture();
         ReleaseManualBackgroundTexture();
 
         if (m_FallbackRawImage != null)

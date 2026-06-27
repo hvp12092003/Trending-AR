@@ -12,6 +12,341 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 83d60e1959134fbf812f27dd4c381f5a, type: 3}
   m_Name: MainMenuPrefabCatalog
   m_EditorClassIdentifier: 
-  characterPrefabs:
-  - {fileID: 5415234517305392304, guid: 8e9fa3456f628d24190dbfdfd187cd07, type: 3}
-  instrumentPrefabs: []
+  characterEntries:
+  - id: USA
+    addressKey: cast/USA
+    prefab: {fileID: 6713570160723811784, guid: 43ba01593c94b8f4eb99a6c475d1c5fc, type: 3}
+    displayName: USA
+    category: 
+    avatar: {fileID: 21300000, guid: fe2ee4ebc60f9ae48a2e8540832e9c8a, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: ARGENTINA
+    addressKey: cast/ARGENTINA
+    prefab: {fileID: 5415234517305392304, guid: 8e9fa3456f628d24190dbfdfd187cd07, type: 3}
+    displayName: ARGENTINA
+    category: 
+    avatar: {fileID: 21300000, guid: 2436d829c3f194741b496eca83072db4, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: BRAZIL
+    addressKey: cast/BRAZIL
+    prefab: {fileID: 1651425656292829476, guid: 209c8a7bc8e618c4aa20d644bed15829, type: 3}
+    displayName: BRAZIL
+    category: 
+    avatar: {fileID: 21300000, guid: 0b0551446fba04b46a7694cb56088014, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: ENGLAND
+    addressKey: cast/ENGLAND
+    prefab: {fileID: 6353484692813370339, guid: 05e93bd54699b0e48ab9180bea4075d2, type: 3}
+    displayName: ENGLAND
+    category: 
+    avatar: {fileID: 21300000, guid: dedeaf3432c1b41428515e0d781eaf9b, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: SPAIN
+    addressKey: cast/SPAIN
+    prefab: {fileID: 8785058710625688465, guid: f8374fc1d43c07e49802e1fb532004ca, type: 3}
+    displayName: SPAIN
+    category: 
+    avatar: {fileID: 21300000, guid: 4ef2724f41565fe4195b825656ae2f8c, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: FRANCE
+    addressKey: cast/FRANCE
+    prefab: {fileID: 5794213055539296154, guid: 837299f2a1f7c234882fce359f107fc5, type: 3}
+    displayName: FRANCE
+    category: 
+    avatar: {fileID: 21300000, guid: 2c313f9aa4cb39c46bca8dbba3bb2f5c, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: GERMANY
+    addressKey: cast/GERMANY
+    prefab: {fileID: 3377443918337677895, guid: 35f6fee99c5cf1649bcdf34b3064bbb2, type: 3}
+    displayName: GERMANY
+    category: 
+    avatar: {fileID: 21300000, guid: a69c5efac1aa139469f8f3f3fc87e48a, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: JAPAN
+    addressKey: cast/JAPAN
+    prefab: {fileID: 1113468114221230703, guid: 8f7708aa63e1add428fce60ccf8e3089, type: 3}
+    displayName: JAPAN
+    category: 
+    avatar: {fileID: 21300000, guid: 291d98bf9c9b2bb439605cd29b22d968, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: KOREA
+    addressKey: cast/KOREA
+    prefab: {fileID: 989838965844720316, guid: 774e86a1fb5526e4db3a616455ae8399, type: 3}
+    displayName: KOREA
+    category: 
+    avatar: {fileID: 21300000, guid: 021a68005115b5d4ea3045756a3c94f9, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: BOLT
+    addressKey: cast/BOLT
+    prefab: {fileID: 482743668388503947, guid: e1eddeac2ea775d4e838af6c4f1f5c37, type: 3}
+    displayName: BOLT
+    category: 
+    avatar: {fileID: 21300000, guid: 249a295d274bc7248a8c3ddad705b2f9, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: BUNNY
+    addressKey: cast/BUNNY
+    prefab: {fileID: 3289783762035347462, guid: faad96e7caca49244aacb7ab94dc92b3, type: 3}
+    displayName: BUNNY
+    category: 
+    avatar: {fileID: 21300000, guid: 32e121a22115a4a4b88a4640badd0ba3, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: CAT
+    addressKey: cast/CAT
+    prefab: {fileID: 6673136764750956518, guid: 475efa1d8afbc17459c761f71b5ca549, type: 3}
+    displayName: CAT
+    category: 
+    avatar: {fileID: 21300000, guid: faf3a9319eb61974cac2f5bfc32d4328, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: COCO
+    addressKey: cast/COCO
+    prefab: {fileID: 7613429479434260031, guid: faa5b7b2f6f91d84a990c6359ea84ad2, type: 3}
+    displayName: COCO
+    category: 
+    avatar: {fileID: 21300000, guid: 0a77c25a903feb347be180d4241be0ac, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: DINO
+    addressKey: cast/DINO
+    prefab: {fileID: 7194412397769810917, guid: c438b7eda87b3284d96a4e21cf81ac56, type: 3}
+    displayName: DINO
+    category: 
+    avatar: {fileID: 21300000, guid: 93b6369937a466c449ab23a5a86435fc, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: ECHO
+    addressKey: cast/ECHO
+    prefab: {fileID: 8202630140612757546, guid: df18bc5ffc3a4d14498fe51b05a31460, type: 3}
+    displayName: ECHO
+    category: 
+    avatar: {fileID: 21300000, guid: 6e5cf5017509d6e4ba576ce57a77677a, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: FINN
+    addressKey: cast/FINN
+    prefab: {fileID: 8306163405880721503, guid: d663cc32f6d30a44092612ae68aa801f, type: 3}
+    displayName: FINN
+    category: 
+    avatar: {fileID: 21300000, guid: 65d16e36046b6504b87ea483da36bf6e, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: FOX
+    addressKey: cast/FOX
+    prefab: {fileID: 1741689410529708865, guid: b645e815bae5fa3429e0c2477303df32, type: 3}
+    displayName: FOX
+    category: 
+    avatar: {fileID: 21300000, guid: 0ee9446c6684cb847b3cba943b740911, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: LUNA
+    addressKey: cast/LUNA
+    prefab: {fileID: 6216962501929260323, guid: 9231fcedeb096af47b47242aeb37c25d, type: 3}
+    displayName: LUNA
+    category: 
+    avatar: {fileID: 21300000, guid: 246ea0aa0ac00f246acb4a2635076cb8, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: MIMI
+    addressKey: cast/MIMI
+    prefab: {fileID: 5762985877574039707, guid: a3dc746ef7ff7834aba96c06b5b880a2, type: 3}
+    displayName: MIMI
+    category: 
+    avatar: {fileID: 21300000, guid: 40bd126e26c3f3845be26b02bbfa453b, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: MINH FOOTBALL
+    addressKey: cast/MINH FOOTBALL
+    prefab: {fileID: 8432990393616522912, guid: e85dcd300471a724b94d733e623fb168, type: 3}
+    displayName: MINH FOOTBALL
+    category: 
+    avatar: {fileID: 21300000, guid: 35d021c2d0084bb439da565d7aad370b, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: MINH HAT
+    addressKey: cast/MINH HAT
+    prefab: {fileID: 6374167709222688181, guid: a0b7b6a0accf95540ba8ff31a27929ef, type: 3}
+    displayName: MINH HAT
+    category: 
+    avatar: {fileID: 21300000, guid: c1bb9a1a99150954ab0a5c2cdda16937, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: MINH MONKEY
+    addressKey: cast/MINH MONKEY
+    prefab: {fileID: 8477590171365038178, guid: dcaff1e459d908b4cb20eaf23426a24e, type: 3}
+    displayName: MINH MONKEY
+    category: 
+    avatar: {fileID: 21300000, guid: b768fbeae49680944b24e6d8f45d06ed, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: MONSTER
+    addressKey: cast/MONSTER
+    prefab: {fileID: 5317687350150773791, guid: 07ac5a9642249ab4ba2db146d8cf240d, type: 3}
+    displayName: MONSTER
+    category: 
+    avatar: {fileID: 21300000, guid: 806832d12ef3f514bbf04ff8491b9032, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: NETHERLANDS
+    addressKey: cast/NETHERLANDS
+    prefab: {fileID: 688278128549168538, guid: 3d05bc012282f3e4da1816cd1af68c77, type: 3}
+    displayName: NETHERLANDS
+    category: 
+    avatar: {fileID: 21300000, guid: a0b8c40f7eec0bc44ab87219b239d3f3, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: NIA
+    addressKey: cast/NIA
+    prefab: {fileID: 1009214661300130650, guid: 8b49034c8089da745a62ef94cd237f1e, type: 3}
+    displayName: NIA
+    category: 
+    avatar: {fileID: 21300000, guid: d97cf3e2eb9d8334186928fd490e2a66, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: REX
+    addressKey: cast/REX
+    prefab: {fileID: 4700899984438439489, guid: c0fabf15a7006c944a1e2d6996555d87, type: 3}
+    displayName: REX
+    category: 
+    avatar: {fileID: 21300000, guid: d4d236d441f6ac4478757a50dc2efc0c, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: NOIR
+    addressKey: cast/NOIR
+    prefab: {fileID: 6192832573687615545, guid: 75023cc826138424dbf8ff3df18950f6, type: 3}
+    displayName: NOIR
+    category: 
+    avatar: {fileID: 21300000, guid: 8405952d979ea4440be9086caf5ae8a7, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: PANDA
+    addressKey: cast/PANDA
+    prefab: {fileID: 5841568976064379194, guid: 7a0adc36f98b53e47aca897a825167e1, type: 3}
+    displayName: PANDA
+    category: 
+    avatar: {fileID: 21300000, guid: 125fd82173e2afa489af788b2ce669dd, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: PIX
+    addressKey: cast/PIX
+    prefab: {fileID: 9186683328866597294, guid: 9550af5bbef279f41b5e682f568128b6, type: 3}
+    displayName: PIX
+    category: 
+    avatar: {fileID: 21300000, guid: 222b2a4d118898d4e962dd8b000b0711, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  instrumentEntries:
+  - id: AquaKeyboard
+    addressKey: instrument/AquaKeyboard
+    prefab: {fileID: 3283653603558249079, guid: 4244c9d92628d174c94e3fb1d9188db0, type: 3}
+    displayName: AquaKeyboard
+    category: 
+    avatar: {fileID: 21300000, guid: 278e93f01831e2f45bb060b5b7734038, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: BunnyBeat
+    addressKey: instrument/BunnyBeat
+    prefab: {fileID: 5475587430417702355, guid: 960d3308036b150419204f231f1184d8, type: 3}
+    displayName: BunnyBeat
+    category: 
+    avatar: {fileID: 21300000, guid: 4401844c576b29946b6109e0aa837e23, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: BunnyDrum
+    addressKey: instrument/BunnyDrum
+    prefab: {fileID: 7540815938727888966, guid: 4eaa6220b1ae53a49942d59d9e214a07, type: 3}
+    displayName: BunnyDrum
+    category: 
+    avatar: {fileID: 21300000, guid: 2c7c3ff58c93a824fb61d4c536ec4eb2, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: CatBoombox
+    addressKey: instrument/CatBoombox
+    prefab: {fileID: 2767242479302913613, guid: 23b69d08c90a6f24cb72ce6834115437, type: 3}
+    displayName: CatBoombox
+    category: 
+    avatar: {fileID: 21300000, guid: 5496759275b8fc34792bd6dc8d103cae, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: Dragonpipe
+    addressKey: instrument/Dragonpipe
+    prefab: {fileID: 3022458226705503695, guid: e3f1b7900ab52474ab8a2eef6af6042f, type: 3}
+    displayName: Dragonpipe
+    category: 
+    avatar: {fileID: 21300000, guid: 5f48979ccef0fbc4396e9c74f1742880, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: DragonSpeaker
+    addressKey: instrument/DragonSpeaker
+    prefab: {fileID: 7603022949339193808, guid: 8ee85fa72ab69844b837d4ac95ef2527, type: 3}
+    displayName: DragonSpeaker
+    category: 
+    avatar: {fileID: 21300000, guid: 158bad196443833469a5d3804f26aed0, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: DrumBot
+    addressKey: instrument/DrumBot
+    prefab: {fileID: 1789403148053968106, guid: 33707c05fa62e6e4799ae991189b05a2, type: 3}
+    displayName: DrumBot
+    category: 
+    avatar: {fileID: 21300000, guid: 0bf727941bf3fdb41a3a01d96c20c5c1, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: LeopardSpeak
+    addressKey: instrument/LeopardSpeak
+    prefab: {fileID: 5486453212887462166, guid: d6319da12454f7942a4a053a0d001ef5, type: 3}
+    displayName: LeopardSpeak
+    category: 
+    avatar: {fileID: 21300000, guid: 01a1c5a217487e64ab751d256f8a262d, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: Meowbone
+    addressKey: instrument/Meowbone
+    prefab: {fileID: 3954287189683364394, guid: 1461a9a4acfb7cd48ba91244d784eee4, type: 3}
+    displayName: Meowbone
+    category: 
+    avatar: {fileID: 21300000, guid: ee3db2d49d073de46af1afac46669580, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: OrbBunny
+    addressKey: instrument/OrbBunny
+    prefab: {fileID: 1855446595320537560, guid: 06c3fbea107f8854d9a9930fd8b4e097, type: 3}
+    displayName: OrbBunny
+    category: 
+    avatar: {fileID: 21300000, guid: 9d2f4e5bf96c8114ebf19f2740fc451f, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: PandaSerenade
+    addressKey: instrument/PandaSerenade
+    prefab: {fileID: 8091744176689795602, guid: 7eb6d9d147e05824c907a06d5379e9f8, type: 3}
+    displayName: PandaSerenade
+    category: 
+    avatar: {fileID: 21300000, guid: 60407e4b68dfa3b49886ca982ccc8692, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: PeacockBot
+    addressKey: instrument/PeacockBot
+    prefab: {fileID: 8035061807666817717, guid: cba9afe70ed28b2489d8e90457a9391b, type: 3}
+    displayName: PeacockBot
+    category: 
+    avatar: {fileID: 21300000, guid: 44fe699adfa3e9545974547ab32b7bfc, type: 3}
+    defaultAnimationId: 
+    animationIds: []
+  - id: WingedSpeaker
+    addressKey: instrument/WingedSpeaker
+    prefab: {fileID: 5905772277487262173, guid: 30381d9a451567849b4fdd090d129fa5, type: 3}
+    displayName: WingedSpeaker
+    category: 
+    avatar: {fileID: 21300000, guid: 3a545a50b0e25e649b73f549c685cf31, type: 3}
+    defaultAnimationId: 
+    animationIds: []
