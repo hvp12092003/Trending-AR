@@ -1377,6 +1377,16 @@ public class BandARSpawner : MonoBehaviour
             if (targetRec != null && !string.IsNullOrEmpty(targetRec.audioBase64) && source != null)
             {
                 byte[] wavBytes = System.Convert.FromBase64String(targetRec.audioBase64);
+
+                try
+                {
+                    wavBytes = AudioEncryption.Decrypt(wavBytes);
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogWarning("[BandARSpawner] Giai ma am thanh khong thanh cong, thu dung truc tiep: " + ex.Message);
+                }
+
                 AudioClip clip = WavUtility.ToAudioClip(wavBytes, targetRec.name);
 
                 if (clip != null && source != null)

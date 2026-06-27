@@ -3624,7 +3624,7 @@ MonoBehaviour:
   scrollSpeedFactor: 0.01
   smoothTime: 0.15
   useFixedLimits: 1
-  fixedMinX: -0.18
+  fixedMinX: -0.056
   fixedMaxX: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
