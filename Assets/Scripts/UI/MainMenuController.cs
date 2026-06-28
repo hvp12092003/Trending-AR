@@ -22,9 +22,8 @@ public class MainMenuController : MonoBehaviour
     [Header("Studio Panel")]
     [SerializeField] private UiStudioController studioController;
 
-    [Header("Leaderboard Panel ScrollRect")]
-    [SerializeField] private Transform leaderboardContent;
-    [SerializeField] private GameObject leaderboardPrefab;
+    [Header("Leaderboard Panel")]
+    [SerializeField] private LeaderboardMenuController leaderboardMenuController;
 
     [Header("UI Scene Loading Overlay")]
     [SerializeField] private GameObject loadingOverlay;
@@ -45,6 +44,8 @@ public class MainMenuController : MonoBehaviour
     [SerializeField] private RectTransform settingButtonRotationTarget;
     [SerializeField] private float settingButtonRotationAngle = 45f;
     [SerializeField] private float settingButtonRotationDuration = 0.25f;
+
+    private const int LEADERBOARD_TAB_INDEX = 2;
 
     private Vector3 _settingButtonClosedEulerAngles;
     private bool _hasSettingButtonInitialRotation;
@@ -173,7 +174,7 @@ public class MainMenuController : MonoBehaviour
                     studioController.RefreshAll();
                 }
                 break;
-            case 2: // Leaderboard Panel
+            case LEADERBOARD_TAB_INDEX: // Leaderboard Panel
                 LoadLeaderboardData();
                 break;
         }
@@ -185,30 +186,42 @@ public class MainMenuController : MonoBehaviour
     // Nạp dữ liệu Bảng xếp hạng
     // ─────────────────────────────────────────────────────────────────────────
 
-    private async void LoadLeaderboardData()
+    private void LoadLeaderboardData()
     {
-        if (MainMenuDataManager.Instance == null) return;
-
-        ClearChildren(leaderboardContent);
-
-        string currentUserId = "offline_user_id";
-
-        var leaderboard = await MainMenuDataManager.Instance.GetLeaderboardAsync();
-        if (leaderboardPrefab != null && leaderboardContent != null)
+        LeaderboardMenuController controller = ResolveLeaderboardMenuController();
+        if (controller == null)
         {
-            int rank = 1;
-            foreach (var userEntry in leaderboard)
-            {
-                var itemObj = Instantiate(leaderboardPrefab, leaderboardContent);
-                var itemUI = itemObj.GetComponent<LeaderboardItemUI>();
-                if (itemUI != null)
-                {
-                    bool isCurrentUser = userEntry.userId == currentUserId;
-                    itemUI.Setup(userEntry, rank, isCurrentUser);
-                }
-                rank++;
-            }
+            Debug.LogWarning("[MainMenuController] LeaderboardMenuController was not found.");
+            return;
         }
+
+        controller.RefreshLeaderboard();
+    }
+
+    private LeaderboardMenuController ResolveLeaderboardMenuController()
+    {
+        if (leaderboardMenuController != null)
+        {
+            return leaderboardMenuController;
+        }
+
+        GameObject leaderboardPanel = bottomBarController != null
+            ? bottomBarController.GetPanelForTab(LEADERBOARD_TAB_INDEX)
+            : null;
+
+        if (leaderboardPanel != null)
+        {
+            leaderboardMenuController = leaderboardPanel.GetComponent<LeaderboardMenuController>();
+            if (leaderboardMenuController == null)
+            {
+                leaderboardMenuController = leaderboardPanel.AddComponent<LeaderboardMenuController>();
+            }
+
+            return leaderboardMenuController;
+        }
+
+        leaderboardMenuController = FindFirstObjectByType<LeaderboardMenuController>(FindObjectsInactive.Include);
+        return leaderboardMenuController;
     }
 
 
@@ -216,15 +229,6 @@ public class MainMenuController : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
     // Hàm phụ trợ dọn dẹp phần tử UI
     // ─────────────────────────────────────────────────────────────────────────
-
-    private void ClearChildren(Transform container)
-    {
-        if (container == null) return;
-        foreach (Transform child in container)
-        {
-            Destroy(child.gameObject);
-        }
-    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Xử lý sự kiện Profile Panel

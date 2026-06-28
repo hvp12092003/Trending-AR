@@ -64,6 +64,16 @@ public class BottomBarController : MonoBehaviour
 
     public int CurrentTabIndex => currentTabIndex;
 
+    public GameObject GetPanelForTab(int index)
+    {
+        if (tabs == null || index < 0 || index >= tabs.Length || tabs[index] == null)
+        {
+            return null;
+        }
+
+        return tabs[index].panel;
+    }
+
     /// <summary>
     /// Ẩn lập tức toàn bộ các panel của các tab.
     /// </summary>

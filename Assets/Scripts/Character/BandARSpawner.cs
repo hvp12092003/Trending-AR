@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using System.Collections;
 using System.Collections.Generic;
 using DG.Tweening;
+using TMPro;
 
 /// <summary>
 /// Quản lý việc tạo (spawn) và sắp xếp đội hình cho các thành viên của ban nhạc được chọn hoặc các nhân vật đã tạo trong Scene AR.
@@ -100,6 +101,12 @@ public class BandARSpawner : MonoBehaviour
     private bool _didVibrateForFourPlacedCasts = false;
     private Coroutine _placementLimitCoroutine;
     private bool _placementLimitCleanupQueued = false;
+    private bool _awardedSelectedBandPoints = false;
+    private const int CUSTOM_CAST_USE_POINT_REWARD = 10;
+    private TextMeshProUGUI _customCastPointNotificationText;
+    private CanvasGroup _customCastPointNotificationGroup;
+    private RectTransform _customCastPointNotificationRect;
+    private Sequence _customCastPointNotificationSequence;
 
     [Header("Placement Performance")]
     [SerializeField, Tooltip("Delay nho de tranh cleanup/haptic chay dung frame dau cua thao tac drop.")]
@@ -342,7 +349,10 @@ public class BandARSpawner : MonoBehaviour
                             charData.instrumentId,
                             charData.danceAnimId,
                             charData.danceAnimIds
-                        ));
+                        )
+                        {
+                            characterId = charData.characterId
+                        });
                     }
                     Debug.Log($"[BandARSpawner] Chế độ Custom: Đã tải {count} nhân vật từ MainMenuDataManager.");
                     return;
@@ -435,6 +445,7 @@ public class BandARSpawner : MonoBehaviour
         if (placedCount >= 4 && !_placementLimitCleanupQueued)
         {
             _placementLimitCleanupQueued = true;
+            AwardSelectedBandPoints();
             if (_placementLimitCoroutine != null)
             {
                 StopCoroutine(_placementLimitCoroutine);
@@ -459,6 +470,147 @@ public class BandARSpawner : MonoBehaviour
         }
 
         return placedCount;
+    }
+
+    private static string GetEditorMemberDisplayName(GameObject prefab, int index)
+    {
+        if (prefab != null)
+        {
+            CastPrefab config = prefab.GetComponent<CastPrefab>();
+            if (config != null && !string.IsNullOrWhiteSpace(config.Name))
+            {
+                return config.Name;
+            }
+
+            if (!string.IsNullOrWhiteSpace(prefab.name))
+            {
+                return prefab.name;
+            }
+        }
+
+        return $"Cast {index + 1}";
+    }
+
+    private void AwardSelectedBandPoints()
+    {
+        if (m_SpawnerMode != SpawnerMode.Band || _awardedSelectedBandPoints || MainMenuDataManager.Instance == null)
+        {
+            return;
+        }
+
+        EditorBandData selectedBand = MainMenuDataManager.Instance.selectedBandData;
+        if (selectedBand == null || selectedBand.point <= 0)
+        {
+            return;
+        }
+
+        int totalPoints = MainMenuDataManager.Instance.AddOfflineUserPoints(selectedBand.point);
+        _awardedSelectedBandPoints = true;
+
+#if UNITY_EDITOR
+        Debug.Log($"[BandARSpawner] Awarded {selectedBand.point} points for completing selected band. Total points: {totalPoints}");
+#endif
+    }
+
+    public void TryAwardCustomCastUsePoints(GameObject castObject)
+    {
+        if (m_SpawnerMode != SpawnerMode.Custom || castObject == null || MainMenuDataManager.Instance == null)
+        {
+            return;
+        }
+
+        CastRuntimeData runtimeData = castObject.GetComponent<CastRuntimeData>();
+        CastData cast = runtimeData != null ? runtimeData.Data : null;
+        if (cast == null)
+        {
+            return;
+        }
+
+        if (MainMenuDataManager.Instance.TryAwardCustomCastUsePoints(cast, CUSTOM_CAST_USE_POINT_REWARD, out int totalPoints))
+        {
+            ShowCustomCastPointNotification(CUSTOM_CAST_USE_POINT_REWARD, totalPoints);
+#if UNITY_EDITOR
+            Debug.Log($"[BandARSpawner] Awarded {CUSTOM_CAST_USE_POINT_REWARD} points for using custom cast '{cast.name}'. Total points: {totalPoints}");
+#endif
+        }
+    }
+
+    private void ShowCustomCastPointNotification(int awardedPoints, int totalPoints)
+    {
+        TextMeshProUGUI notificationText = GetOrCreateCustomCastPointNotification();
+        if (notificationText == null || _customCastPointNotificationGroup == null || _customCastPointNotificationRect == null)
+        {
+            return;
+        }
+
+        notificationText.text = $"+{awardedPoints} Điểm";
+        notificationText.gameObject.SetActive(true);
+        _customCastPointNotificationGroup.gameObject.SetActive(true);
+        _customCastPointNotificationSequence?.Kill();
+
+        _customCastPointNotificationRect.anchoredPosition = new Vector2(0f, -132f);
+        _customCastPointNotificationGroup.alpha = 0f;
+
+        _customCastPointNotificationSequence = DOTween.Sequence();
+        _customCastPointNotificationSequence
+            .Append(_customCastPointNotificationGroup.DOFade(1f, 0.2f).SetEase(Ease.OutQuad))
+            .Join(_customCastPointNotificationRect.DOAnchorPosY(-112f, 0.2f).SetEase(Ease.OutBack))
+            .AppendInterval(1.45f)
+            .Append(_customCastPointNotificationGroup.DOFade(0f, 0.3f).SetEase(Ease.InQuad))
+            .Join(_customCastPointNotificationRect.DOAnchorPosY(-92f, 0.3f).SetEase(Ease.InQuad))
+            .OnComplete(() =>
+            {
+                if (_customCastPointNotificationGroup != null)
+                {
+                    _customCastPointNotificationGroup.gameObject.SetActive(false);
+                }
+            });
+    }
+
+    private TextMeshProUGUI GetOrCreateCustomCastPointNotification()
+    {
+        if (_customCastPointNotificationText != null)
+        {
+            return _customCastPointNotificationText;
+        }
+
+        GameObject canvasObj = new GameObject("Custom Cast Points Notification Canvas");
+        Canvas canvas = canvasObj.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 5000;
+        CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1080f, 1920f);
+        canvasObj.AddComponent<GraphicRaycaster>();
+
+        GameObject textObj = new GameObject("Custom Cast Points Notification TMP", typeof(RectTransform));
+        textObj.transform.SetParent(canvasObj.transform, false);
+
+        _customCastPointNotificationGroup = textObj.AddComponent<CanvasGroup>();
+        _customCastPointNotificationGroup.alpha = 0f;
+        _customCastPointNotificationGroup.interactable = false;
+        _customCastPointNotificationGroup.blocksRaycasts = false;
+
+        _customCastPointNotificationRect = textObj.GetComponent<RectTransform>();
+        _customCastPointNotificationRect.anchorMin = new Vector2(0.5f, 1f);
+        _customCastPointNotificationRect.anchorMax = new Vector2(0.5f, 1f);
+        _customCastPointNotificationRect.pivot = new Vector2(0.5f, 0.5f);
+        _customCastPointNotificationRect.sizeDelta = new Vector2(620f, 96f);
+        _customCastPointNotificationRect.anchoredPosition = new Vector2(0f, -132f);
+
+        _customCastPointNotificationText = textObj.AddComponent<TextMeshProUGUI>();
+        _customCastPointNotificationText.alignment = TextAlignmentOptions.Center;
+        _customCastPointNotificationText.enableAutoSizing = true;
+        _customCastPointNotificationText.fontSizeMin = 28f;
+        _customCastPointNotificationText.fontSizeMax = 52f;
+        _customCastPointNotificationText.fontStyle = FontStyles.Bold;
+        _customCastPointNotificationText.color = new Color(1f, 0.91f, 0.28f, 1f);
+        _customCastPointNotificationText.outlineWidth = 0.2f;
+        _customCastPointNotificationText.outlineColor = new Color(0f, 0f, 0f, 0.7f);
+        _customCastPointNotificationText.raycastTarget = false;
+
+        _customCastPointNotificationGroup.gameObject.SetActive(false);
+        return _customCastPointNotificationText;
     }
 
     private IEnumerator HandlePlacementLimitReached()
@@ -686,7 +838,7 @@ public class BandARSpawner : MonoBehaviour
                         {
                             prefab = MainMenuDataManager.Instance.CharacterPrefabs[editorMember.castPrefabIndex];
                         }
-                        memberName = editorMember.castName;
+                        memberName = GetEditorMemberDisplayName(prefab, i);
                     }
                     else
                     {
@@ -751,7 +903,7 @@ public class BandARSpawner : MonoBehaviour
                     {
                         prefab = MainMenuDataManager.Instance.CharacterPrefabs[editorMember.castPrefabIndex];
                     }
-                    memberName = editorMember.castName;
+                    memberName = GetEditorMemberDisplayName(prefab, i);
                 }
                 else
                 {
@@ -839,6 +991,16 @@ public class BandARSpawner : MonoBehaviour
             placementState = memberObj.AddComponent<CastPlacementState>();
         }
         placementState.MarkUnplaced();
+
+        if (cast != null)
+        {
+            CastRuntimeData runtimeData = memberObj.GetComponent<CastRuntimeData>();
+            if (runtimeData == null)
+            {
+                runtimeData = memberObj.AddComponent<CastRuntimeData>();
+            }
+            runtimeData.Initialize(cast);
+        }
 
         // Tắt applyRootMotion trên Animator để cho phép tự do thay đổi scale và di chuyển
         Animator anim = memberObj.GetComponentInChildren<Animator>();
@@ -1163,6 +1325,7 @@ public class BandARSpawner : MonoBehaviour
         }
         _spawnedMembers.Clear();
         _didVibrateForFourPlacedCasts = false;
+        _awardedSelectedBandPoints = false;
 
         if (m_FollowContainer != null)
         {

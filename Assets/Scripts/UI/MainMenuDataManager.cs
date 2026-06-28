@@ -53,10 +53,12 @@ public class MainMenuDataManager : MonoBehaviour
     private const string LAST_SELECTED_CAST_KEY    = "LastSelectedCastJSON";
     private const string SAVED_CASTS_PREFS_KEY      = "SavedCastsDataJSON";
     private const string SAVED_RECORDINGS_PREFS_KEY = "SavedRecordingsDataJSON";
-    private const string SAVED_BANDS_PREFS_KEY      = "SavedBandsDataJSON";
+    private const string SAVED_BANDS_PREFS_KEY      = "SavedBandsDataJSON";
+    private const string OFFLINE_POINTS_PREFS_KEY   = "OfflineUserPoints";
+    private const string CUSTOM_CAST_USE_AWARD_PREFIX = "CustomCastUseAwarded_";
 
-    private CastData _castData;
-
+    private CastData _castData;
+
     /// <summary>
     /// Lưu trữ CastData của nhân vật tự thiết kế (Custom Character) được chọn để chuyển tiếp sang scene AR.
     /// </summary>
@@ -561,10 +563,11 @@ public class MainMenuDataManager : MonoBehaviour
             return Task.FromResult(false);
         }
 
-        bool usePrefab = Resources.Load<Sprite>("Avatars/" + prefabName) == null;
+        bool usePrefab = Resources.Load<Sprite>("Avatars/" + prefabName) == null;
+        string characterId = "char_" + DateTime.UtcNow.Ticks;
         list.Add(new SerializableCharacterData
         {
-            characterId      = "char_" + DateTime.UtcNow.Ticks,
+            characterId      = characterId,
             name             = name,
             prefabName       = prefabName,
             instrumentId     = instrumentId,
@@ -587,10 +590,12 @@ public class MainMenuDataManager : MonoBehaviour
             return Task.FromResult(false);
         }
 
-        bool usePrefab = Resources.Load<Sprite>("Avatars/" + cast.prefabName) == null;
+        bool usePrefab = Resources.Load<Sprite>("Avatars/" + cast.prefabName) == null;
+        string characterId = "char_" + DateTime.UtcNow.Ticks;
+        cast.characterId = characterId;
         list.Add(new SerializableCharacterData
         {
-            characterId      = "char_" + DateTime.UtcNow.Ticks,
+            characterId      = characterId,
             name             = cast.name,
             prefabName       = cast.prefabName,
             instrumentId     = cast.audioId,
@@ -849,13 +854,192 @@ public class MainMenuDataManager : MonoBehaviour
         if (string.IsNullOrEmpty(currentUserName) || currentUserName == "Offline User")
             currentUserName = "Offline Player";
 
-        list.Add(new UserData { userId = "offline_user_id", displayName = currentUserName, points = 1200 });
+        int currentUserPoints = PlayerPrefs.GetInt(OFFLINE_POINTS_PREFS_KEY, 0);
+
+        list.Add(new UserData { userId = "offline_user_id", displayName = currentUserName, points = currentUserPoints });
         list.Add(new UserData { userId = "bot_1", displayName = "Sunny Beats",  points = 950 });
         list.Add(new UserData { userId = "bot_2", displayName = "Neon Dancer",  points = 720 });
         list.Add(new UserData { userId = "bot_3", displayName = "AR Groover",   points = 510 });
-        return Task.FromResult(list);
-    }
-}
+        list.Sort((a, b) => b.points.CompareTo(a.points));
+
+        return Task.FromResult(list);
+    }
+
+    public int AddOfflineUserPoints(int pointsToAdd)
+
+    {
+
+        if (pointsToAdd <= 0)
+
+            return PlayerPrefs.GetInt(OFFLINE_POINTS_PREFS_KEY, 0);
+
+
+
+        int totalPoints = PlayerPrefs.GetInt(OFFLINE_POINTS_PREFS_KEY, 0) + pointsToAdd;
+
+        PlayerPrefs.SetInt(OFFLINE_POINTS_PREFS_KEY, totalPoints);
+
+        PlayerPrefs.Save();
+
+        return totalPoints;
+
+    }
+
+    public bool TryAwardCustomCastUsePoints(CastData cast, int pointsToAdd, out int totalPoints)
+
+    {
+
+        totalPoints = PlayerPrefs.GetInt(OFFLINE_POINTS_PREFS_KEY, 0);
+
+        if (cast == null || pointsToAdd <= 0)
+
+            return false;
+
+
+
+        if (!IsSavedCustomCast(cast))
+
+            return false;
+
+
+
+        string awardKey = GetCustomCastUseAwardKey(cast);
+
+        if (PlayerPrefs.GetInt(awardKey, 0) == 1)
+
+            return false;
+
+
+
+        totalPoints = AddOfflineUserPoints(pointsToAdd);
+
+        PlayerPrefs.SetInt(awardKey, 1);
+
+        PlayerPrefs.Save();
+
+        return true;
+
+    }
+
+    private bool IsSavedCustomCast(CastData cast)
+
+    {
+
+        List<SerializableCharacterData> savedCasts = LoadSavedCastsFromPrefs();
+
+        foreach (var saved in savedCasts)
+
+        {
+
+            if (saved == null) continue;
+
+
+
+            if (!string.IsNullOrEmpty(cast.characterId) &&
+
+                string.Equals(saved.characterId, cast.characterId, StringComparison.Ordinal))
+
+            {
+
+                return true;
+
+            }
+
+
+
+            if (DoesSavedCastMatch(cast, saved))
+
+            {
+
+                if (string.IsNullOrEmpty(cast.characterId))
+
+                    cast.characterId = saved.characterId;
+
+                return true;
+
+            }
+
+        }
+
+
+
+        return false;
+
+    }
+
+    private static bool DoesSavedCastMatch(CastData cast, SerializableCharacterData saved)
+
+    {
+
+        return string.Equals(NormalizeCastValue(saved.name), NormalizeCastValue(cast.name), StringComparison.Ordinal) &&
+
+               string.Equals(NormalizeCastValue(saved.prefabName), NormalizeCastValue(cast.prefabName), StringComparison.Ordinal) &&
+
+               string.Equals(NormalizeCastValue(saved.instrumentId), NormalizeCastValue(cast.audioId), StringComparison.Ordinal) &&
+
+               string.Equals(NormalizeCastValue(saved.danceAnimId), NormalizeCastValue(cast.danceAnimId), StringComparison.Ordinal);
+
+    }
+
+    private static string GetCustomCastUseAwardKey(CastData cast)
+
+    {
+
+        string stableId = !string.IsNullOrEmpty(cast.characterId)
+
+            ? cast.characterId
+
+            : StableHash(BuildCustomCastSignature(cast));
+
+        return CUSTOM_CAST_USE_AWARD_PREFIX + stableId;
+
+    }
+
+    private static string BuildCustomCastSignature(CastData cast)
+
+    {
+
+        return $"{NormalizeCastValue(cast.name)}|{NormalizeCastValue(cast.prefabName)}|{NormalizeCastValue(cast.audioId)}|{NormalizeCastValue(cast.danceAnimId)}";
+
+    }
+
+    private static string NormalizeCastValue(string value)
+
+    {
+
+        return string.IsNullOrEmpty(value) ? string.Empty : value.Trim().ToLowerInvariant();
+
+    }
+
+    private static string StableHash(string value)
+
+    {
+
+        unchecked
+
+        {
+
+            uint hash = 2166136261;
+
+            string input = value ?? string.Empty;
+
+            for (int i = 0; i < input.Length; i++)
+
+            {
+
+                hash ^= input[i];
+
+                hash *= 16777619;
+
+            }
+
+            return hash.ToString("x8");
+
+        }
+
+    }
+
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Editor Band Configurations for Offline Custom Bands
@@ -865,7 +1049,8 @@ public class MainMenuDataManager : MonoBehaviour
 public class EditorBandMember
 {
     [Tooltip("Tên hiển thị của thành viên")]
-    public string castName;
+    [HideInInspector]
+    public string castName;
 
     [Tooltip("Chỉ số (Index) của Prefab nhân vật trong Character Catalog của MainMenuDataManager")]
     public int castPrefabIndex;
@@ -880,18 +1065,29 @@ public class EditorBandMember
     public AudioClip audioClip;
 
     [Tooltip("Nếu tích chọn, âm lượng của nhân vật này sẽ nhỏ lại khi có nhân vật khác cùng được thả ra AR")]
-    public bool reduceVolumeWhenTogether = true;
+    [HideInInspector]
+    public bool reduceVolumeWhenTogether = true;
 
     [Tooltip("Mức độ giảm âm lượng khi chơi chung (Ví dụ: 0.3 có nghĩa là giảm đi 30%, âm lượng còn 70%)")]
     [Range(0f, 1f)]
-    public float reduceAmount = 0.3f;
+    [HideInInspector]
+    public float reduceAmount = 0.3f;
 }
 
 [System.Serializable]
 public class EditorBandData
 {
     [Tooltip("Tên ban nhạc")]
-    public string bandName;
+    [HideInInspector]
+    public string bandName;
+
+
+
+    [Tooltip("Số điểm cộng cho người chơi khi đặt đủ 4 Cast của band này")]
+
+    [Min(0)]
+
+    public int point;
 
     [Tooltip("Danh sách các thành viên trong ban nhạc (Tối đa 4 cast)")]
     public List<EditorBandMember> members = new List<EditorBandMember>();

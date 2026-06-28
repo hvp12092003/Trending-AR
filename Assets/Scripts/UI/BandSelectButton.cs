@@ -37,7 +37,8 @@ public class BandSelectButton : MonoBehaviour
             return;
         }
 
-        Debug.Log($"[BandSelectButton] Đã chọn ban nhạc từ button thiết kế sẵn: {bandData.bandName}");
+        string displayBandName = GetDisplayBandName();
+        Debug.Log($"[BandSelectButton] Đã chọn ban nhạc từ button thiết kế sẵn: {displayBandName}");
 
         // 1. Gán cấu hình ban nhạc cho MainMenuDataManager
         if (MainMenuDataManager.Instance != null)
@@ -66,7 +67,8 @@ public class BandSelectButton : MonoBehaviour
             System.Collections.Generic.List<string> anims = new System.Collections.Generic.List<string>();
             if (!string.IsNullOrEmpty(m.danceAnimId)) anims.Add(m.danceAnimId);
             
-            CastData cd = new CastData(m.castName, prefabName, m.audioClip != null ? m.audioClip.name : "", m.danceAnimId, anims);
+            string displayCastName = GetCastDisplayName(castPrefab, oldCastsList.Count + 1);
+            CastData cd = new CastData(displayCastName, prefabName, m.audioClip != null ? m.audioClip.name : "", m.danceAnimId, anims);
             oldCastsList.Add(cd);
 
             Sprite avatar = null;
@@ -78,11 +80,11 @@ public class BandSelectButton : MonoBehaviour
             avatarsList.Add(avatar);
         }
 
-        // Dùng bandName làm ID tạm thời do bandId đã bị xóa
-        string bandId = string.IsNullOrEmpty(bandData.bandName) ? "editor_band" : bandData.bandName;
-        BandSelectionManager.SelectedBand = new BandData(bandId, bandData.bandName, oldCastsList);
+        // Dùng tên hiển thị làm ID tạm thời do bandId đã bị xóa
+        string bandId = string.IsNullOrEmpty(displayBandName) ? "editor_band" : displayBandName;
+        BandSelectionManager.SelectedBand = new BandData(bandId, displayBandName, oldCastsList);
         BandSelectionManager.SelectedBandAvatars = avatarsList;
-        BandSelectionManager.SelectedBandName = bandData.bandName;
+        BandSelectionManager.SelectedBandName = displayBandName;
 
         // 2. Kích hoạt spawner sinh ban nhạc ra Scene
         BandARSpawner spawner = FindFirstObjectByType<BandARSpawner>();
@@ -145,5 +147,34 @@ public class BandSelectButton : MonoBehaviour
                 }
             }
         }
+    }
+
+    private string GetDisplayBandName()
+    {
+        if (bandData != null && !string.IsNullOrWhiteSpace(bandData.bandName))
+        {
+            return bandData.bandName;
+        }
+
+        return string.IsNullOrWhiteSpace(gameObject.name) ? "Editor Band" : gameObject.name;
+    }
+
+    private static string GetCastDisplayName(GameObject castPrefab, int index)
+    {
+        if (castPrefab != null)
+        {
+            CastPrefab config = castPrefab.GetComponent<CastPrefab>();
+            if (config != null && !string.IsNullOrWhiteSpace(config.Name))
+            {
+                return config.Name;
+            }
+
+            if (!string.IsNullOrWhiteSpace(castPrefab.name))
+            {
+                return castPrefab.name;
+            }
+        }
+
+        return $"Cast {index}";
     }
 }

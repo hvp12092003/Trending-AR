@@ -1905,31 +1905,32 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BandSelectButton
   bandData:
     bandName: 
+    point: 90
     members:
     - castName: 
       castPrefabIndex: 1
-      danceAnimId: 
+      danceAnimId: Dance1
       instrumentPrefabIndex: 1
       audioClip: {fileID: 8300000, guid: a61d714a5fa8644469e86f4135a88402, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
       castPrefabIndex: 2
-      danceAnimId: 
+      danceAnimId: Dance2
       instrumentPrefabIndex: 2
       audioClip: {fileID: 8300000, guid: b67e39a00f8a3004c915d602a16e32ed, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
       castPrefabIndex: 3
-      danceAnimId: 
+      danceAnimId: Dance4
       instrumentPrefabIndex: 3
       audioClip: {fileID: 8300000, guid: cd98c05257e59c3409f12e21c709ea85, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
       castPrefabIndex: 4
-      danceAnimId: 
+      danceAnimId: Dance3
       instrumentPrefabIndex: 4
       audioClip: {fileID: 8300000, guid: ecc0cf9993d00b340a9b0e40dc26eb16, type: 3}
       reduceVolumeWhenTogether: 0
@@ -2887,6 +2888,7 @@ MonoBehaviour:
   instrumentLocalPosition: {x: -0.4, y: 2, z: 0}
   instrumentLocalRotation: {x: 0, y: 0, z: 0}
   instrumentLocalScale: {x: 1, y: 1, z: 1}
+  placementLimitCleanupDelay: 0.08
 --- !u!114 &1662375344
 MonoBehaviour:
   m_ObjectHideFlags: 0

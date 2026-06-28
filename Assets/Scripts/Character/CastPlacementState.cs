@@ -19,3 +19,13 @@ public class CastPlacementState : MonoBehaviour
         IsPlaced = false;
     }
 }
+
+public class CastRuntimeData : MonoBehaviour
+{
+    public CastData Data { get; private set; }
+
+    public void Initialize(CastData data)
+    {
+        Data = data;
+    }
+}

@@ -8,7 +8,10 @@ using System.Collections.Generic;
 [Serializable]
 public class CastData
 {
-    /// <summary>Tên của nhân vật (cast).</summary>
+    /// <summary>Stable id for a saved custom cast.</summary>
+    public string characterId;
+
+    /// <summary>Name of the cast.</summary>
     public string name;
 
     /// <summary>Tên Prefab đại diện cho nhân vật (dùng để load avatar và spawn model 3D).</summary>

@@ -312,7 +312,12 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
 
         if (droppedObject != null)
         {
-            GetBandSpawner()?.CheckAndLimitCasts();
+            BandARSpawner spawner = GetBandSpawner();
+            if (spawner != null)
+            {
+                spawner.TryAwardCustomCastUsePoints(droppedObject);
+                spawner.CheckAndLimitCasts();
+            }
         }
     }
 
