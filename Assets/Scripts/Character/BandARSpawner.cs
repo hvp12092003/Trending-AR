@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
 using System.Collections.Generic;
 using DG.Tweening;
 
@@ -97,6 +98,12 @@ public class BandARSpawner : MonoBehaviour
     // Danh sách các thành viên đã được spawn ra thực tế
     private List<GameObject> _spawnedMembers = new List<GameObject>();
     private bool _didVibrateForFourPlacedCasts = false;
+    private Coroutine _placementLimitCoroutine;
+    private bool _placementLimitCleanupQueued = false;
+
+    [Header("Placement Performance")]
+    [SerializeField, Tooltip("Delay nho de tranh cleanup/haptic chay dung frame dau cua thao tac drop.")]
+    private float placementLimitCleanupDelay = 0.08f;
 
     public SpawnerMode spawnerMode
     {
@@ -110,6 +117,7 @@ public class BandARSpawner : MonoBehaviour
     {
         // Đảm bảo bật follow camera mặc định
         m_FollowCamera = followCameraOnStart;
+        AndroidUtils.WarmUpVibration();
     }
 
     private async void Start()
@@ -400,7 +408,6 @@ public class BandARSpawner : MonoBehaviour
                 {
                     member.transform.SetParent(null);
                     Debug.Log($"[BandARSpawner] Detached member: {member.name} từ bệ {pedestal.name}. Bệ sẽ chỉ tự ẩn khi đã đặt đủ 4 Cast.");
-                    CheckAndLimitCasts();
                     return;
                 }
             }
@@ -411,7 +418,6 @@ public class BandARSpawner : MonoBehaviour
         {
             member.transform.SetParent(null);
             Debug.Log($"[BandARSpawner] Detached member: {member.name} từ container follow camera.");
-            CheckAndLimitCasts();
         }
     }
 
@@ -420,70 +426,108 @@ public class BandARSpawner : MonoBehaviour
     /// </summary>
     public void CheckAndLimitCasts()
     {
+        int placedCount = CountPlacedMembers();
+
+#if UNITY_EDITOR
+        Debug.Log($"[BandARSpawner] Số lượng Cast đã đặt: {placedCount}");
+#endif
+
+        if (placedCount >= 4 && !_placementLimitCleanupQueued)
+        {
+            _placementLimitCleanupQueued = true;
+            if (_placementLimitCoroutine != null)
+            {
+                StopCoroutine(_placementLimitCoroutine);
+            }
+            _placementLimitCoroutine = StartCoroutine(HandlePlacementLimitReached());
+        }
+    }
+
+    private int CountPlacedMembers()
+    {
         int placedCount = 0;
         foreach (var member in _spawnedMembers)
         {
-            if (member != null && member.transform.parent == null)
+            if (member == null) continue;
+
+            CastPlacementState placementState = member.GetComponent<CastPlacementState>();
+            bool isPlaced = placementState != null ? placementState.IsPlaced : member.transform.parent == null;
+            if (isPlaced)
             {
                 placedCount++;
             }
         }
 
-        Debug.Log($"[BandARSpawner] Số lượng Cast đã đặt: {placedCount}");
+        return placedCount;
+    }
 
-        if (placedCount >= 4)
+    private IEnumerator HandlePlacementLimitReached()
+    {
+        yield return null;
+
+        if (placementLimitCleanupDelay > 0f)
         {
-            if (!_didVibrateForFourPlacedCasts)
-            {
-                AndroidUtils.Vibrate(3000);
-                _didVibrateForFourPlacedCasts = true;
-                Debug.Log("[BandARSpawner] Four casts placed. Triggered 3s vibration feedback.");
-            }
-
-            // 1. Tắt các bệ đứng còn lại và các nhân vật chưa được kéo ra
-            if (pedestals != null && pedestals.Count > 0)
-            {
-                foreach (var pedestal in pedestals)
-                {
-                    if (pedestal != null && pedestal.activeSelf)
-                    {
-                        // Tắt các nhân vật đang là con của bệ đứng này
-                        for (int i = 0; i < pedestal.transform.childCount; i++)
-                        {
-                            Transform child = pedestal.transform.GetChild(i);
-                            if (child != null)
-                            {
-                                child.gameObject.SetActive(false);
-                            }
-                        }
-                        // Tắt bệ đứng
-                        pedestal.SetActive(false);
-                    }
-                }
-
-                // Tắt parent của bệ đứng để ẩn hoàn toàn nhóm bệ đứng
-                if (pedestals[0] != null && pedestals[0].transform.parent != null)
-                {
-                    pedestals[0].transform.parent.gameObject.SetActive(false);
-                }
-            }
-
-            // 2. Trường hợp sử dụng container ảo follow camera (fallback)
-            if (m_FollowContainer != null)
-            {
-                for (int i = 0; i < m_FollowContainer.childCount; i++)
-                {
-                    Transform child = m_FollowContainer.GetChild(i);
-                    if (child != null)
-                    {
-                        child.gameObject.SetActive(false);
-                    }
-                }
-                m_FollowContainer.gameObject.SetActive(false);
-            }
-
-            Debug.Log("[BandARSpawner] Đã đặt đủ 4 Cast. Tắt tất cả các bệ đứng và Cast còn lại.");
+            yield return new WaitForSecondsRealtime(placementLimitCleanupDelay);
         }
+
+        if (!_didVibrateForFourPlacedCasts)
+        {
+            AndroidUtils.Vibrate(3000);
+            _didVibrateForFourPlacedCasts = true;
+#if UNITY_EDITOR
+            Debug.Log("[BandARSpawner] Four casts placed. Triggered 3s vibration feedback.");
+#endif
+        }
+
+        HideUnplacedPedestalsAndCasts();
+        _placementLimitCoroutine = null;
+    }
+
+    private void HideUnplacedPedestalsAndCasts()
+    {
+        // 1. Tat cac be dung con lai va cac nhan vat chua duoc drop ra world.
+        if (pedestals != null && pedestals.Count > 0)
+        {
+            foreach (var pedestal in pedestals)
+            {
+                if (pedestal != null && pedestal.activeSelf)
+                {
+                    for (int i = 0; i < pedestal.transform.childCount; i++)
+                    {
+                        Transform child = pedestal.transform.GetChild(i);
+                        if (child != null)
+                        {
+                            child.gameObject.SetActive(false);
+                        }
+                    }
+
+                    pedestal.SetActive(false);
+                }
+            }
+
+            if (pedestals[0] != null && pedestals[0].transform.parent != null)
+            {
+                pedestals[0].transform.parent.gameObject.SetActive(false);
+            }
+        }
+
+        // 2. Truong hop su dung container ao follow camera (fallback).
+        if (m_FollowContainer != null)
+        {
+            for (int i = 0; i < m_FollowContainer.childCount; i++)
+            {
+                Transform child = m_FollowContainer.GetChild(i);
+                if (child != null)
+                {
+                    child.gameObject.SetActive(false);
+                }
+            }
+            m_FollowContainer.gameObject.SetActive(false);
+        }
+
+#if UNITY_EDITOR
+        Debug.Log("[BandARSpawner] Da dat du 4 Cast. Tat tat ca cac be dung va Cast con lai.");
+#endif
     }
 
     /// <summary>
@@ -788,6 +832,13 @@ public class BandARSpawner : MonoBehaviour
             moveScript.WalkStateName = "Run";
             moveScript.Pose1StateName = "Dance1";
         }
+
+        CastPlacementState placementState = memberObj.GetComponent<CastPlacementState>();
+        if (placementState == null)
+        {
+            placementState = memberObj.AddComponent<CastPlacementState>();
+        }
+        placementState.MarkUnplaced();
 
         // Tắt applyRootMotion trên Animator để cho phép tự do thay đổi scale và di chuyển
         Animator anim = memberObj.GetComponentInChildren<Animator>();
@@ -1095,6 +1146,13 @@ public class BandARSpawner : MonoBehaviour
     /// </summary>
     public void ClearSpawnedMembers()
     {
+        if (_placementLimitCoroutine != null)
+        {
+            StopCoroutine(_placementLimitCoroutine);
+            _placementLimitCoroutine = null;
+        }
+        _placementLimitCleanupQueued = false;
+
         foreach (var member in _spawnedMembers)
         {
             if (member != null)

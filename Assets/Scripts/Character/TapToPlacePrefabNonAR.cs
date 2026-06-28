@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -92,11 +93,16 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
     private List<RaycastResult> m_RaycastResultsCache = new List<RaycastResult>();
     private Camera m_MainCamera;
     private Joystick m_Joystick;
+    private BandARSpawner m_BandSpawner;
+    private Move m_DraggedMove;
+    private CastAudioData m_DraggedAudio;
+    private CastPlacementState m_DraggedPlacementState;
 
     private void Awake()
     {
         m_MainCamera = Camera.main;
         m_Joystick = FindFirstObjectByType<Joystick>();
+        m_BandSpawner = FindFirstObjectByType<BandARSpawner>();
     }
 
     private void Update()
@@ -119,7 +125,7 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
                     if (characterMove != null)
                     {
                         // Kiểm tra xem nhân vật có thuộc bệ đứng của spawner hay không trước khi cho phép kéo
-                        BandARSpawner spawner = FindFirstObjectByType<BandARSpawner>();
+                        BandARSpawner spawner = GetBandSpawner();
                         if (spawner != null)
                         {
                             bool canDrag = false;
@@ -140,6 +146,9 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
                             if (canDrag)
                             {
                                 m_DraggedObject = characterMove.gameObject;
+                                m_DraggedMove = characterMove;
+                                m_DraggedAudio = m_DraggedObject.GetComponent<CastAudioData>();
+                                m_DraggedPlacementState = m_DraggedObject.GetComponent<CastPlacementState>();
                                 m_IsDragging = true;
 
                                 // Chọn nhân vật làm active
@@ -180,6 +189,11 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
         {
             if (m_DraggedObject != null)
             {
+                GameObject droppedObject = m_DraggedObject;
+                Move droppedMove = m_DraggedMove;
+                CastAudioData droppedAudio = m_DraggedAudio;
+                CastPlacementState droppedPlacementState = m_DraggedPlacementState;
+
                 UpdateDragPosition(pointerPos);
 
                 Vector3 currentPos = m_DraggedObject.transform.position;
@@ -197,35 +211,38 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
                 m_DraggedObject.transform.position = startPos;
                 m_DraggedObject.transform.localScale = m_PlacedScale;
 
+                if (droppedPlacementState != null)
+                {
+                    droppedPlacementState.MarkPlaced();
+                }
+
                 // Thực hiện hiệu ứng rơi tự do có nảy nhẹ bằng DOTween
                 m_DraggedObject.transform.DOKill();
                 m_DraggedObject.transform.DOMove(finalPos, m_DropDuration).SetEase(Ease.OutBounce);
 
-                Debug.Log($"[TapToPlacePrefabNonAR] Đã thả và kích hoạt hiệu ứng rơi cho nhân vật: {m_DraggedObject.name}");
-
-                // Cập nhật lại lựa chọn trong CharacterManager để đồng bộ UI (Slider scale)
-                if (CharacterManager.Instance != null && CharacterManager.Instance.SelectedCharacter == m_DraggedObject)
+                bool deferPostDropWork = droppedObject != null;
+                if (deferPostDropWork)
                 {
-                    CharacterManager.Instance.SelectCharacter(m_DraggedObject);
+#if UNITY_EDITOR
+                    Debug.Log($"[TapToPlacePrefabNonAR] Đã thả và kích hoạt hiệu ứng rơi cho nhân vật: {droppedObject.name}");
+#endif
+                    StartCoroutine(CompleteDropNextFrame(droppedObject, droppedMove, droppedAudio));
+
+                    m_DraggedObject = null;
+                    m_DraggedMove = null;
+                    m_DraggedAudio = null;
+                    m_DraggedPlacementState = null;
+                    m_IsDragging = false;
+                    m_OriginalDraggedScale = Vector3.zero;
+                    return;
                 }
 
-                // Chạy animation nhảy được cấu hình
-                Move moveScript = m_DraggedObject.GetComponent<Move>();
-                if (moveScript != null)
-                {
-                    moveScript.PlayDance(0.15f);
-                }
-
-                // Phát nhạc nhạc cụ khi Cast được thả ra thế giới Non-AR
-                CastAudioData castAudio = m_DraggedObject.GetComponent<CastAudioData>();
-                if (castAudio != null)
-                {
-                    castAudio.PlayAudio();
-                    Debug.Log($"[TapToPlacePrefabNonAR] Đã kích hoạt phát nhạc cho: {m_DraggedObject.name} (audioId: {castAudio.audioId})");
-                }
             }
 
             m_DraggedObject = null;
+            m_DraggedMove = null;
+            m_DraggedAudio = null;
+            m_DraggedPlacementState = null;
             m_IsDragging = false;
             m_OriginalDraggedScale = Vector3.zero;
         }
@@ -238,7 +255,7 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
         float distance = m_SpawnDistance > 0 ? m_SpawnDistance : 5f;
         Vector3 spawnPosition = m_MainCamera.ScreenToWorldPoint(new Vector3(pointerPos.x, pointerPos.y, distance));
         
-        BandARSpawner spawner = FindFirstObjectByType<BandARSpawner>();
+        BandARSpawner spawner = GetBandSpawner();
         Vector3 targetScale = m_OriginalDraggedScale != Vector3.zero ? m_OriginalDraggedScale : (spawner != null ? spawner.PedestalLocalScale : new Vector3(0.02f, 0.02f, 0.02f));
         
         Quaternion targetRot = Quaternion.identity;
@@ -256,6 +273,47 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
         m_DraggedObject.transform.position = spawnPosition;
         m_DraggedObject.transform.rotation = targetRot;
         m_DraggedObject.transform.localScale = targetScale;
+    }
+
+    private BandARSpawner GetBandSpawner()
+    {
+        if (m_BandSpawner == null)
+        {
+            m_BandSpawner = FindFirstObjectByType<BandARSpawner>();
+        }
+        return m_BandSpawner;
+    }
+
+    private IEnumerator CompleteDropNextFrame(GameObject droppedObject, Move moveScript, CastAudioData castAudio)
+    {
+        yield return null;
+
+        if (droppedObject == null)
+        {
+            yield break;
+        }
+
+        if (CharacterManager.Instance != null && CharacterManager.Instance.SelectedCharacter == droppedObject)
+        {
+            CharacterManager.Instance.SelectCharacter(droppedObject);
+        }
+
+        if (moveScript != null)
+        {
+            moveScript.PlayDance(0.15f);
+        }
+
+        if (castAudio != null)
+        {
+            castAudio.PlayAudio();
+        }
+
+        yield return null;
+
+        if (droppedObject != null)
+        {
+            GetBandSpawner()?.CheckAndLimitCasts();
+        }
     }
 
     private Vector2 GetPointerPosition()

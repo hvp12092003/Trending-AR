@@ -74,11 +74,15 @@ public class CastAudioData : MonoBehaviour
                     refTime < preparedSource.clip.length)
                 {
                     preparedSource.time = refTime;
+#if UNITY_EDITOR
                     Debug.Log($"[CastAudioData] ({gameObject.name}) Sync tức thì → t={refTime:F3}s");
+#endif
                 }
             }
 
+#if UNITY_EDITOR
             Debug.Log($"[CastAudioData] ({gameObject.name}) Đã phát nhạc: {audioId}");
+#endif
         }
     }
 

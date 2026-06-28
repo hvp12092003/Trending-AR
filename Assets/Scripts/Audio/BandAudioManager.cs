@@ -66,7 +66,7 @@ public class BandAudioManager : MonoBehaviour
         foreach (var cast in m_RegisteredCasts)
         {
             if (cast == null || cast.preparedSource == null) continue;
-            if (cast.transform.parent == null &&
+            if (IsCastPlaced(cast) &&
                 cast.preparedSource.isPlaying &&
                 cast.preparedSource.time > 0.05f)
             {
@@ -204,7 +204,7 @@ public class BandAudioManager : MonoBehaviour
         {
             if (cast.preparedSource == null) continue;
 
-            if (cast.transform.parent == null)
+            if (IsCastPlaced(cast))
                 m_PlacedCasts.Add(cast);
             else
                 m_UnplacedCasts.Add(cast);
@@ -415,6 +415,19 @@ public class BandAudioManager : MonoBehaviour
         }
 
         Debug.Log($"[BandAudioManager] Đã thông báo {count} ModelLoopEffects → isFullBand={isFullBand}");
+    }
+
+    private bool IsCastPlaced(CastAudioData cast)
+    {
+        if (cast == null) return false;
+
+        CastPlacementState placementState = cast.GetComponent<CastPlacementState>();
+        if (placementState != null)
+        {
+            return placementState.IsPlaced;
+        }
+
+        return cast.transform.parent == null;
     }
 
     private void OnDestroy()

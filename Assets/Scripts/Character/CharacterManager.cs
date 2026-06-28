@@ -92,7 +92,9 @@ public class CharacterManager : MonoBehaviour
         m_SelectedCharacter = null;
         if (m_ActiveIndicator != null)
         {
-            Destroy(m_ActiveIndicator);
+            m_ActiveIndicator.transform.DOKill();
+            m_ActiveIndicator.SetActive(false);
+            m_ActiveIndicator.transform.SetParent(transform, false);
         }
 
         // Kích hoạt sự kiện với tham số null
@@ -164,19 +166,31 @@ public class CharacterManager : MonoBehaviour
 
         if (m_ActiveIndicator != null)
         {
-            Destroy(m_ActiveIndicator);
+            m_ActiveIndicator.transform.DOKill();
+        }
+        else
+        {
+            m_ActiveIndicator = Instantiate(m_SelectionIndicatorPrefab);
         }
 
-        // Tạo vòng chỉ báo và gán làm con của nhân vật để nó di chuyển theo
-        m_ActiveIndicator = Instantiate(m_SelectionIndicatorPrefab, m_SelectedCharacter.transform);
-        m_ActiveIndicator.transform.localPosition = m_IndicatorLocalPosition; // Đặt đúng dưới chân nhân vật
-        m_ActiveIndicator.transform.localRotation = Quaternion.Euler(m_IndicatorLocalRotation); // Xoay nằm ngang
-        m_ActiveIndicator.SetActive(true);
+        bool alreadyAttached = m_ActiveIndicator.transform.parent == m_SelectedCharacter.transform &&
+                               m_ActiveIndicator.activeSelf;
+
+        // Reuse one indicator instance and re-parent it to the selected character.
+        m_ActiveIndicator.transform.SetParent(m_SelectedCharacter.transform, false);
+        m_ActiveIndicator.transform.localPosition = m_IndicatorLocalPosition;
+        m_ActiveIndicator.transform.localRotation = Quaternion.Euler(m_IndicatorLocalRotation);
+
+        if (alreadyAttached)
+        {
+            m_ActiveIndicator.transform.localScale = m_IndicatorLocalScale;
+            return;
+        }
 
         // Hoạt ảnh xuất hiện vòng tròn chọn dùng DOTween
         Vector3 targetScale = m_IndicatorLocalScale;
+        m_ActiveIndicator.SetActive(true);
         m_ActiveIndicator.transform.localScale = Vector3.zero;
-        m_ActiveIndicator.transform.DOKill();
         m_ActiveIndicator.transform.DOScale(targetScale, 0.3f).SetEase(Ease.OutBack);
 
         // Tự động ẩn indicator sau m_AutoHideDelay giây
@@ -234,6 +248,12 @@ public class CharacterManager : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (m_ActiveIndicator != null)
+        {
+            m_ActiveIndicator.transform.DOKill();
+            Destroy(m_ActiveIndicator);
+        }
+
         if (Instance == this)
         {
             Instance = null;
