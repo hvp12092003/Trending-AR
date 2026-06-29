@@ -33,14 +33,18 @@ public class PopupCastButton : MonoBehaviour
     [SerializeField] private Button deleteButton;
 
     public CharacterData Character { get; private set; }
+    public int SlotNumber { get; private set; }
     
     // Sự kiện khi nhân vật bị xóa thành công
     public event Action OnDeleted;
 
     // Sự kiện thông báo khi nút này chuyển sang chế độ xóa
     public event Action<PopupCastButton> OnDeleteModeEntered;
+    public event Action<PopupCastButton> OnUnlockRequested;
 
     private bool _isDeleteMode = false;
+    private bool _isLockedSlot = false;
+    private bool _canRequestUnlock = false;
     public bool IsDeleteMode => _isDeleteMode;
 
     private void Awake()
@@ -72,6 +76,8 @@ public class PopupCastButton : MonoBehaviour
     public void Setup(CharacterData charData, Sprite avatarSprite, Sprite instrumentSprite)
     {
         Character = charData;
+        _isLockedSlot = false;
+        _canRequestUnlock = false;
         SetDeleteMode(false);
 
         bool hasCharacter = charData != null;
@@ -105,8 +111,52 @@ public class PopupCastButton : MonoBehaviour
         }
     }
 
+    public void SetupLocked(int slotNumber, bool canRequestUnlock)
+    {
+        Character = null;
+        SlotNumber = slotNumber;
+        _isLockedSlot = true;
+        _canRequestUnlock = canRequestUnlock;
+        SetDeleteMode(false);
+
+        if (mainButton != null)
+        {
+            mainButton.interactable = canRequestUnlock;
+        }
+
+        if (emptySlotImage != null)
+        {
+            emptySlotImage.gameObject.SetActive(true);
+        }
+
+        if (nameText != null)
+        {
+            nameText.text = canRequestUnlock ? $"Slot {slotNumber}\nWatch AD" : $"Slot {slotNumber}\nLocked";
+            nameText.gameObject.SetActive(true);
+        }
+
+        if (avatarImage != null)
+        {
+            avatarImage.gameObject.SetActive(false);
+        }
+
+        if (instrumentImage != null)
+        {
+            instrumentImage.gameObject.SetActive(false);
+        }
+    }
+
     private void OnMainButtonClicked()
     {
+        if (_isLockedSlot)
+        {
+            if (_canRequestUnlock)
+            {
+                OnUnlockRequested?.Invoke(this);
+            }
+            return;
+        }
+
         if (Character == null) return;
         
         bool nextState = !_isDeleteMode;

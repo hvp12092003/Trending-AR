@@ -333,13 +333,13 @@ public class BandARSpawner : MonoBehaviour
 
         if (m_SpawnerMode == SpawnerMode.Custom)
         {
-            // Trong chế độ Custom, lấy từ danh sách nhân vật đã tạo trong MainMenuDataManager (tối đa 7 nhân vật)
+            // Trong che do Custom, lay tu danh sach nhan vat da tao theo gioi han slot hien tai.
             if (MainMenuDataManager.Instance != null)
             {
                 var createdCharacters = await MainMenuDataManager.Instance.GetCreatedCharactersAsync();
                 if (createdCharacters != null && createdCharacters.Count > 0)
                 {
-                    int count = Mathf.Min(createdCharacters.Count, 7);
+                    int count = Mathf.Min(createdCharacters.Count, CastSlotUnlockManager.MaxSlotCount);
                     for (int i = 0; i < count; i++)
                     {
                         var charData = createdCharacters[i];
@@ -451,6 +451,179 @@ public class BandARSpawner : MonoBehaviour
                 StopCoroutine(_placementLimitCoroutine);
             }
             _placementLimitCoroutine = StartCoroutine(HandlePlacementLimitReached());
+        }
+        else if (placedCount < 4)
+        {
+            RearrangeUnplacedCasts();
+        }
+
+        UpdateARUI();
+    }
+
+    /// <summary>
+    /// Trả một thành viên từ thế giới AR quay trở lại bệ đứng/container.
+    /// </summary>
+    public void ReturnMemberToPedestal(GameObject member)
+    {
+        if (member == null) return;
+
+        // 1. Dừng phát âm thanh nhạc cụ
+        CastAudioData castAudio = member.GetComponent<CastAudioData>();
+        if (castAudio != null)
+        {
+            castAudio.StopAudio();
+        }
+
+        // 2. Đặt lại trạng thái chưa đặt vào thế giới AR
+        CastPlacementState placementState = member.GetComponent<CastPlacementState>();
+        if (placementState != null)
+        {
+            placementState.MarkUnplaced();
+        }
+
+        // 3. Dừng di chuyển và đưa nhân vật về trạng thái Idle
+        Move moveScript = member.GetComponent<Move>();
+        if (moveScript != null)
+        {
+            moveScript.Stop();
+        }
+
+        // 4. Cho phép kích hoạt rung haptic trở lại khi người dùng đạt đủ 4 Cast
+        _didVibrateForFourPlacedCasts = false;
+
+        // 5. Bật hiển thị các bệ đứng trở lại nếu đang bị ẩn
+        if (pedestals != null && pedestals.Count > 0)
+        {
+            GameObject pedestalParent = null;
+            if (pedestals[0] != null && pedestals[0].transform.parent != null)
+            {
+                pedestalParent = pedestals[0].transform.parent.gameObject;
+            }
+            if (pedestalParent != null)
+            {
+                pedestalParent.SetActive(true);
+            }
+        }
+
+        if (m_FollowContainer != null)
+        {
+            m_FollowContainer.gameObject.SetActive(true);
+        }
+
+        // 6. Xếp dồn nhân vật về bệ đứng trống đầu tiên
+        RearrangeUnplacedCasts();
+
+        Debug.Log($"[BandARSpawner] Trả nhân vật {member.name} quay về bệ đứng thành công.");
+        UpdateARUI();
+    }
+
+    /// <summary>
+    /// Dồn (snap) các Cast chưa đặt lên các bệ đầu tiên và ẩn các bệ trống ở sau, cập nhật giới hạn cuộn.
+    /// </summary>
+    public void RearrangeUnplacedCasts()
+    {
+        if (pedestals == null || pedestals.Count == 0) return;
+
+        // Bật parent container và follow container nếu đang bị ẩn
+        if (pedestals[0] != null && pedestals[0].transform.parent != null)
+        {
+            pedestals[0].transform.parent.gameObject.SetActive(true);
+        }
+        if (m_FollowContainer != null)
+        {
+            m_FollowContainer.gameObject.SetActive(true);
+        }
+
+        // 1. Thu thập tất cả các Cast chưa được đặt ra thế giới
+        List<GameObject> unplacedMembers = new List<GameObject>();
+        foreach (var member in _spawnedMembers)
+        {
+            if (member == null) continue;
+            CastPlacementState placementState = member.GetComponent<CastPlacementState>();
+            bool isPlaced = placementState != null ? placementState.IsPlaced : member.transform.parent == null;
+            if (!isPlaced)
+            {
+                unplacedMembers.Add(member);
+            }
+        }
+
+        // 2. Dồn các Cast chưa đặt lên các bệ đứng đầu tiên
+        int targetIndex = 0;
+        for (int i = 0; i < unplacedMembers.Count; i++)
+        {
+            GameObject member = unplacedMembers[i];
+            if (member == null) continue;
+
+            while (targetIndex < pedestals.Count && pedestals[targetIndex] == null)
+            {
+                targetIndex++;
+            }
+
+            if (targetIndex >= pedestals.Count)
+            {
+                member.SetActive(false);
+                continue;
+            }
+
+            GameObject pedestal = pedestals[targetIndex];
+
+            // Gán lại cha là bệ đứng mục tiêu
+            member.transform.SetParent(pedestal.transform, true);
+
+            // Chạy Tween di chuyển và xoay mượt mà về bệ đứng mới
+            member.transform.DOKill();
+            member.transform.DOLocalMove(pedestalLocalPosition, 0.35f).SetEase(Ease.OutQuad);
+            member.transform.DOLocalRotate(pedestalLocalRotation, 0.35f).SetEase(Ease.OutQuad);
+            member.transform.DOScale(pedestalLocalScale, 0.35f).SetEase(Ease.OutQuad);
+
+            // Bật hiển thị bệ đứng và khôi phục scale gốc của bệ
+            pedestal.SetActive(true);
+            Vector3 originalScale = GetOriginalPedestalScale(pedestal);
+            pedestal.transform.localScale = originalScale;
+
+            targetIndex++;
+        }
+
+        // 3. Ẩn tất cả các bệ đứng trống còn lại ở phía sau
+        for (int j = targetIndex; j < pedestals.Count; j++)
+        {
+            if (pedestals[j] != null)
+            {
+                pedestals[j].SetActive(false);
+            }
+        }
+
+        // 4. Cập nhật lại giới hạn cuộn dựa trên số lượng bệ hoạt động
+        PedestalsScroller scroller = FindFirstObjectByType<PedestalsScroller>();
+        if (scroller == null)
+        {
+            scroller = pedestalsScroller;
+        }
+        if (scroller == null)
+        {
+            GameObject scrollerObj = GameObject.Find("Pedestals_ScrollContainer");
+            if (scrollerObj != null)
+            {
+                scroller = scrollerObj.GetComponent<PedestalsScroller>();
+            }
+        }
+
+        if (scroller != null)
+        {
+            // Cập nhật lại giới hạn cuộn cố định dựa trên số lượng bệ hoạt động
+            int activeCount = unplacedMembers.Count;
+            float newMinX = scroller.FixedMaxX; // Mặc định khi chỉ có 1 hoặc 0 bệ thì không cho cuộn trái (min = max)
+            if (activeCount > 1)
+            {
+                float spacing = 1.0f;
+                if (pedestals.Count > 1 && pedestals[0] != null && pedestals[1] != null)
+                {
+                    spacing = Mathf.Abs(pedestals[1].transform.localPosition.x - pedestals[0].transform.localPosition.x);
+                }
+                newMinX = scroller.FixedMaxX - (activeCount - 1) * spacing;
+            }
+            scroller.FixedMinX = newMinX;
+            scroller.CalculateScrollLimits();
         }
     }
 
@@ -1387,6 +1560,7 @@ public class BandARSpawner : MonoBehaviour
         if (pedestalsScroller != null)
         {
             pedestalsScroller.gameObject.SetActive(true);
+            pedestalsScroller.ResetUseFixedLimits();
             pedestalsScroller.CalculateScrollLimits();
         }
         else
@@ -1397,7 +1571,11 @@ public class BandARSpawner : MonoBehaviour
             {
                 scrollerObj.SetActive(true);
                 PedestalsScroller sc = scrollerObj.GetComponent<PedestalsScroller>();
-                if (sc != null) sc.CalculateScrollLimits();
+                if (sc != null)
+                {
+                    sc.ResetUseFixedLimits();
+                    sc.CalculateScrollLimits();
+                }
             }
         }
 
@@ -1648,7 +1826,22 @@ public class BandARSpawner : MonoBehaviour
 
     public void SetPedestalsAndUnplacedCastsActive(bool active, bool useTransition, float duration)
     {
-        // 1. Điều khiển các bệ đứng
+        // 1. Điều khiển trạng thái hoạt động của các Cast chưa được đặt ra AR trực tiếp
+        if (_spawnedMembers != null)
+        {
+            foreach (var member in _spawnedMembers)
+            {
+                if (member == null) continue;
+                CastPlacementState placementState = member.GetComponent<CastPlacementState>();
+                bool isPlaced = placementState != null ? placementState.IsPlaced : member.transform.parent == null;
+                if (!isPlaced)
+                {
+                    member.SetActive(active);
+                }
+            }
+        }
+
+        // 2. Điều khiển các bệ đứng
         if (pedestals != null && pedestals.Count > 0)
         {
             // Lấy parent container của bệ đứng để bật/tắt cùng
@@ -1713,12 +1906,12 @@ public class BandARSpawner : MonoBehaviour
                     if (pedestal == null) continue;
                     pedestal.transform.DOKill();
 
-                    // Kiểm tra xem bệ đứng này có chứa nhân vật chưa kéo ra hay không
+                    // Kiểm tra xem bệ đứng này có chứa nhân vật chưa kéo ra hay không (dùng activeSelf vì có thể bệ cha đang bị ẩn)
                     bool hasCastInside = false;
                     for (int i = 0; i < pedestal.transform.childCount; i++)
                     {
                         Transform child = pedestal.transform.GetChild(i);
-                        if (child.gameObject.activeInHierarchy && child.GetComponent<Move>() != null)
+                        if (child.gameObject.activeSelf && child.GetComponent<Move>() != null)
                         {
                             hasCastInside = true;
                             break;
@@ -1784,6 +1977,39 @@ public class BandARSpawner : MonoBehaviour
                     m_FollowContainer.localScale = Vector3.one;
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Tìm kiếm UI controller đang hoạt động và cập nhật trạng thái UI AR dựa vào việc có nhân vật nào được đặt hay chưa.
+    /// </summary>
+    public void UpdateARUI()
+    {
+        int placedCount = CountPlacedMembers();
+        bool hasPlaced = placedCount > 0;
+
+        // Tìm BandPanelController
+        BandPanelController bandPanel = null;
+#if UNITY_2023_1_OR_NEWER
+        bandPanel = FindAnyObjectByType<BandPanelController>();
+#else
+        bandPanel = FindObjectOfType<BandPanelController>();
+#endif
+        if (bandPanel != null)
+        {
+            bandPanel.UpdateARUIBasedOnPlacement(hasPlaced);
+        }
+
+        // Tìm CustomCharacterPanelController
+        CustomCharacterPanelController customPanel = null;
+#if UNITY_2023_1_OR_NEWER
+        customPanel = FindAnyObjectByType<CustomCharacterPanelController>();
+#else
+        customPanel = FindObjectOfType<CustomCharacterPanelController>();
+#endif
+        if (customPanel != null)
+        {
+            customPanel.UpdateARUIBasedOnPlacement(hasPlaced);
         }
     }
 

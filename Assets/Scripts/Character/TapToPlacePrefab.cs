@@ -87,6 +87,12 @@ public class TapToPlacePrefab : MonoBehaviour
     [Tooltip("Tỉ lệ scale của nhân vật khi được kéo ra đặt vào AR.")]
     private Vector3 m_PlacedScale = new Vector3(0.5f, 0.5f, 0.5f);
 
+
+
+    private bool m_IsDraggingPlacedObject = false;
+    private float m_DragDistance = 0f;
+    private Vector3 m_DragOffset = Vector3.zero;
+
     private GameObject m_DraggedObject;
     private bool m_IsDragging = false;
     private Vector3 m_OriginalDraggedScale = Vector3.zero;
@@ -125,6 +131,14 @@ public class TapToPlacePrefab : MonoBehaviour
         // Tìm kiếm Joystick
         m_Joystick = FindFirstObjectByType<Joystick>();
         m_BandSpawner = FindFirstObjectByType<BandARSpawner>();
+    }
+
+    private void Start()
+    {
+        if (DeleteAreaUI.Instance == null)
+        {
+            DeleteAreaUI.Instance = FindFirstObjectByType<DeleteAreaUI>(FindObjectsInactive.Include);
+        }
     }
 
     private void Update()
@@ -173,6 +187,11 @@ public class TapToPlacePrefab : MonoBehaviour
                                 m_DraggedPlacementState = m_DraggedObject.GetComponent<CastPlacementState>();
                                 m_IsDragging = true;
 
+                                if (DeleteAreaUI.Instance != null)
+                                {
+                                    DeleteAreaUI.Instance.Show();
+                                }
+
                                 // Chọn nhân vật làm active
                                 if (CharacterManager.Instance != null)
                                 {
@@ -188,10 +207,38 @@ public class TapToPlacePrefab : MonoBehaviour
                             }
                             else
                             {
-                                // Chọn nhân vật làm active khi nhấp chuột/chạm tay vào nhân vật đã đặt trong AR
-                                if (CharacterManager.Instance != null)
+                                // Nhân vật đã được đặt trước đó (hoặc không ở trên bệ)
+                                if (IsARUIDisplayedNormally())
                                 {
-                                    CharacterManager.Instance.SelectCharacter(characterMove.gameObject);
+                                    m_DraggedObject = characterMove.gameObject;
+                                    m_DraggedMove = characterMove;
+                                    m_DraggedAudio = m_DraggedObject.GetComponent<CastAudioData>();
+                                    m_DraggedPlacementState = m_DraggedObject.GetComponent<CastPlacementState>();
+                                    m_IsDragging = true;
+                                    m_IsDraggingPlacedObject = true;
+
+                                    if (DeleteAreaUI.Instance != null)
+                                    {
+                                        DeleteAreaUI.Instance.Show();
+                                    }
+
+                                    m_OriginalDraggedScale = m_DraggedObject.transform.localScale;
+                                    m_DragDistance = Vector3.Distance(m_MainCamera.transform.position, m_DraggedObject.transform.position);
+                                    Vector3 initialSpawnPos = m_MainCamera.ScreenToWorldPoint(new Vector3(pointerPos.x, pointerPos.y, m_DragDistance));
+                                    m_DragOffset = m_DraggedObject.transform.position - initialSpawnPos;
+
+                                    if (CharacterManager.Instance != null)
+                                    {
+                                        CharacterManager.Instance.SelectCharacter(m_DraggedObject);
+                                    }
+                                }
+                                else
+                                {
+                                    // Chọn nhân vật làm active khi nhấp chuột/chạm tay vào nhân vật đã đặt trong AR
+                                    if (CharacterManager.Instance != null)
+                                    {
+                                        CharacterManager.Instance.SelectCharacter(characterMove.gameObject);
+                                    }
                                 }
                             }
                         }
@@ -204,6 +251,10 @@ public class TapToPlacePrefab : MonoBehaviour
         if (m_IsDragging && m_DraggedObject != null)
         {
             UpdateDragPosition(pointerPos);
+            if (DeleteAreaUI.Instance != null)
+            {
+                DeleteAreaUI.Instance.UpdateHoverState(pointerPos);
+            }
         }
 
         // 3. Khi thả tay ra (Touch/Mouse Up)
@@ -215,49 +266,59 @@ public class TapToPlacePrefab : MonoBehaviour
                 Move droppedMove = m_DraggedMove;
                 CastAudioData droppedAudio = m_DraggedAudio;
                 CastPlacementState droppedPlacementState = m_DraggedPlacementState;
+                bool isPlacedObject = m_IsDraggingPlacedObject;
 
                 UpdateDragPosition(pointerPos);
 
-                Vector3 currentPos = m_DraggedObject.transform.position;
-
-                // Dùng chính vị trí tay thả làm điểm đáp xuống
-                // (không snap về mặt đất để mỗi Cast có thể đặt ở độ cao / góc màn hình khác nhau)
-                Vector3 finalPos = currentPos;
-
-                // Điểm bắt đầu rơi: nâng lên trên một chút để tạo hiệu ứng rơi từ trên xuống
-                Vector3 startPos = finalPos;
-                startPos.y += m_MinDropHeight;
-
-                // Hủy hẳn parent để cố định nhân vật trong thế giới AR
-                m_DraggedObject.transform.SetParent(null);
-                m_DraggedObject.transform.position = startPos;
-
-                if (droppedPlacementState != null)
+                if (DeleteAreaUI.Instance != null && DeleteAreaUI.Instance.IsPointerInsideDeleteArea(pointerPos))
                 {
-                    droppedPlacementState.MarkPlaced();
+                    // Trả nhân vật về bệ đỡ
+                    BandARSpawner spawner = GetBandSpawner();
+                    if (spawner != null)
+                    {
+                        spawner.ReturnMemberToPedestal(droppedObject);
+                    }
                 }
-
-                // Thực hiện hiệu ứng rơi tự do có nảy nhẹ bằng DOTween
-                m_DraggedObject.transform.DOKill();
-                m_DraggedObject.transform.DOMove(finalPos, m_DropDuration).SetEase(Ease.OutBounce);
-
-                bool deferPostDropWork = droppedObject != null;
-                if (deferPostDropWork)
+                else
                 {
+                    Vector3 currentPos = m_DraggedObject.transform.position;
+
+                    // Dùng chính vị trí tay thả làm điểm đáp xuống
+                    // (không snap về mặt đất để mỗi Cast có thể đặt ở độ cao / góc màn hình khác nhau)
+                    Vector3 finalPos = currentPos;
+
+                    // Điểm bắt đầu rơi: nâng lên trên một chút để tạo hiệu ứng rơi từ trên xuống
+                    Vector3 startPos = finalPos;
+                    startPos.y += m_MinDropHeight;
+
+                    // Hủy hẳn parent để cố định nhân vật trong thế giới AR
+                    m_DraggedObject.transform.SetParent(null);
+                    m_DraggedObject.transform.position = startPos;
+
+                    if (!isPlacedObject && droppedPlacementState != null)
+                    {
+                        droppedPlacementState.MarkPlaced();
+                    }
+
+                    // Thực hiện hiệu ứng rơi tự do có nảy nhẹ bằng DOTween
+                    m_DraggedObject.transform.DOKill();
+                    m_DraggedObject.transform.DOMove(finalPos, m_DropDuration).SetEase(Ease.OutBounce);
+
+                    if (isPlacedObject)
+                    {
 #if UNITY_EDITOR
-                    Debug.Log($"[TapToPlacePrefab] Đã thả và kích hoạt hiệu ứng rơi cho nhân vật: {droppedObject.name}");
+                        Debug.Log($"[TapToPlacePrefab] Đã thả và kích hoạt hiệu ứng rơi cho nhân vật cũ: {droppedObject.name}");
 #endif
-                    StartCoroutine(CompleteDropNextFrame(droppedObject, droppedMove, droppedAudio));
-
-                    m_DraggedObject = null;
-                    m_DraggedMove = null;
-                    m_DraggedAudio = null;
-                    m_DraggedPlacementState = null;
-                    m_IsDragging = false;
-                    m_OriginalDraggedScale = Vector3.zero;
-                    return;
+                        StartCoroutine(CompleteDropPlacedObjectNextFrame(droppedObject, droppedMove));
+                    }
+                    else
+                    {
+#if UNITY_EDITOR
+                        Debug.Log($"[TapToPlacePrefab] Đã thả và kích hoạt hiệu ứng rơi cho nhân vật mới: {droppedObject.name}");
+#endif
+                        StartCoroutine(CompleteDropNextFrame(droppedObject, droppedMove, droppedAudio));
+                    }
                 }
-
             }
 
             m_DraggedObject = null;
@@ -265,7 +326,13 @@ public class TapToPlacePrefab : MonoBehaviour
             m_DraggedAudio = null;
             m_DraggedPlacementState = null;
             m_IsDragging = false;
+            m_IsDraggingPlacedObject = false;
             m_OriginalDraggedScale = Vector3.zero;
+
+            if (DeleteAreaUI.Instance != null)
+            {
+                DeleteAreaUI.Instance.Hide();
+            }
         }
     }
 
@@ -273,9 +340,30 @@ public class TapToPlacePrefab : MonoBehaviour
     {
         if (m_DraggedObject == null || m_MainCamera == null) return;
 
-        bool placedOnPlane = false;
-
         Vector3 targetScale = m_OriginalDraggedScale != Vector3.zero ? m_OriginalDraggedScale : m_PlacedScale;
+
+        if (m_IsDraggingPlacedObject)
+        {
+            Vector3 targetPos = m_MainCamera.ScreenToWorldPoint(new Vector3(pointerPos.x, pointerPos.y, m_DragDistance)) + m_DragOffset;
+            Quaternion targetRot = m_DraggedObject.transform.rotation;
+
+            if (m_RotateTowardsCamera)
+            {
+                Vector3 dirToCam = m_MainCamera.transform.position - targetPos;
+                dirToCam.y = 0;
+                if (dirToCam != Vector3.zero)
+                {
+                    targetRot = Quaternion.LookRotation(dirToCam);
+                }
+            }
+
+            m_DraggedObject.transform.position = targetPos;
+            m_DraggedObject.transform.rotation = targetRot;
+            m_DraggedObject.transform.localScale = targetScale;
+            return;
+        }
+
+        bool placedOnPlane = false;
 
         // Bắn Raycast xuống Plane nếu không ở chế độ giả lập
         if (!m_UseFallbackMode && m_RaycastManager != null)
@@ -491,6 +579,43 @@ public class TapToPlacePrefab : MonoBehaviour
 
         EventSystem.current.RaycastAll(m_PointerEventData, m_RaycastResultsCache);
         return m_RaycastResultsCache.Count > 0;
+    }
+
+    private IEnumerator CompleteDropPlacedObjectNextFrame(GameObject droppedObject, Move moveScript)
+    {
+        yield return null;
+
+        if (droppedObject == null)
+        {
+            yield break;
+        }
+
+        if (CharacterManager.Instance != null && CharacterManager.Instance.SelectedCharacter == droppedObject)
+        {
+            CharacterManager.Instance.SelectCharacter(droppedObject);
+        }
+
+        if (moveScript != null)
+        {
+            moveScript.PlayDance(0.15f);
+        }
+    }
+
+    private bool IsARUIDisplayedNormally()
+    {
+        var bandPanel = FindFirstObjectByType<BandPanelController>();
+        if (bandPanel != null)
+        {
+            return bandPanel.IsArUiActive && !bandPanel.IsUiHidden;
+        }
+
+        var customPanel = FindFirstObjectByType<CustomCharacterPanelController>();
+        if (customPanel != null)
+        {
+            return customPanel.IsArUiActive && !customPanel.IsUiHidden;
+        }
+
+        return true; // Fallback
     }
 }
 

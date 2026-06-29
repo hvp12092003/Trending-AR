@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "Trending-AR.slnx"
+    "dotnet.defaultSolution": "Trending AR.slnx"
 }

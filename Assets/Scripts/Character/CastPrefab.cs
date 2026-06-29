@@ -9,8 +9,6 @@ public class CastPrefab : MonoBehaviour
     [Tooltip("Tên của nhân vật (Cast Name)")]
     public string Name;
 
-    [Tooltip("Phân loại nhân vật, hiển thị dòng nhỏ bên dưới tên (ví dụ: Reaction, Comedy, Beat)")]
-    public string Category;
 
     [Tooltip("Ảnh đại diện 2D của nhân vật")]
     public Sprite characterAvatar;

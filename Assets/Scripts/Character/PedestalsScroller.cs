@@ -35,11 +35,42 @@ public class PedestalsScroller : MonoBehaviour
     private Vector2 _lastPointerPos;
 
     private Camera _mainCamera;
+    private Joystick _joystick;
+    private bool _originalUseFixedLimits;
+    private float _originalFixedMinX;
+    private float _originalFixedMaxX;
+
+    public float FixedMinX
+    {
+        get => fixedMinX;
+        set => fixedMinX = value;
+    }
+
+    public float FixedMaxX
+    {
+        get => fixedMaxX;
+        set => fixedMaxX = value;
+    }
 
     private void Awake()
     {
         _initialLocalX = transform.localPosition.x;
         _targetLocalX = _initialLocalX;
+        _originalUseFixedLimits = useFixedLimits;
+        _originalFixedMinX = fixedMinX;
+        _originalFixedMaxX = fixedMaxX;
+    }
+
+    public void SetUseFixedLimits(bool use)
+    {
+        useFixedLimits = use;
+    }
+
+    public void ResetUseFixedLimits()
+    {
+        useFixedLimits = _originalUseFixedLimits;
+        fixedMinX = _originalFixedMinX;
+        fixedMaxX = _originalFixedMaxX;
     }
 
     private void Start()
@@ -63,33 +94,38 @@ public class PedestalsScroller : MonoBehaviour
         {
             _minLocalX = fixedMinX;
             _maxLocalX = fixedMaxX;
-            Debug.Log($"[PedestalsScroller] Đang sử dụng giới hạn cố định: Min X = {_minLocalX}, Max X = {_maxLocalX}");
-            return;
         }
-
-        // Ngược lại, tự động tính toán dựa trên các bệ đứng active thực tế
-        var children = new System.Collections.Generic.List<Transform>();
-        for (int i = 0; i < transform.childCount; i++)
+        else
         {
-            Transform child = transform.GetChild(i);
-            if (child.gameObject.activeSelf)
+            // Ngược lại, tự động tính toán dựa trên các bệ đứng active thực tế
+            var children = new System.Collections.Generic.List<Transform>();
+            for (int i = 0; i < transform.childCount; i++)
             {
-                children.Add(child);
+                Transform child = transform.GetChild(i);
+                if (child.gameObject.activeSelf)
+                {
+                    children.Add(child);
+                }
             }
-        }
 
-        if (children.Count > 0)
-        {
-            children.Sort((a, b) => a.localPosition.x.CompareTo(b.localPosition.x));
-
-            float minChildX = children[0].localPosition.x;
-            float maxChildX = children[children.Count - 1].localPosition.x;
-            float width = maxChildX - minChildX;
-
-            if (width > 0.01f)
+            if (children.Count > 0)
             {
-                _minLocalX = _initialLocalX - width;
-                _maxLocalX = _initialLocalX + 0.5f;
+                children.Sort((a, b) => a.localPosition.x.CompareTo(b.localPosition.x));
+
+                float minChildX = children[0].localPosition.x;
+                float maxChildX = children[children.Count - 1].localPosition.x;
+                float width = maxChildX - minChildX;
+
+                if (width > 0.01f)
+                {
+                    _minLocalX = _initialLocalX - width;
+                    _maxLocalX = _initialLocalX + 0.5f;
+                }
+                else
+                {
+                    _minLocalX = _initialLocalX;
+                    _maxLocalX = _initialLocalX;
+                }
             }
             else
             {
@@ -97,13 +133,12 @@ public class PedestalsScroller : MonoBehaviour
                 _maxLocalX = _initialLocalX;
             }
         }
-        else
-        {
-            _minLocalX = _initialLocalX;
-            _maxLocalX = _initialLocalX;
-        }
 
-        Debug.Log($"[PedestalsScroller] Đã tự động tính toán giới hạn cuộn: Min X = {_minLocalX}, Max X = {_maxLocalX}");
+        // Bổ sung giới hạn bảo vệ tuyệt đối để ngăn kéo vô hạn
+        _minLocalX = Mathf.Max(_minLocalX, -7.0f);
+        _maxLocalX = Mathf.Min(_maxLocalX, 2.0f);
+
+        Debug.Log($"[PedestalsScroller] Giới hạn cuộn cuối cùng: Min X = {_minLocalX}, Max X = {_maxLocalX}, useFixedLimits = {useFixedLimits}");
     }
 
     private void Update()
@@ -264,8 +299,36 @@ public class PedestalsScroller : MonoBehaviour
         return Input.GetMouseButtonUp(0);
     }
 
+    private bool IsTouchOnJoystick(Vector2 screenPosition)
+    {
+        if (_joystick == null)
+        {
+            _joystick = FindFirstObjectByType<Joystick>();
+        }
+
+        if (_joystick != null && _joystick.gameObject.activeInHierarchy)
+        {
+            RectTransform rectTransform = _joystick.GetComponent<RectTransform>();
+            if (rectTransform != null)
+            {
+                Canvas canvas = _joystick.GetComponentInParent<Canvas>();
+                Camera checkCam = (canvas != null && canvas.renderMode == RenderMode.ScreenSpaceCamera) ? canvas.worldCamera : null;
+                if (RectTransformUtility.RectangleContainsScreenPoint(rectTransform, screenPosition, checkCam))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private bool IsPointerOverUI(Vector2 screenPosition)
     {
+        if (IsTouchOnJoystick(screenPosition))
+        {
+            return true;
+        }
+
         if (EventSystem.current == null) return false;
 
         PointerEventData eventData = new PointerEventData(EventSystem.current);

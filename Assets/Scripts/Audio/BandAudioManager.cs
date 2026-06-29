@@ -49,6 +49,10 @@ public class BandAudioManager : MonoBehaviour
     private readonly List<CastAudioData> m_PlacedCasts = new List<CastAudioData>();
     private readonly List<CastAudioData> m_UnplacedCasts = new List<CastAudioData>();
 
+    // Trạng thái cho tính năng Highlight/Solo khi ẩn UI để quay phim
+    private bool m_WasUiHidden = false;
+    private GameObject m_LastHighlightedCast = null;
+
     // ── Public API ──
 
     /// <summary>
@@ -212,152 +216,365 @@ public class BandAudioManager : MonoBehaviour
 
         int placedCount = m_PlacedCasts.Count;
 
-        // ── Logic điều phối âm thanh theo số lượng Cast đã đặt ──
+        // ── Logic điều phối âm thanh & Highlight ──
+        bool isUiHidden = IsAnyUiHidden();
+        GameObject currentSelected = (CharacterManager.Instance != null) ? CharacterManager.Instance.SelectedCharacter : null;
 
-        if (placedCount == 0)
+        // Nếu chuyển đổi trạng thái ẩn/hiện UI, tự động xóa highlight/lựa chọn hiện tại
+        if (m_WasUiHidden != isUiHidden)
         {
-            // Chưa có Cast nào: dừng tất cả
-            if (m_FullSongSource != null && m_FullSongSource.isPlaying)
+            if (CharacterManager.Instance != null)
             {
-                m_FullSongSource.Stop();
-                m_FullSongPlayingState = false;
+                CharacterManager.Instance.DeselectCharacter();
             }
-
-            foreach (var cast in m_RegisteredCasts)
-            {
-                if (cast.preparedSource != null && cast.preparedSource.isPlaying)
-                    cast.preparedSource.Pause();
-            }
-
-            if (m_WasFullBandActive)
-            {
-                NotifyAllModelLoopEffects(false);
-                m_WasFullBandActive = false;
-            }
+            currentSelected = null;
         }
-        else if (placedCount >= FULL_BAND_COUNT)
+        m_WasUiHidden = isUiHidden;
+
+        GameObject highlightedCast = null;
+        if (isUiHidden && currentSelected != null && currentSelected.GetComponent<CastAudioData>() != null)
         {
-            // ── ĐỦ 4 CAST: Phát FullSong ──
-
-            // Dừng tất cả nhạc cụ riêng lẻ
-            foreach (var cast in m_RegisteredCasts)
-            {
-                if (cast.preparedSource != null && cast.preparedSource.isPlaying)
-                {
-                    cast.preparedSource.Stop();
-                    Debug.Log($"[BandAudioManager] Dừng nhạc cụ riêng lẻ: {cast.gameObject.name}");
-                }
-            }
-
-            // Phát FullSong nếu chưa đang phát
-            if (m_FullSongSource != null)
-            {
-                if (m_FullSongClip == null)
-                {
-                    Debug.LogWarning("[BandAudioManager] Đủ 4 Cast nhưng FullSongClip chưa được gán! Kiểm tra EditorBandData.fullSongAudio.");
-                }
-                else if (!m_FullSongSource.isPlaying)
-                {
-                    m_FullSongSource.clip = m_FullSongClip;
-                    m_FullSongSource.Play();
-                    m_FullSongPlayingState = true;
-                    Debug.Log($"[BandAudioManager] Đã đặt đủ {FULL_BAND_COUNT} Cast → Bắt đầu phát FullSong: {m_FullSongClip.name}");
-                }
-            }
-
-            // Thông báo ModelLoopEffects trỏ về AudioSource FullSong (chỉ 1 lần khi chuyển trạng thái)
-            if (!m_WasFullBandActive)
-            {
-                NotifyAllModelLoopEffects(true);
-                m_WasFullBandActive = true;
-            }
+            highlightedCast = currentSelected;
         }
-        else
+
+        // Kiểm tra thay đổi trạng thái Highlight
+        if (highlightedCast != m_LastHighlightedCast)
         {
-            // ── 1-3 CAST: Phát nhạc cụ riêng lẻ ──
+            m_LastHighlightedCast = highlightedCast;
+            ApplyHighlightVisuals(highlightedCast);
+        }
 
-            // Dừng FullSong nếu đang phát
-            if (m_FullSongSource != null && m_FullSongSource.isPlaying)
-            {
-                m_FullSongSource.Stop();
-                m_FullSongPlayingState = false;
-                Debug.Log("[BandAudioManager] Chưa đủ 4 Cast → Dừng FullSong, chuyển về phát nhạc cụ riêng lẻ.");
-            }
+        // Kiểm tra xem có đang ở chế độ Custom hay không
+        bool isCustomMode = false;
+        var spawner = FindFirstObjectByType<BandARSpawner>();
+        if (spawner != null && spawner.spawnerMode == BandARSpawner.SpawnerMode.Custom)
+        {
+            isCustomMode = true;
+        }
 
-            // Reset ModelLoopEffects nếu trước đó đã là FullBand
-            if (m_WasFullBandActive)
-            {
-                NotifyAllModelLoopEffects(false);
-                m_WasFullBandActive = false;
-            }
-
-            // Dừng tiếng Cast chưa đặt
+        if (highlightedCast != null)
+        {
+            // ── CÓ CAST ĐƯỢC HIGHLIGHT (SOLO) ──
+            
+            // Dừng các Cast chưa đặt
             foreach (var cast in m_UnplacedCasts)
             {
                 if (cast.preparedSource != null && cast.preparedSource.isPlaying)
                     cast.preparedSource.Pause();
             }
 
-            // Tìm thời gian phát tham chiếu từ Cast đang phát ổn định nhất
-            float referenceTime = -1f;
-            foreach (var cast in m_PlacedCasts)
+            float refTime = -1f;
+            if (!isCustomMode && placedCount >= FULL_BAND_COUNT)
             {
-                if (cast.preparedSource != null &&
-                    cast.preparedSource.isPlaying &&
-                    cast.preparedSource.time > 0.05f)
+                // Ở chế độ Band và đủ 4 Cast: nhạc tổng FullSong vẫn chạy nhưng âm lượng bằng 0
+                if (m_FullSongSource != null)
                 {
-                    referenceTime = cast.preparedSource.time;
-                    break;
+                    if (m_FullSongClip != null && !m_FullSongSource.isPlaying)
+                    {
+                        m_FullSongSource.clip = m_FullSongClip;
+                        m_FullSongSource.Play();
+                    }
+                    m_FullSongSource.volume = 0f; // Mute bài hát tổng
+                    m_FullSongPlayingState = true;
+                    refTime = m_FullSongSource.time;
+                }
+
+                if (!m_WasFullBandActive)
+                {
+                    NotifyAllModelLoopEffects(true);
+                    m_WasFullBandActive = true;
                 }
             }
+            else
+            {
+                if (m_FullSongSource != null && m_FullSongSource.isPlaying)
+                {
+                    m_FullSongSource.Stop();
+                    m_FullSongPlayingState = false;
+                }
 
-            // Xử lý từng Cast đã đặt: phát + đồng bộ thời gian
+                if (m_WasFullBandActive)
+                {
+                    NotifyAllModelLoopEffects(false);
+                    m_WasFullBandActive = false;
+                }
+
+                refTime = GetCurrentReferenceTime();
+            }
+
+            // Phát các Cast đã đặt: Cast được highlight phát tối đa, các Cast khác âm lượng 0
             foreach (var cast in m_PlacedCasts)
             {
                 if (cast.preparedSource == null) continue;
 
                 if (!cast.preparedSource.isPlaying)
                 {
-                    // Cast chưa phát (hiếm sau khi có sync tức thì trong PlayAudio) → phát và sync
                     cast.preparedSource.Play();
-                    if (referenceTime >= 0f &&
-                        cast.preparedSource.clip != null &&
-                        cast.preparedSource.clip.loadState == AudioDataLoadState.Loaded &&
-                        referenceTime < cast.preparedSource.clip.length)
+                    if (refTime >= 0f && cast.preparedSource.clip != null && cast.preparedSource.clip.loadState == AudioDataLoadState.Loaded && refTime < cast.preparedSource.clip.length)
                     {
-                        cast.preparedSource.time = referenceTime;
-                        Debug.Log($"[BandAudioManager] Đồng bộ phát Cast '{cast.gameObject.name}' → t={referenceTime:F3}s");
+                        cast.preparedSource.time = refTime;
                     }
                 }
-                else if (referenceTime >= 0f &&
-                         cast.preparedSource.clip != null &&
-                         cast.preparedSource.clip.loadState == AudioDataLoadState.Loaded &&
-                         referenceTime < cast.preparedSource.clip.length &&
-                         Mathf.Abs(cast.preparedSource.time - referenceTime) > 0.15f)
+                else if (refTime >= 0f && cast.preparedSource.clip != null && cast.preparedSource.clip.loadState == AudioDataLoadState.Loaded && refTime < cast.preparedSource.clip.length && Mathf.Abs(cast.preparedSource.time - refTime) > 0.15f)
                 {
-                    // Drift correction: đồng bộ lại nếu lệch hơn 0.15s
-                    cast.preparedSource.time = referenceTime;
-                    Debug.Log($"[BandAudioManager] Drift correction '{cast.gameObject.name}': {cast.preparedSource.time:F3}s → {referenceTime:F3}s");
+                    cast.preparedSource.time = refTime;
                 }
 
-                // Đảm bảo không bị mute
                 cast.preparedSource.mute = false;
 
-                // Điều chỉnh âm lượng theo số Cast đang chơi chung
-                if (placedCount == 1)
+                if (cast.gameObject == highlightedCast)
                 {
-                    cast.preparedSource.volume = cast.originalVolume;
-                }
-                else if (cast.reduceVolumeWhenTogether)
-                {
-                    cast.preparedSource.volume = Mathf.Clamp01(cast.originalVolume * (1f - cast.reduceAmount));
+                    cast.preparedSource.volume = 1f; // Âm lượng tối đa cho Cast được highlight
                 }
                 else
                 {
-                    cast.preparedSource.volume = cast.originalVolume;
+                    cast.preparedSource.volume = 0f; // Tắt tiếng các Cast khác (nhưng vẫn phát để đồng bộ)
                 }
             }
         }
+        else
+        {
+            // ── KHÔNG CÓ HIGHLIGHT (TRẠNG THÁI BÌNH THƯỜNG) ──
+            if (placedCount == 0)
+            {
+                if (m_FullSongSource != null && m_FullSongSource.isPlaying)
+                {
+                    m_FullSongSource.Stop();
+                    m_FullSongPlayingState = false;
+                }
+
+                foreach (var cast in m_RegisteredCasts)
+                {
+                    if (cast.preparedSource != null && cast.preparedSource.isPlaying)
+                        cast.preparedSource.Pause();
+                }
+
+                if (m_WasFullBandActive)
+                {
+                    NotifyAllModelLoopEffects(false);
+                    m_WasFullBandActive = false;
+                }
+            }
+            else if (!isCustomMode && placedCount >= FULL_BAND_COUNT)
+            {
+                // ── Chế độ Band & Đủ 4 Cast: Phát FullSong ──
+
+                foreach (var cast in m_RegisteredCasts)
+                {
+                    if (cast.preparedSource != null && cast.preparedSource.isPlaying)
+                    {
+                        cast.preparedSource.Stop();
+                        Debug.Log($"[BandAudioManager] Dừng nhạc cụ riêng lẻ: {cast.gameObject.name}");
+                    }
+                }
+
+                if (m_FullSongSource != null)
+                {
+                    if (m_FullSongClip == null)
+                    {
+                        Debug.LogWarning("[BandAudioManager] Đủ 4 Cast nhưng FullSongClip chưa được gán! Kiểm tra EditorBandData.fullSongAudio.");
+                    }
+                    else if (!m_FullSongSource.isPlaying)
+                    {
+                        m_FullSongSource.clip = m_FullSongClip;
+                        m_FullSongSource.Play();
+                        m_FullSongPlayingState = true;
+                    }
+                    m_FullSongSource.volume = 1f; // Khôi phục âm lượng nhạc tổng
+                }
+
+                if (!m_WasFullBandActive)
+                {
+                    NotifyAllModelLoopEffects(true);
+                    m_WasFullBandActive = true;
+                }
+            }
+            else
+            {
+                // ── Chế độ Custom hoặc 1-3 Cast ở chế độ Band: Phát nhạc cụ riêng lẻ ──
+                if (m_FullSongSource != null && m_FullSongSource.isPlaying)
+                {
+                    m_FullSongSource.Stop();
+                    m_FullSongPlayingState = false;
+                }
+
+                if (m_WasFullBandActive)
+                {
+                    NotifyAllModelLoopEffects(false);
+                    m_WasFullBandActive = false;
+                }
+
+                foreach (var cast in m_UnplacedCasts)
+                {
+                    if (cast.preparedSource != null && cast.preparedSource.isPlaying)
+                        cast.preparedSource.Pause();
+                }
+
+                float referenceTime = GetCurrentReferenceTime();
+
+                foreach (var cast in m_PlacedCasts)
+                {
+                    if (cast.preparedSource == null) continue;
+
+                    if (!cast.preparedSource.isPlaying)
+                    {
+                        cast.preparedSource.Play();
+                        if (referenceTime >= 0f && cast.preparedSource.clip != null && cast.preparedSource.clip.loadState == AudioDataLoadState.Loaded && referenceTime < cast.preparedSource.clip.length)
+                        {
+                            cast.preparedSource.time = referenceTime;
+                        }
+                    }
+                    else if (referenceTime >= 0f && cast.preparedSource.clip != null && cast.preparedSource.clip.loadState == AudioDataLoadState.Loaded && referenceTime < cast.preparedSource.clip.length && Mathf.Abs(cast.preparedSource.time - referenceTime) > 0.15f)
+                    {
+                        cast.preparedSource.time = referenceTime;
+                    }
+
+                    cast.preparedSource.mute = false;
+
+                    if (isCustomMode)
+                    {
+                        // Ở chế độ Custom, phát bình thường ở âm lượng gốc của Cast
+                        cast.preparedSource.volume = cast.originalVolume;
+                    }
+                    else
+                    {
+                        // Ở chế độ Band, điều phối âm lượng khi chơi chung
+                        if (placedCount == 1)
+                        {
+                            cast.preparedSource.volume = cast.originalVolume;
+                        }
+                        else if (cast.reduceVolumeWhenTogether)
+                        {
+                            cast.preparedSource.volume = Mathf.Clamp01(cast.originalVolume * (1f - cast.reduceAmount));
+                        }
+                        else
+                        {
+                            cast.preparedSource.volume = cast.originalVolume;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private bool IsAnyUiHidden()
+    {
+        var bandPanel = FindFirstObjectByType<BandPanelController>();
+        if (bandPanel != null && bandPanel.IsUiHidden) return true;
+
+        var customPanel = FindFirstObjectByType<CustomCharacterPanelController>();
+        if (customPanel != null && customPanel.IsUiHidden) return true;
+
+        return false;
+    }
+
+    private void ApplyHighlightVisuals(GameObject highlightedCast)
+    {
+        foreach (var cast in m_RegisteredCasts)
+        {
+            if (cast == null) continue;
+
+            Move move = cast.GetComponent<Move>();
+            if (move == null) continue;
+
+            if (highlightedCast == null)
+            {
+                // Sáng bình thường và nhảy trở lại
+                SetCharacterDimmed(cast.gameObject, false);
+                move.PlayDance();
+            }
+            else if (cast.gameObject == highlightedCast)
+            {
+                // Cast được highlight: sáng bình thường, nhảy trở lại
+                SetCharacterDimmed(cast.gameObject, false);
+                move.PlayDance();
+            }
+            else
+            {
+                // Các Cast khác: làm tối đi và đưa về hoạt ảnh Idle
+                SetCharacterDimmed(cast.gameObject, true);
+                move.PlayIdle();
+            }
+        }
+    }
+
+    private void SetCharacterDimmed(GameObject character, bool dimmed)
+    {
+        if (character == null) return;
+
+        Renderer[] renderers = character.GetComponentsInChildren<Renderer>(true);
+        foreach (var renderer in renderers)
+        {
+            if (renderer == null) continue;
+
+            MaterialPropertyBlock propBlock = new MaterialPropertyBlock();
+            renderer.GetPropertyBlock(propBlock);
+
+            Color color = dimmed ? new Color(0.35f, 0.35f, 0.35f, 1f) : Color.white;
+            propBlock.SetColor("_Color", color);
+            propBlock.SetColor("_BaseColor", color);
+
+            renderer.SetPropertyBlock(propBlock);
+        }
+    }
+
+
+    /// <summary>
+    /// Reset toàn bộ âm thanh (FullSong và các Cast riêng lẻ) cùng với hoạt ảnh nhảy về 0
+    /// để bắt đầu chạy đồng bộ cùng nhau.
+    /// </summary>
+    public void ResetAllAudioAndAnimations()
+    {
+        Debug.Log("[BandAudioManager] Bắt đầu Reset toàn bộ âm thanh và hoạt ảnh về 0.");
+
+        // 1. Reset FullSong AudioSource
+        if (m_FullSongSource != null)
+        {
+            m_FullSongSource.time = 0f;
+            if (m_FullSongPlayingState && !m_FullSongSource.isPlaying)
+            {
+                m_FullSongSource.Play();
+            }
+        }
+
+        // 2. Reset tất cả AudioSource của từng Cast đã đăng ký
+        foreach (var cast in m_RegisteredCasts)
+        {
+            if (cast == null || cast.preparedSource == null) continue;
+
+            cast.preparedSource.time = 0f;
+            
+            // Nếu Cast đã được đặt và đang phát thì đảm bảo nó vẫn phát
+            if (IsCastPlaced(cast) && !cast.preparedSource.isPlaying)
+            {
+                cast.preparedSource.Play();
+            }
+        }
+
+        // 3. Reset MusicSyncManager để đồng bộ lại beat timer toàn cục
+        if (MusicSyncManager.Instance != null)
+        {
+            MusicSyncManager.Instance.ResetPlayback();
+        }
+
+        // 4. Tìm toàn bộ các đối tượng Move trong scene và reset animation về 0
+        Move[] allMoves = FindObjectsByType<Move>(FindObjectsSortMode.None);
+        foreach (var move in allMoves)
+        {
+            if (move != null)
+            {
+                // Chỉ reset các nhân vật đã được thả ra ngoài thế giới (placed)
+                CastPlacementState placementState = move.GetComponent<CastPlacementState>();
+                bool isPlaced = placementState != null ? placementState.IsPlaced : move.transform.parent == null;
+
+                if (isPlaced)
+                {
+                    move.ResetLocalDanceState();
+                }
+            }
+        }
+
+        Debug.Log("[BandAudioManager] Hoàn tất Reset toàn bộ âm thanh và hoạt ảnh.");
     }
 
     /// <summary>

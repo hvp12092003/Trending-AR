@@ -63,8 +63,7 @@ public class MainMenuPrefabCatalog : ScriptableObject
             {
                 if (!string.IsNullOrWhiteSpace(category)) return category;
 
-                CastPrefab castConfig = prefab != null ? prefab.GetComponent<CastPrefab>() : null;
-                return castConfig != null ? castConfig.Category : null;
+                return null;
             }
         }
 

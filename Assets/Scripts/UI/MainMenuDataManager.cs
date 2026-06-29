@@ -534,7 +534,77 @@ public class MainMenuDataManager : MonoBehaviour
         return list != null ? list.Count : 0;
     }
 
-    public Task<List<CharacterData>> GetCreatedCharactersAsync()
+    public int GetUnlockedCastSlotCount()
+
+    {
+
+        return CastSlotUnlockManager.GetUnlockedSlotCount(GetSavedCastsCount());
+
+    }
+
+
+
+    public int GetMaxCastSlotCount()
+
+    {
+
+        return CastSlotUnlockManager.MaxSlotCount;
+
+    }
+
+
+
+    public int GetNextUnlockableCastSlotNumber()
+
+    {
+
+        return CastSlotUnlockManager.GetNextUnlockableSlotNumber(GetSavedCastsCount());
+
+    }
+
+
+
+    public bool HasFreeCastSlot()
+
+    {
+
+        return GetSavedCastsCount() < GetUnlockedCastSlotCount();
+
+    }
+
+
+
+    public bool CanUnlockMoreCastSlots()
+
+    {
+
+        return CastSlotUnlockManager.CanUnlockMore(GetSavedCastsCount());
+
+    }
+
+
+
+    public bool TryUnlockNextCastSlot()
+
+    {
+
+        bool unlocked = CastSlotUnlockManager.TryUnlockNextSlot(GetSavedCastsCount());
+
+        if (unlocked)
+
+        {
+
+            Debug.Log($"[MainMenuDataManager] Unlocked Cast slot {GetUnlockedCastSlotCount()} / {GetMaxCastSlotCount()}.");
+
+        }
+
+        return unlocked;
+
+    }
+
+
+
+    public Task<List<CharacterData>> GetCreatedCharactersAsync()
     {
         List<CharacterData> result = new List<CharacterData>();
         foreach (var saved in LoadSavedCastsFromPrefs())
@@ -557,9 +627,11 @@ public class MainMenuDataManager : MonoBehaviour
     public Task<bool> CreateCharacterAsync(string name, string prefabName, string instrumentId = "", string danceAnimId = "", List<string> danceAnimIds = null)
     {
         List<SerializableCharacterData> list = LoadSavedCastsFromPrefs();
-        if (list.Count >= 7)
+        int slotLimit = GetUnlockedCastSlotCount();
+
+        if (list.Count >= slotLimit)
         {
-            Debug.LogWarning("[MainMenuDataManager] Đã đạt giới hạn tối đa 7 nhân vật.");
+            Debug.LogWarning($"[MainMenuDataManager] Reached unlocked Cast slot limit: {slotLimit}/{GetMaxCastSlotCount()}.");
             return Task.FromResult(false);
         }
 
@@ -584,9 +656,11 @@ public class MainMenuDataManager : MonoBehaviour
     {
         if (cast == null) return Task.FromResult(false);
         List<SerializableCharacterData> list = LoadSavedCastsFromPrefs();
-        if (list.Count >= 7)
+        int slotLimit = GetUnlockedCastSlotCount();
+
+        if (list.Count >= slotLimit)
         {
-            Debug.LogWarning("[MainMenuDataManager] Đã đạt giới hạn tối đa 7 nhân vật.");
+            Debug.LogWarning($"[MainMenuDataManager] Reached unlocked Cast slot limit: {slotLimit}/{GetMaxCastSlotCount()}.");
             return Task.FromResult(false);
         }
 

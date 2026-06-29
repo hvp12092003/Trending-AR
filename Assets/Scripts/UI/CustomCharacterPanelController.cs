@@ -153,6 +153,7 @@ public class CustomCharacterPanelController : MonoBehaviour
     [Header("UI Hide/Show Settings (Merged from UIController)")]
     [SerializeField] private Button hideUiButton;
     [SerializeField] private Button showUiButton;
+    [SerializeField] private Button refreshButton; // Nút Refresh đồng bộ Casts
     [SerializeField] private List<GameObject> arUiPanels = new List<GameObject>(); // Danh sách các UI AR cần ẩn khi quay màn hình
 
     [Header("Transition Settings (Black Screen Overlay)")]
@@ -183,6 +184,9 @@ public class CustomCharacterPanelController : MonoBehaviour
     private Vector2 _animationOrigPos;
 
     private bool _isFirstSwitch = true;
+
+    public bool IsArUiActive => uiAr != null && uiAr.activeSelf;
+    public bool IsUiHidden => showUiButton != null && showUiButton.gameObject.activeSelf;
 
     private void Awake()
     {
@@ -376,6 +380,13 @@ public class CustomCharacterPanelController : MonoBehaviour
             showUiButton.transform.localScale = Vector3.zero;
 
             Debug.Log("[CustomCharacterPanelController] Đã gắn sự kiện ShowUI cho nút: " + showUiButton.gameObject.name);
+        }
+
+        if (refreshButton != null)
+        {
+            refreshButton.onClick.RemoveListener(RefreshCasts);
+            refreshButton.onClick.AddListener(RefreshCasts);
+            Debug.Log("[CustomCharacterPanelController] Đã gắn sự kiện RefreshCasts cho nút: " + refreshButton.gameObject.name);
         }
     }
 
@@ -1051,7 +1062,7 @@ public class CustomCharacterPanelController : MonoBehaviour
         CastData savedCast = null;
 
         MainMenuDataManager dataManager = GetOrCreateMainMenuDataManager();
-        if (dataManager != null && dataManager.GetSavedCastsCount() >= 7)
+        if (dataManager != null && !dataManager.HasFreeCastSlot())
         {
             if (popupStudio != null)
             {
@@ -1067,10 +1078,12 @@ public class CustomCharacterPanelController : MonoBehaviour
             {
                 if (recordingStatusText != null)
                 {
-                    recordingStatusText.text = "Limit of 7 characters reached. Please delete an old character in Studio to save a new one!";
+                    recordingStatusText.text = dataManager.CanUnlockMoreCastSlots()
+                        ? $"Watch an AD in Studio to unlock Cast slot {dataManager.GetNextUnlockableCastSlotNumber()}."
+                        : $"Maximum {dataManager.GetMaxCastSlotCount()} Cast slots reached. Please delete an old Cast to save a new one!";
                     recordingStatusText.gameObject.SetActive(true);
                 }
-                Debug.LogWarning("[CustomCharacterPanel] Limit of 7 characters reached and popupStudio is null.");
+                Debug.LogWarning("[CustomCharacterPanel] No free unlocked Cast slot and popupStudio is null.");
                 Invoke("HideRecordingStatus", 4f);
             }
             return false;
@@ -1454,8 +1467,24 @@ public class CustomCharacterPanelController : MonoBehaviour
             cgAr.alpha = 0f;
             uiAr.transform.localScale = Vector3.one * 0.95f;
 
-            cgAr.DOKill();
-            uiAr.transform.DOKill();
+            // Reset trạng thái ẩn UI để hiển thị lại đầy đủ khi bắt đầu lượt chơi mới
+            m_UiActiveStates.Clear();
+
+            BandARSpawner arSpawner = null;
+#if UNITY_2023_1_OR_NEWER
+            arSpawner = FindAnyObjectByType<BandARSpawner>();
+#else
+            arSpawner = FindObjectOfType<BandARSpawner>();
+#endif
+            if (arSpawner != null)
+            {
+                arSpawner.UpdateARUI();
+            }
+            else
+            {
+                ShowUI_Internal(true);
+            }
+
             cgAr.DOFade(1f, 0.45f).SetEase(Ease.OutQuad).OnComplete(() =>
             {
                 cgAr.interactable = true;
@@ -1596,6 +1625,10 @@ public class CustomCharacterPanelController : MonoBehaviour
             spawner.DestroyAllAndResetPedestals();
             HideArPedestalsForCreator(spawner);
         }
+
+        // Khôi phục tất cả UI AR đã ẩn về trạng thái hiển thị mặc định và reset bộ nhớ trạng thái
+        m_UiActiveStates.Clear();
+        ShowUI_Internal(false);
 
         // 2. Ẩn UI AR với hiệu ứng fade out
         if (uiAr != null)
@@ -1798,6 +1831,17 @@ public class CustomCharacterPanelController : MonoBehaviour
 
     private void HideUI_Internal()
     {
+        BandARSpawner spawner = null;
+#if UNITY_2023_1_OR_NEWER
+        spawner = FindAnyObjectByType<BandARSpawner>();
+#else
+        spawner = FindObjectOfType<BandARSpawner>();
+#endif
+        if (spawner != null)
+        {
+            spawner.SetPedestalsAndUnplacedCastsActive(false, !useBlackScreenTransition, uiFadeDuration);
+        }
+
         if (arUiPanels == null || arUiPanels.Count == 0)
         {
             Debug.LogWarning("[CustomCharacterPanelController] Không có phần tử UI nào được thiết lập để ẩn!");
@@ -1892,16 +1936,27 @@ public class CustomCharacterPanelController : MonoBehaviour
     {
         if (useBlackScreenTransition)
         {
-            RunTransition(ShowUI_Internal);
+            RunTransition(() => ShowUI_Internal(true));
         }
         else
         {
-            ShowUI_Internal();
+            ShowUI_Internal(true);
         }
     }
 
-    private void ShowUI_Internal()
+    private void ShowUI_Internal(bool showPedestals = true)
     {
+        BandARSpawner spawner = null;
+#if UNITY_2023_1_OR_NEWER
+        spawner = FindAnyObjectByType<BandARSpawner>();
+#else
+        spawner = FindObjectOfType<BandARSpawner>();
+#endif
+        if (spawner != null && showPedestals)
+        {
+            spawner.SetPedestalsAndUnplacedCastsActive(true, !useBlackScreenTransition, uiFadeDuration);
+        }
+
         if (arUiPanels == null || arUiPanels.Count == 0) return;
 
         // Ẩn nút Show UI đi với hiệu ứng thu nhỏ
@@ -2106,6 +2161,25 @@ public class CustomCharacterPanelController : MonoBehaviour
             }
         }
 
+        // Tự động tìm refreshButton
+        if (refreshButton == null)
+        {
+            Button[] allButtons = Resources.FindObjectsOfTypeAll<Button>();
+            foreach (var btn in allButtons)
+            {
+                if (btn.gameObject.name.Equals("Refresh Button", System.StringComparison.OrdinalIgnoreCase) || 
+                    btn.gameObject.name.Equals("RefreshButton", System.StringComparison.OrdinalIgnoreCase) || 
+                    btn.gameObject.name.Equals("Refresh", System.StringComparison.OrdinalIgnoreCase) ||
+                    btn.gameObject.name.Equals("refesh", System.StringComparison.OrdinalIgnoreCase) ||
+                    btn.gameObject.name.Contains("Refresh") ||
+                    btn.gameObject.name.Contains("refesh"))
+                {
+                    refreshButton = btn;
+                    break;
+                }
+            }
+        }
+
         if (arUiPanels == null || arUiPanels.Count == 0)
         {
             arUiPanels = new List<GameObject>();
@@ -2166,5 +2240,74 @@ public class CustomCharacterPanelController : MonoBehaviour
             popupStudio.OnStart -= OnPopupStart;
         }
         Debug.Log("[CustomCharacterPanel] Người dùng đóng popup và hủy lưu.");
+    }
+
+    /// <summary>
+    /// Cập nhật hiển thị giao diện AR UI dựa trên việc đã có Cast nào được thả ra thực tế ảo hay chưa.
+    /// </summary>
+    public void UpdateARUIBasedOnPlacement(bool hasPlacedCasts)
+    {
+        if (arUiPanels == null || arUiPanels.Count == 0) return;
+
+        foreach (var uiObj in arUiPanels)
+        {
+            if (uiObj == null) continue;
+
+            // Không bao giờ ẩn nút Back
+            if (backButton != null && uiObj == backButton.gameObject)
+            {
+                uiObj.SetActive(true);
+                continue;
+            }
+
+            // Bỏ qua nút hiển thị lại UI
+            if (showUiButton != null && uiObj == showUiButton.gameObject)
+            {
+                continue;
+            }
+
+            if (hasPlacedCasts)
+            {
+                uiObj.SetActive(true);
+
+                CanvasGroup cg = uiObj.GetComponent<CanvasGroup>();
+                if (cg != null)
+                {
+                    cg.alpha = 1f;
+                    cg.interactable = true;
+                    cg.blocksRaycasts = true;
+                }
+
+                if (m_UiOriginalScales.TryGetValue(uiObj, out Vector3 originalScale))
+                {
+                    uiObj.transform.localScale = originalScale;
+                }
+                else
+                {
+                    uiObj.transform.localScale = Vector3.one;
+                }
+            }
+            else
+            {
+                uiObj.SetActive(false);
+            }
+        }
+
+        if (!hasPlacedCasts && showUiButton != null)
+        {
+            showUiButton.gameObject.SetActive(false);
+        }
+    }
+
+    /// <summary>
+    /// Reset âm thanh và hoạt ảnh của tất cả các Cast về 0 để bắt đầu chạy cùng nhau.
+    /// </summary>
+    public void RefreshCasts()
+    {
+        Debug.Log("[CustomCharacterPanelController] Người dùng yêu cầu Refresh: reset audio và anim của các Cast về 0.");
+        if (BandAudioManager.Instance != null)
+        {
+            BandAudioManager.Instance.ResetAllAudioAndAnimations();
+        }
     }
 }

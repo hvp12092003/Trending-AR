@@ -74,6 +74,23 @@ public class CharacterManager : MonoBehaviour
     {
         if (character == null) return;
 
+        // Kiểm tra xem UI có đang ẩn hay không
+        bool isUiHidden = false;
+        var bandPanel = FindFirstObjectByType<BandPanelController>();
+        if (bandPanel != null && bandPanel.IsUiHidden) isUiHidden = true;
+        var customPanel = FindFirstObjectByType<CustomCharacterPanelController>();
+        if (customPanel != null && customPanel.IsUiHidden) isUiHidden = true;
+
+        if (isUiHidden)
+        {
+            // Nếu chạm lại vào nhân vật đang được chọn/highlight thì hủy chọn (toggle off)
+            if (m_SelectedCharacter == character)
+            {
+                DeselectCharacter();
+                return;
+            }
+        }
+
         m_SelectedCharacter = character;
         Debug.Log($"CharacterManager: Đã chọn nhân vật: {character.name}");
 
@@ -163,6 +180,22 @@ public class CharacterManager : MonoBehaviour
     private void UpdateSelectionIndicator()
     {
         if (m_SelectionIndicatorPrefab == null || m_SelectedCharacter == null) return;
+
+        // Không hiển thị vòng chỉ báo chọn dưới chân nhân vật khi UI đang ẩn để quay video sạch
+        bool isUiHidden = false;
+        var bandPanel = FindFirstObjectByType<BandPanelController>();
+        if (bandPanel != null && bandPanel.IsUiHidden) isUiHidden = true;
+        var customPanel = FindFirstObjectByType<CustomCharacterPanelController>();
+        if (customPanel != null && customPanel.IsUiHidden) isUiHidden = true;
+
+        if (isUiHidden)
+        {
+            if (m_ActiveIndicator != null)
+            {
+                m_ActiveIndicator.SetActive(false);
+            }
+            return;
+        }
 
         if (m_ActiveIndicator != null)
         {
