@@ -5,7 +5,10 @@ using UnityEngine.UI;
 
 public class LeaderboardItemUI : MonoBehaviour
 {
+    private const float RuntimeRowHeight = 72f;
+
     [SerializeField] private TextMeshProUGUI rankText;
+    [SerializeField] private Image avatarImage;
     [SerializeField] private TextMeshProUGUI nameText;
     [SerializeField] private TextMeshProUGUI pointsText;
 
@@ -50,6 +53,7 @@ public class LeaderboardItemUI : MonoBehaviour
             nameText.text = data.displayName;
         }
 
+        SetAvatar(data.avatarSprite);
         SetPoints(displayPoints);
     }
 
@@ -71,9 +75,22 @@ public class LeaderboardItemUI : MonoBehaviour
         }
     }
 
+    private void SetAvatar(Sprite avatarSprite)
+    {
+        if (avatarImage == null)
+        {
+            return;
+        }
+
+        avatarImage.sprite = avatarSprite;
+        avatarImage.enabled = avatarSprite != null;
+        avatarImage.gameObject.SetActive(avatarSprite != null);
+        avatarImage.preserveAspect = true;
+    }
+
     public static LeaderboardItemUI CreateRuntimeItem(Transform parent)
     {
-        GameObject rowObject = new GameObject("Leaderboard Item", typeof(RectTransform), typeof(CanvasRenderer), typeof(LayoutElement), typeof(CanvasGroup));
+        GameObject rowObject = new GameObject("Leaderboard Item", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement), typeof(CanvasGroup));
         rowObject.transform.SetParent(parent, false);
         rowObject.layer = parent != null ? parent.gameObject.layer : 5;
 
@@ -81,23 +98,44 @@ public class LeaderboardItemUI : MonoBehaviour
         rowRect.anchorMin = new Vector2(0f, 1f);
         rowRect.anchorMax = new Vector2(1f, 1f);
         rowRect.pivot = new Vector2(0.5f, 1f);
-        rowRect.sizeDelta = new Vector2(0f, 72f);
+        rowRect.sizeDelta = new Vector2(0f, RuntimeRowHeight);
+
+        Image backgroundImage = rowObject.GetComponent<Image>();
+        backgroundImage.color = new Color(1f, 1f, 1f, 0f);
+        backgroundImage.raycastTarget = false;
 
         LayoutElement layoutElement = rowObject.GetComponent<LayoutElement>();
-        layoutElement.minHeight = 72f;
-        layoutElement.preferredHeight = 72f;
+        layoutElement.minHeight = RuntimeRowHeight;
+        layoutElement.preferredHeight = RuntimeRowHeight;
         layoutElement.flexibleWidth = 1f;
 
         LeaderboardItemUI itemUI = rowObject.AddComponent<LeaderboardItemUI>();
         itemUI.rankText = CreateText("Rank Text", rowObject.transform, "1", 28, TextAlignmentOptions.Center);
+        itemUI.avatarImage = CreateImage("Avatar Image", rowObject.transform);
         itemUI.nameText = CreateText("Name Text", rowObject.transform, "Player", 28, TextAlignmentOptions.Left);
         itemUI.pointsText = CreateText("Points Text", rowObject.transform, "0", 28, TextAlignmentOptions.Right);
 
-        SetRect(itemUI.rankText.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(80f, 0f));
-        SetRect(itemUI.nameText.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(96f, 0f), new Vector2(-220f, 0f));
+        SetRect(itemUI.rankText.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(72f, 0f));
+        SetRect(itemUI.avatarImage.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(88f, -24f), new Vector2(136f, 24f));
+        SetRect(itemUI.nameText.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(152f, 0f), new Vector2(-220f, 0f));
         SetRect(itemUI.pointsText.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(-210f, 0f), new Vector2(0f, 0f));
 
         return itemUI;
+    }
+
+    private static Image CreateImage(string name, Transform parent)
+    {
+        GameObject imageObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        imageObject.transform.SetParent(parent, false);
+        imageObject.layer = parent.gameObject.layer;
+
+        Image image = imageObject.GetComponent<Image>();
+        image.color = Color.white;
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+        image.enabled = false;
+
+        return image;
     }
 
     private static TextMeshProUGUI CreateText(string name, Transform parent, string value, int fontSize, TextAlignmentOptions alignment)

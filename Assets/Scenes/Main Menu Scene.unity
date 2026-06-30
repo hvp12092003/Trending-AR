@@ -3143,6 +3143,7 @@ MonoBehaviour:
   selectedBandData:
     bandName: 
     point: 0
+    danceAnimId: 
     members: []
     fullSongAudio: {fileID: 0}
 --- !u!4 &505875379
@@ -3814,7 +3815,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &569560889
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11077,6 +11078,7 @@ MonoBehaviour:
   playerPointsPrefsKey: OfflineUserPoints
   lastPlayerPointsPrefsKey: LeaderboardLastUserPoints
   botPointsPrefsPrefix: LeaderboardBotPoints_
+  defaultPlayerAvatarId: cast_20_MINH HAT
   updateBotsOnRefresh: 1
   maxBotCatchUpBonus: 50
   botSafetyGapBelowPlayer: 1
@@ -11085,96 +11087,115 @@ MonoBehaviour:
   bots:
   - userId: bot_01
     displayName: Nova Beat
+    avatarId: inst_1_BunnyBeat
     startPoints: 1320
     minGainPerRefresh: 4
     maxGainPerRefresh: 14
   - userId: bot_02
     displayName: Sunny Beats
+    avatarId: cast_9_BOLT
     startPoints: 1160
     minGainPerRefresh: 5
     maxGainPerRefresh: 16
   - userId: bot_03
     displayName: Neon Dancer
+    avatarId: cast_28_PIX
     startPoints: 980
     minGainPerRefresh: 4
     maxGainPerRefresh: 15
   - userId: bot_04
     displayName: AR Groover
+    avatarId: inst_6_DrumBot
     startPoints: 830
     minGainPerRefresh: 3
     maxGainPerRefresh: 14
   - userId: bot_05
     displayName: Luna Remix
+    avatarId: cast_17_LUNA
     startPoints: 700
     minGainPerRefresh: 4
     maxGainPerRefresh: 13
   - userId: bot_06
     displayName: Pixel Pop
+    avatarId: inst_0_AquaKeyboard
     startPoints: 585
     minGainPerRefresh: 3
     maxGainPerRefresh: 12
   - userId: bot_07
     displayName: Echo Star
+    avatarId: cast_14_ECHO
     startPoints: 470
     minGainPerRefresh: 3
     maxGainPerRefresh: 11
   - userId: bot_08
     displayName: Beat Runner
+    avatarId: inst_7_LeopardSpeak
     startPoints: 360
     minGainPerRefresh: 2
     maxGainPerRefresh: 10
   - userId: bot_09
     displayName: Melo Rush
+    avatarId: inst_11_PeacockBot
     startPoints: 280
     minGainPerRefresh: 2
     maxGainPerRefresh: 9
   - userId: bot_10
     displayName: Rhythm Ace
+    avatarId: inst_10_PandaSerenade
     startPoints: 215
     minGainPerRefresh: 2
     maxGainPerRefresh: 8
   - userId: bot_11
     displayName: Kiki Loop
+    avatarId: cast_18_MIMI
     startPoints: 165
     minGainPerRefresh: 1
     maxGainPerRefresh: 8
   - userId: bot_12
     displayName: Jazzy Kid
+    avatarId: cast_15_FINN
     startPoints: 120
     minGainPerRefresh: 1
     maxGainPerRefresh: 7
   - userId: bot_13
     displayName: Chill Spark
+    avatarId: cast_24_NIA
     startPoints: 85
     minGainPerRefresh: 1
     maxGainPerRefresh: 6
   - userId: bot_14
     displayName: Mini Mix
+    avatarId: cast_12_COCO
     startPoints: 55
     minGainPerRefresh: 1
     maxGainPerRefresh: 6
   - userId: bot_15
     displayName: Tempo Tin
+    avatarId: inst_8_Meowbone
     startPoints: 35
     minGainPerRefresh: 1
     maxGainPerRefresh: 5
   - userId: bot_16
     displayName: Rookie Jam
+    avatarId: cast_10_BUNNY
     startPoints: 20
     minGainPerRefresh: 1
     maxGainPerRefresh: 4
   - userId: bot_17
     displayName: Fresh Step
+    avatarId: cast_16_FOX
     startPoints: 10
     minGainPerRefresh: 0
     maxGainPerRefresh: 4
   - userId: bot_18
     displayName: Iron man
+    avatarId: cast_22_MONSTER
     startPoints: 3
     minGainPerRefresh: 0
     maxGainPerRefresh: 3
   - userId: bot_19
     displayName: Mr Pazou
+    avatarId: cast_27_PANDA
     startPoints: 1
     minGainPerRefresh: 0
     maxGainPerRefresh: 3
@@ -12099,8 +12120,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 26.2
-  m_fontSizeBase: 26.2
+  m_fontSize: 40
+  m_fontSizeBase: 40
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18

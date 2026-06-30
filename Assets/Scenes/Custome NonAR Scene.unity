@@ -10945,8 +10945,8 @@ MonoBehaviour:
   previewContainer: {fileID: 844336182}
   characterLocalPosition: {x: 0, y: 0, z: 0}
   characterLocalScale: {x: 1, y: 1, z: 1}
-  instrumentLocalPosition: {x: -1, y: 0.5, z: 0}
-  instrumentLocalScale: {x: 1, y: 1, z: 1}
+  instrumentLocalPosition: {x: -0.75, y: 1.5, z: 0}
+  instrumentLocalScale: {x: 0.5, y: 0.5, z: 0.5}
   recordingStatusText: {fileID: 0}
   prevButton: {fileID: 632201410}
   nextButton: {fileID: 994687820}
