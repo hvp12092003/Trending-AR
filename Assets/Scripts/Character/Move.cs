@@ -68,6 +68,8 @@ public class Move : MonoBehaviour
 
     private string m_CurrentStateName;
     private Joystick m_Joystick;
+    private Camera m_MainCamera;
+    private CastPlacementState m_PlacementState;
 
     // Cache variables for Android Optimization
     private int m_SpeedParamHash;
@@ -90,6 +92,9 @@ public class Move : MonoBehaviour
     private void Start()
     {
         // Lấy Animator để điều khiển animation chạy/đi bộ nếu có
+        m_MainCamera = Camera.main;
+        m_PlacementState = GetComponent<CastPlacementState>();
+
         m_Animator = GetComponentInChildren<Animator>();
         if (m_Animator != null)
         {
@@ -190,13 +195,16 @@ public class Move : MonoBehaviour
                 UpdateAnimatorParams(0f);
             }
 
-            // Vẫn thực hiện đếm thời gian Idle để nhảy đồng bộ ngay cả khi không được chọn
+            // Vẫn thực hiện đếm thời gian Idle để nhảy đồng bộ ngay cả khi không được chọn (chỉ khi đã đặt ra thế giới)
             if (m_State == CharacterState.Idle)
             {
-                m_IdleTimer += Time.deltaTime;
-                if (m_IdleTimer >= 2f)
+                if (IsPlaced())
                 {
-                    m_State = CharacterState.WaitingForSync;
+                    m_IdleTimer += Time.deltaTime;
+                    if (m_IdleTimer >= 2f)
+                    {
+                        m_State = CharacterState.WaitingForSync;
+                    }
                 }
             }
             return;
@@ -227,14 +235,15 @@ public class Move : MonoBehaviour
         // 4. Di chuyển dựa trên Joystick
         if (joystickInput.sqrMagnitude > 0.001f)
         {
-            // Tắt vòng chỉ báo chọn khi di chuyển
+            // Tắt vòng chỉ báo chọn khi di chuyển và reset bộ đếm thời gian tự động ẩn UI
             if (CharacterManager.Instance != null)
             {
                 CharacterManager.Instance.SetIndicatorActive(false);
+                CharacterManager.Instance.ResetAutoHideTimer();
             }
 
             Vector3 moveDirection = Vector3.zero;
-            Camera mainCam = Camera.main;
+            Camera mainCam = GetMainCamera();
 
             if (mainCam != null)
             {
@@ -289,11 +298,14 @@ public class Move : MonoBehaviour
             }
             else if (m_State == CharacterState.Idle)
             {
-                m_IdleTimer += Time.deltaTime;
-                if (m_IdleTimer >= 2f)
+                if (IsPlaced())
                 {
-                    m_State = CharacterState.WaitingForSync;
-                    Debug.Log($"[Move] {gameObject.name}: Chờ đồng bộ nhịp nhạc...");
+                    m_IdleTimer += Time.deltaTime;
+                    if (m_IdleTimer >= 2f)
+                    {
+                        m_State = CharacterState.WaitingForSync;
+                        Debug.Log($"[Move] {gameObject.name}: Chờ đồng bộ nhịp nhạc...");
+                    }
                 }
                 PlayIdle();
                 UpdateAnimatorParams(0f);
@@ -347,6 +359,25 @@ public class Move : MonoBehaviour
         }
 
         return false;
+    }
+
+    private Camera GetMainCamera()
+    {
+        if (m_MainCamera == null)
+        {
+            m_MainCamera = Camera.main;
+        }
+        return m_MainCamera;
+    }
+
+    private bool IsPlaced()
+    {
+        if (m_PlacementState == null)
+        {
+            m_PlacementState = GetComponent<CastPlacementState>();
+        }
+
+        return m_PlacementState != null ? m_PlacementState.IsPlaced : transform.parent == null;
     }
 
     /// <summary>
@@ -506,4 +537,3 @@ public class Move : MonoBehaviour
         UpdateAnimatorParams(0f);
     }
 }
-

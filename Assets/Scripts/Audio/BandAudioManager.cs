@@ -40,10 +40,15 @@ public class BandAudioManager : MonoBehaviour
 
     // Cache trạng thái thông báo để tránh gọi lặp
     private bool m_WasFullBandActive = false;
+    private int m_LastPlacedCount = 0;
 
     // ── Registered Lists (thay thế FindObjectsByType) ──
     private readonly List<CastAudioData> m_RegisteredCasts = new List<CastAudioData>();
     private readonly List<ModelLoopEffects> m_RegisteredEffects = new List<ModelLoopEffects>();
+    private readonly Dictionary<CastAudioData, CastPlacementState> m_PlacementStateCache = new Dictionary<CastAudioData, CastPlacementState>();
+    private readonly Dictionary<CastAudioData, Move> m_MoveCache = new Dictionary<CastAudioData, Move>();
+    private readonly Dictionary<GameObject, Renderer[]> m_RendererCache = new Dictionary<GameObject, Renderer[]>();
+    private MaterialPropertyBlock m_PropertyBlock;
 
     // Buffer tái sử dụng để tránh allocate mỗi frame
     private readonly List<CastAudioData> m_PlacedCasts = new List<CastAudioData>();
@@ -52,6 +57,9 @@ public class BandAudioManager : MonoBehaviour
     // Trạng thái cho tính năng Highlight/Solo khi ẩn UI để quay phim
     private bool m_WasUiHidden = false;
     private GameObject m_LastHighlightedCast = null;
+    private BandARSpawner m_CachedSpawner;
+    private BandPanelController m_CachedBandPanel;
+    private CustomCharacterPanelController m_CachedCustomPanel;
 
     // ── Public API ──
 
@@ -89,6 +97,8 @@ public class BandAudioManager : MonoBehaviour
         if (cast != null && !m_RegisteredCasts.Contains(cast))
         {
             m_RegisteredCasts.Add(cast);
+            m_PlacementStateCache[cast] = cast.GetComponent<CastPlacementState>();
+            m_MoveCache[cast] = cast.GetComponent<Move>();
         }
     }
 
@@ -99,6 +109,12 @@ public class BandAudioManager : MonoBehaviour
     public void UnregisterCast(CastAudioData cast)
     {
         m_RegisteredCasts.Remove(cast);
+        if (cast != null)
+        {
+            m_PlacementStateCache.Remove(cast);
+            m_MoveCache.Remove(cast);
+            m_RendererCache.Remove(cast.gameObject);
+        }
     }
 
     /// <summary>
@@ -137,6 +153,7 @@ public class BandAudioManager : MonoBehaviour
         }
 
         // Khởi tạo AudioSource tổng cho bài hát hoàn chỉnh
+        m_PropertyBlock = new MaterialPropertyBlock();
         m_FullSongSource = gameObject.GetComponent<AudioSource>();
         if (m_FullSongSource == null)
         {
@@ -183,7 +200,7 @@ public class BandAudioManager : MonoBehaviour
     private void UpdateAudioStates()
     {
         // Dọn null khỏi danh sách đã đăng ký (trường hợp object bị Destroy mà không kịp Unregister)
-        m_RegisteredCasts.RemoveAll(c => c == null);
+        CleanupDestroyedCasts();
 
         if (m_RegisteredCasts.Count == 0)
         {
@@ -216,6 +233,20 @@ public class BandAudioManager : MonoBehaviour
 
         int placedCount = m_PlacedCasts.Count;
 
+        // Kiểm tra xem có đang ở chế độ Custom hay không
+        bool isCustomMode = IsCustomMode();
+
+        // Tự động đồng bộ âm thanh và hoạt ảnh về 0 khi số lượng Cast đã thả thay đổi (chỉ cho chế độ chơi Band)
+        if (!isCustomMode && placedCount != m_LastPlacedCount)
+        {
+            m_LastPlacedCount = placedCount;
+            ResetAllAudioAndAnimations();
+        }
+        else
+        {
+            m_LastPlacedCount = placedCount;
+        }
+
         // ── Logic điều phối âm thanh & Highlight ──
         bool isUiHidden = IsAnyUiHidden();
         GameObject currentSelected = (CharacterManager.Instance != null) ? CharacterManager.Instance.SelectedCharacter : null;
@@ -242,14 +273,6 @@ public class BandAudioManager : MonoBehaviour
         {
             m_LastHighlightedCast = highlightedCast;
             ApplyHighlightVisuals(highlightedCast);
-        }
-
-        // Kiểm tra xem có đang ở chế độ Custom hay không
-        bool isCustomMode = false;
-        var spawner = FindFirstObjectByType<BandARSpawner>();
-        if (spawner != null && spawner.spawnerMode == BandARSpawner.SpawnerMode.Custom)
-        {
-            isCustomMode = true;
         }
 
         if (highlightedCast != null)
@@ -457,12 +480,93 @@ public class BandAudioManager : MonoBehaviour
         }
     }
 
+    private void CleanupDestroyedCasts()
+    {
+        for (int i = m_RegisteredCasts.Count - 1; i >= 0; i--)
+        {
+            CastAudioData cast = m_RegisteredCasts[i];
+            if (cast != null) continue;
+
+            m_RegisteredCasts.RemoveAt(i);
+            if (!object.ReferenceEquals(cast, null))
+            {
+                m_PlacementStateCache.Remove(cast);
+                m_MoveCache.Remove(cast);
+            }
+        }
+    }
+
+    private bool IsCustomMode()
+    {
+        BandARSpawner spawner = GetSpawner();
+        return spawner != null && spawner.spawnerMode == BandARSpawner.SpawnerMode.Custom;
+    }
+
+    private BandARSpawner GetSpawner()
+    {
+        if (m_CachedSpawner == null)
+        {
+            m_CachedSpawner = FindFirstObjectByType<BandARSpawner>();
+        }
+        return m_CachedSpawner;
+    }
+
+    private BandPanelController GetBandPanel()
+    {
+        if (m_CachedBandPanel == null)
+        {
+            m_CachedBandPanel = FindFirstObjectByType<BandPanelController>();
+        }
+        return m_CachedBandPanel;
+    }
+
+    private CustomCharacterPanelController GetCustomPanel()
+    {
+        if (m_CachedCustomPanel == null)
+        {
+            m_CachedCustomPanel = FindFirstObjectByType<CustomCharacterPanelController>();
+        }
+        return m_CachedCustomPanel;
+    }
+
+    private Move GetCachedMove(CastAudioData cast)
+    {
+        if (cast == null)
+        {
+            return null;
+        }
+
+        if (!m_MoveCache.TryGetValue(cast, out Move move) || move == null)
+        {
+            move = cast.GetComponent<Move>();
+            m_MoveCache[cast] = move;
+        }
+
+        return move;
+    }
+
+    private Renderer[] GetCachedRenderers(GameObject character)
+    {
+        if (character == null)
+        {
+            return System.Array.Empty<Renderer>();
+        }
+
+        if (!m_RendererCache.TryGetValue(character, out Renderer[] renderers) || renderers == null)
+        {
+            renderers = character.GetComponentsInChildren<Renderer>(true);
+            m_RendererCache[character] = renderers;
+        }
+
+        return renderers;
+    }
+
     private bool IsAnyUiHidden()
     {
-        var bandPanel = FindFirstObjectByType<BandPanelController>();
+        BandPanelController bandPanel = GetBandPanel();
         if (bandPanel != null && bandPanel.IsUiHidden) return true;
 
-        var customPanel = FindFirstObjectByType<CustomCharacterPanelController>();
+        CustomCharacterPanelController customPanel = GetCustomPanel();
         if (customPanel != null && customPanel.IsUiHidden) return true;
 
         return false;
@@ -474,7 +578,7 @@ public class BandAudioManager : MonoBehaviour
         {
             if (cast == null) continue;
 
-            Move move = cast.GetComponent<Move>();
+            Move move = GetCachedMove(cast);
             if (move == null) continue;
 
             if (highlightedCast == null)
@@ -502,19 +606,24 @@ public class BandAudioManager : MonoBehaviour
     {
         if (character == null) return;
 
-        Renderer[] renderers = character.GetComponentsInChildren<Renderer>(true);
+        Renderer[] renderers = GetCachedRenderers(character);
         foreach (var renderer in renderers)
         {
             if (renderer == null) continue;
 
-            MaterialPropertyBlock propBlock = new MaterialPropertyBlock();
-            renderer.GetPropertyBlock(propBlock);
+            if (m_PropertyBlock == null)
+            {
+                m_PropertyBlock = new MaterialPropertyBlock();
+            }
+
+            m_PropertyBlock.Clear();
+            renderer.GetPropertyBlock(m_PropertyBlock);
 
             Color color = dimmed ? new Color(0.35f, 0.35f, 0.35f, 1f) : Color.white;
-            propBlock.SetColor("_Color", color);
-            propBlock.SetColor("_BaseColor", color);
+            m_PropertyBlock.SetColor("_Color", color);
+            m_PropertyBlock.SetColor("_BaseColor", color);
 
-            renderer.SetPropertyBlock(propBlock);
+            renderer.SetPropertyBlock(m_PropertyBlock);
         }
     }
 
@@ -557,20 +666,15 @@ public class BandAudioManager : MonoBehaviour
             MusicSyncManager.Instance.ResetPlayback();
         }
 
-        // 4. Tìm toàn bộ các đối tượng Move trong scene và reset animation về 0
-        Move[] allMoves = FindObjectsByType<Move>(FindObjectsSortMode.None);
-        foreach (var move in allMoves)
+        // 4. Reset animation cho các Cast đã đăng ký, tránh quét toàn scene.
+        foreach (var cast in m_RegisteredCasts)
         {
+            if (cast == null || !IsCastPlaced(cast)) continue;
+
+            Move move = GetCachedMove(cast);
             if (move != null)
             {
-                // Chỉ reset các nhân vật đã được thả ra ngoài thế giới (placed)
-                CastPlacementState placementState = move.GetComponent<CastPlacementState>();
-                bool isPlaced = placementState != null ? placementState.IsPlaced : move.transform.parent == null;
-
-                if (isPlaced)
-                {
-                    move.ResetLocalDanceState();
-                }
+                move.ResetLocalDanceState();
             }
         }
 
@@ -638,7 +742,12 @@ public class BandAudioManager : MonoBehaviour
     {
         if (cast == null) return false;
 
-        CastPlacementState placementState = cast.GetComponent<CastPlacementState>();
+        if (!m_PlacementStateCache.TryGetValue(cast, out CastPlacementState placementState))
+        {
+            placementState = cast.GetComponent<CastPlacementState>();
+            m_PlacementStateCache[cast] = placementState;
+        }
+
         if (placementState != null)
         {
             return placementState.IsPlaced;

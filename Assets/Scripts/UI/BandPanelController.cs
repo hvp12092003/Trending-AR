@@ -38,9 +38,10 @@ public class BandPanelController : MonoBehaviour
     private Dictionary<GameObject, Vector3> m_UiOriginalScales = new Dictionary<GameObject, Vector3>();
     private Image m_FadeOverlay;
     private bool m_Initialized = false;
+    private bool m_IsGameplayUiHidden = false;
 
     public bool IsArUiActive => uiAr != null && uiAr.activeSelf;
-    public bool IsUiHidden => showUiButton != null && showUiButton.gameObject.activeSelf;
+    public bool IsUiHidden => m_IsGameplayUiHidden || (showUiButton != null && showUiButton.gameObject.activeSelf);
 
     public void InitializeIfNeeded()
     {
@@ -159,7 +160,7 @@ public class BandPanelController : MonoBehaviour
 
         // Khôi phục tất cả UI AR đã ẩn về trạng thái hiển thị mặc định và reset bộ nhớ trạng thái
         m_UiActiveStates.Clear();
-        ShowUI_Internal(false, false);
+        ResetGameplayUiHiddenState();
 
         // 2. Ẩn UI AR với hiệu ứng fade out
         if (uiAr != null)
@@ -246,6 +247,8 @@ public class BandPanelController : MonoBehaviour
 
     private void HideUI_Internal()
     {
+        m_IsGameplayUiHidden = true;
+
         BandARSpawner spawner = null;
 #if UNITY_2023_1_OR_NEWER
         spawner = FindAnyObjectByType<BandARSpawner>();
@@ -356,6 +359,8 @@ public class BandPanelController : MonoBehaviour
 
     private void ShowUI_Internal(bool showPedestals = true, bool animatePedestals = true)
     {
+        m_IsGameplayUiHidden = false;
+
         BandARSpawner spawner = null;
 #if UNITY_2023_1_OR_NEWER
         spawner = FindAnyObjectByType<BandARSpawner>();
@@ -487,16 +492,17 @@ public class BandPanelController : MonoBehaviour
     {
         InitializeIfNeeded();
         ARFallbackManager.ResumeForCurrentScene();
+        ResetGameplayUiHiddenState();
 
         Debug.Log("[BandPanelController] Bắt đầu chuyển cảnh vào trải nghiệm AR.");
 
         // Bật canvas chứa BandPanelController lên nếu nó bị tắt
-        gameObject.SetActive(true);
-        Canvas parentCanvas = GetComponentInParent<Canvas>(true);
-        if (parentCanvas != null && !parentCanvas.gameObject.activeSelf)
+        if (bandPanel != null)
         {
-            parentCanvas.gameObject.SetActive(true);
+            bandPanel.SetActive(false);
         }
+
+        EnsureTransitionHostActive();
 
         // Đảm bảo CanvasGroup của UI AR được hiển thị và tương tác bình thường
         if (uiAr != null)
@@ -613,6 +619,90 @@ public class BandPanelController : MonoBehaviour
                         m_FadeOverlay.raycastTarget = false;
                     });
             });
+    }
+
+    private void EnsureTransitionHostActive()
+    {
+        Canvas parentCanvas = GetComponentInParent<Canvas>(true);
+        if (parentCanvas != null && !parentCanvas.gameObject.activeSelf)
+        {
+            parentCanvas.gameObject.SetActive(true);
+        }
+
+        bool controllerIsOnPicker = bandPanel != null &&
+            (gameObject == bandPanel || transform.IsChildOf(bandPanel.transform));
+
+        if (!controllerIsOnPicker && !gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+        }
+    }
+
+    private void ResetGameplayUiHiddenState()
+    {
+        m_IsGameplayUiHidden = false;
+
+        if (showUiButton == null)
+        {
+            return;
+        }
+
+        CanvasGroup cgShow = showUiButton.GetComponent<CanvasGroup>();
+        if (cgShow == null)
+        {
+            cgShow = showUiButton.gameObject.AddComponent<CanvasGroup>();
+        }
+
+        cgShow.DOKill();
+        showUiButton.transform.DOKill();
+        cgShow.alpha = 0f;
+        cgShow.interactable = false;
+        cgShow.blocksRaycasts = false;
+        showUiButton.transform.localScale = Vector3.zero;
+        showUiButton.gameObject.SetActive(false);
+    }
+
+    private void ApplyHiddenGameplayUiState()
+    {
+        if (arUiPanels != null)
+        {
+            foreach (GameObject uiObj in arUiPanels)
+            {
+                if (uiObj == null) continue;
+                if (showUiButton != null && uiObj == showUiButton.gameObject) continue;
+
+                CanvasGroup cg = uiObj.GetComponent<CanvasGroup>();
+                if (cg != null)
+                {
+                    cg.DOKill();
+                    cg.alpha = 0f;
+                    cg.interactable = false;
+                    cg.blocksRaycasts = false;
+                }
+
+                uiObj.transform.DOKill();
+                uiObj.SetActive(false);
+            }
+        }
+
+        if (showUiButton == null)
+        {
+            return;
+        }
+
+        CanvasGroup cgShow = showUiButton.GetComponent<CanvasGroup>();
+        if (cgShow == null)
+        {
+            cgShow = showUiButton.gameObject.AddComponent<CanvasGroup>();
+        }
+
+        showUiButton.gameObject.SetActive(true);
+        showUiButton.transform.DOKill();
+        cgShow.DOKill();
+        showUiButton.transform.localScale = Vector3.one;
+        cgShow.alpha = 1f;
+        cgShow.interactable = true;
+        cgShow.blocksRaycasts = true;
     }
 
     private void AutoAssignReferences()
@@ -750,6 +840,12 @@ public class BandPanelController : MonoBehaviour
     {
         InitializeIfNeeded();
 
+        if (IsUiHidden)
+        {
+            ApplyHiddenGameplayUiState();
+            return;
+        }
+
         if (arUiPanels == null || arUiPanels.Count == 0) return;
 
         foreach (var uiObj in arUiPanels)
@@ -771,6 +867,20 @@ public class BandPanelController : MonoBehaviour
 
             if (hasPlacedCasts)
             {
+                // Bỏ qua hiển thị Joystick và Scale Slider nếu không có nhân vật nào được chọn
+                if (uiObj.GetComponentInChildren<Joystick>(true) != null ||
+                    uiObj.GetComponentInChildren<CharacterScaleSlider>(true) != null ||
+                    uiObj.GetComponent<Joystick>() != null ||
+                    uiObj.GetComponent<CharacterScaleSlider>() != null)
+                {
+                    bool isAnySelected = CharacterManager.Instance != null && CharacterManager.Instance.SelectedCharacter != null;
+                    if (!isAnySelected)
+                    {
+                        uiObj.SetActive(false);
+                        continue;
+                    }
+                }
+
                 uiObj.SetActive(true);
 
                 CanvasGroup cg = uiObj.GetComponent<CanvasGroup>();

@@ -1,34 +1,21 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 
 /// <summary>
-/// Optional bridge to Addressables. This keeps the project compiling before the
-/// Addressables package is installed, then uses it automatically when available.
+/// Cầu nối nạp Prefab bất đồng bộ thông qua Unity Addressables.
+/// Sử dụng trực tiếp API kiểu dữ liệu an toàn (Type-safe) thay vì Reflection để tránh xung đột kiểu.
 /// </summary>
 public static class AddressablePrefabLoader
 {
-    private const string AddressablesTypeName = "UnityEngine.AddressableAssets.Addressables";
-
     private static readonly Dictionary<string, GameObject> LoadedPrefabs = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
-    private static readonly Dictionary<string, object> LoadedHandles = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, AsyncOperationHandle<GameObject>> LoadedHandles = new Dictionary<string, AsyncOperationHandle<GameObject>>(StringComparer.OrdinalIgnoreCase);
     private static readonly Dictionary<string, Task<GameObject>> PendingLoads = new Dictionary<string, Task<GameObject>>(StringComparer.OrdinalIgnoreCase);
 
-    private static Type _addressablesType;
-    private static MethodInfo _loadAssetMethod;
-    private static MethodInfo _releaseMethod;
-    private static bool _searchedForAddressables;
-
-    public static bool IsAvailable
-    {
-        get
-        {
-            EnsureReflectionCache();
-            return _addressablesType != null && _loadAssetMethod != null;
-        }
-    }
+    public static bool IsAvailable => true;
 
     public static Task<GameObject> LoadGameObjectAsync(string addressKey)
     {
@@ -54,24 +41,11 @@ public static class AddressablePrefabLoader
 
     public static void ReleaseAll()
     {
-        EnsureReflectionCache();
-        if (_addressablesType == null || _releaseMethod == null)
+        foreach (var handle in LoadedHandles.Values)
         {
-            LoadedPrefabs.Clear();
-            LoadedHandles.Clear();
-            PendingLoads.Clear();
-            return;
-        }
-
-        foreach (object handle in LoadedHandles.Values)
-        {
-            try
+            if (handle.IsValid())
             {
-                _releaseMethod.Invoke(null, new[] { handle });
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning("[AddressablePrefabLoader] Release failed: " + ex.Message);
+                Addressables.Release(handle);
             }
         }
 
@@ -82,40 +56,11 @@ public static class AddressablePrefabLoader
 
     private static async Task<GameObject> LoadGameObjectInternalAsync(string addressKey)
     {
-        EnsureReflectionCache();
-
-        if (_addressablesType == null || _loadAssetMethod == null)
-        {
-            PendingLoads.Remove(addressKey);
-            return null;
-        }
-
+        AsyncOperationHandle<GameObject> handle = default;
         try
         {
-            object handle = _loadAssetMethod.Invoke(null, new object[] { addressKey });
-            if (handle == null)
-            {
-                PendingLoads.Remove(addressKey);
-                return null;
-            }
-
-            PropertyInfo taskProperty = handle.GetType().GetProperty("Task");
-            if (taskProperty == null)
-            {
-                Debug.LogWarning("[AddressablePrefabLoader] Addressables handle has no Task property.");
-                PendingLoads.Remove(addressKey);
-                return null;
-            }
-
-            Task<GameObject> task = taskProperty.GetValue(handle) as Task<GameObject>;
-            if (task == null)
-            {
-                Debug.LogWarning("[AddressablePrefabLoader] Addressables task could not be read for key: " + addressKey);
-                PendingLoads.Remove(addressKey);
-                return null;
-            }
-
-            GameObject prefab = await task;
+            handle = Addressables.LoadAssetAsync<GameObject>(addressKey);
+            GameObject prefab = await handle.Task;
             PendingLoads.Remove(addressKey);
 
             if (prefab != null)
@@ -125,6 +70,10 @@ public static class AddressablePrefabLoader
             }
             else
             {
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
                 Debug.LogWarning("[AddressablePrefabLoader] Addressables returned null for key: " + addressKey);
             }
 
@@ -133,66 +82,12 @@ public static class AddressablePrefabLoader
         catch (Exception ex)
         {
             PendingLoads.Remove(addressKey);
+            if (handle.IsValid())
+            {
+                Addressables.Release(handle);
+            }
             Debug.LogWarning("[AddressablePrefabLoader] Failed to load '" + addressKey + "': " + ex.Message);
             return null;
-        }
-    }
-
-    private static void EnsureReflectionCache()
-    {
-        if (_searchedForAddressables)
-        {
-            return;
-        }
-
-        _searchedForAddressables = true;
-
-        Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-        for (int i = 0; i < assemblies.Length; i++)
-        {
-            _addressablesType = assemblies[i].GetType(AddressablesTypeName);
-            if (_addressablesType != null)
-            {
-                break;
-            }
-        }
-
-        if (_addressablesType == null)
-        {
-            return;
-        }
-
-        MethodInfo[] methods = _addressablesType.GetMethods(BindingFlags.Public | BindingFlags.Static);
-        for (int i = 0; i < methods.Length; i++)
-        {
-            MethodInfo method = methods[i];
-            if (method.Name != "LoadAssetAsync" || !method.IsGenericMethodDefinition)
-            {
-                continue;
-            }
-
-            ParameterInfo[] parameters = method.GetParameters();
-            if (parameters.Length == 1)
-            {
-                _loadAssetMethod = method.MakeGenericMethod(typeof(GameObject));
-                break;
-            }
-        }
-
-        for (int i = 0; i < methods.Length; i++)
-        {
-            MethodInfo method = methods[i];
-            if (method.Name != "Release" || !method.IsGenericMethodDefinition)
-            {
-                continue;
-            }
-
-            ParameterInfo[] parameters = method.GetParameters();
-            if (parameters.Length == 1)
-            {
-                _releaseMethod = method.MakeGenericMethod(typeof(GameObject));
-                break;
-            }
         }
     }
 }

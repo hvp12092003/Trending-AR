@@ -24,6 +24,9 @@ public class ProfilePanelController : MonoBehaviour
     [SerializeField] private Button logoutBtn;
     [SerializeField] private TextMeshProUGUI mainNofiText;
 
+    [Header("Avatar Selection Popup")]
+    [SerializeField] private AvatarPopup avatarPopup;
+
     [Header("Change Password Sub-Panel UI")]
     [SerializeField] private GameObject changePassPanel;
     [SerializeField] private TMP_InputField currentPasswordInput;
@@ -340,6 +343,20 @@ public class ProfilePanelController : MonoBehaviour
 
     private void LoadLocalAvatar()
     {
+        if (avatarImage == null) return;
+
+        string selectedAvatarId = PlayerPrefs.GetString("SelectedAvatarId", "");
+        if (!string.IsNullOrEmpty(selectedAvatarId))
+        {
+            Sprite presetSprite = GetPresetAvatarSprite(selectedAvatarId);
+            if (presetSprite != null)
+            {
+                avatarImage.sprite = presetSprite;
+                avatarImage.enabled = true;
+                return;
+            }
+        }
+
         string localPath = GetLocalAvatarPath();
         if (File.Exists(localPath))
         {
@@ -368,6 +385,24 @@ public class ProfilePanelController : MonoBehaviour
         }
     }
 
+    private Sprite GetPresetAvatarSprite(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        if (MainMenuDataManager.Instance == null) return null;
+
+        if (id.StartsWith("cast_"))
+        {
+            string castId = id.Substring("cast_".Length);
+            return MainMenuDataManager.Instance.GetCharacterAvatarSprite(castId);
+        }
+        else if (id.StartsWith("inst_"))
+        {
+            string instId = id.Substring("inst_".Length);
+            return MainMenuDataManager.Instance.GetInstrumentAvatarSprite(instId);
+        }
+        return null;
+    }
+
 
     private Sprite _dynamicAvatarSprite;
 
@@ -388,14 +423,35 @@ public class ProfilePanelController : MonoBehaviour
 
     private void OnChangeAvatarClicked()
     {
-        // NativeGallery sẽ tự động yêu cầu cấp quyền truy cập nếu cần
-        NativeGallery.GetImageFromGallery((path) =>
+        if (avatarPopup != null)
         {
-            if (!string.IsNullOrEmpty(path))
-            {
-                HandlePickedImage(path);
-            }
-        }, "Select Avatar", "image/*");
+            avatarPopup.OpenPopup(OnAvatarSelectedFromPopup);
+        }
+        else
+        {
+            Debug.LogWarning("[ProfilePanelController] Chưa gán avatarPopup!");
+        }
+    }
+
+    private void OnAvatarSelectedFromPopup(string avatarId, Sprite avatarSprite)
+    {
+        if (avatarSprite == null) return;
+
+        // 1. Lưu ID avatar đã chọn vào PlayerPrefs
+        PlayerPrefs.SetString("SelectedAvatarId", avatarId);
+        PlayerPrefs.Save();
+
+        // 2. Cập nhật UI lập tức
+        if (avatarImage != null)
+        {
+            avatarImage.sprite = avatarSprite;
+            avatarImage.enabled = true;
+        }
+
+        // Kích hoạt sự kiện đổi ảnh đại diện
+        OnAvatarChanged?.Invoke();
+
+        ShowMainNotification("Avatar updated successfully!");
     }
 
     private void HandlePickedImage(string path)

@@ -217,6 +217,8 @@ public class CastPanelController : MonoBehaviour
         }
         else
         {
+            SelectedPrefab = null;
+            SelectedCastData = null;
             Debug.LogWarning($"[CastPanelController] Khong load duoc prefab nhan vat: {selectedEntry.Id}");
         }
 
@@ -226,7 +228,8 @@ public class CastPanelController : MonoBehaviour
         OnCastDataSelected?.Invoke(SelectedCastData);
         onCastDataSelectedEvent?.Invoke(SelectedCastData);
 
-        Debug.Log($"[CastPanelController] Đã chọn nhân vật: {SelectedCastData.name} (Index: {SelectedIndex})");
+        string castName = SelectedCastData != null ? SelectedCastData.name : "None";
+        Debug.Log($"[CastPanelController] Đã chọn nhân vật: {castName} (Index: {SelectedIndex})");
     }
 
     /// <summary>

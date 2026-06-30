@@ -44,10 +44,16 @@ public class CharacterManager : MonoBehaviour
     [Tooltip("Thời gian (giây) trước khi indicator tự ẩn sau khi nhân vật được chọn. 0 = không tự ẩn.")]
     private float m_AutoHideDelay = 3f;
 
+    [Header("Control UI References")]
+    [SerializeField] private GameObject m_JoystickObject;
+    [SerializeField] private GameObject m_ScaleSliderObject;
+
     [Header("Persistence Settings")]
     [SerializeField]
     [Tooltip("Nếu true, đối tượng này sẽ không bị hủy khi chuyển scene.")]
     private bool m_DontDestroyOnLoad = false;
+    private BandPanelController m_BandPanel;
+    private CustomCharacterPanelController m_CustomPanel;
 
     private void Awake()
     {
@@ -66,6 +72,142 @@ public class CharacterManager : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        if (m_JoystickObject == null)
+        {
+            Joystick joystick = FindFirstObjectByType<Joystick>(FindObjectsInactive.Include);
+            if (joystick != null)
+            {
+                m_JoystickObject = joystick.gameObject;
+            }
+        }
+
+        if (m_ScaleSliderObject == null)
+        {
+            CharacterScaleSlider scaleSlider = FindFirstObjectByType<CharacterScaleSlider>(FindObjectsInactive.Include);
+            if (scaleSlider != null)
+            {
+                m_ScaleSliderObject = scaleSlider.gameObject;
+            }
+        }
+
+        // Mặc định ẩn UI điều khiển lúc khởi đầu khi chưa chọn nhân vật
+        UpdateControlUI(false, true);
+    }
+
+    /// <summary>
+    /// Bật/Tắt hiển thị của Joystick và Scale Slider.
+    /// </summary>
+    private void UpdateControlUI(bool show, bool immediate = false)
+    {
+        // Luôn tìm kiếm lại nếu tham chiếu bị thiếu/null (ví dụ khi chuyển scene)
+        if (m_JoystickObject == null)
+        {
+            Joystick joystick = FindFirstObjectByType<Joystick>(FindObjectsInactive.Include);
+            if (joystick != null)
+            {
+                m_JoystickObject = joystick.gameObject;
+            }
+        }
+
+        if (m_ScaleSliderObject == null)
+        {
+            CharacterScaleSlider scaleSlider = FindFirstObjectByType<CharacterScaleSlider>(FindObjectsInactive.Include);
+            if (scaleSlider != null)
+            {
+                m_ScaleSliderObject = scaleSlider.gameObject;
+            }
+        }
+
+        if (m_JoystickObject != null)
+        {
+            AnimateUIElement(m_JoystickObject, show, immediate);
+        }
+        if (m_ScaleSliderObject != null)
+        {
+            AnimateUIElement(m_ScaleSliderObject, show, immediate);
+        }
+    }
+
+    /// <summary>
+    /// Thực hiện hoạt ảnh ẩn hiện mượt mà (Fade + Scale) bằng DOTween.
+    /// </summary>
+    private void AnimateUIElement(GameObject obj, bool show, bool immediate)
+    {
+        if (obj == null) return;
+
+        obj.transform.DOKill();
+        CanvasGroup cg = obj.GetComponent<CanvasGroup>();
+        if (cg == null)
+        {
+            cg = obj.AddComponent<CanvasGroup>();
+        }
+        cg.DOKill();
+
+        if (immediate)
+        {
+            cg.alpha = show ? 1f : 0f;
+            obj.transform.localScale = show ? Vector3.one : Vector3.one * 0.5f;
+            obj.SetActive(show);
+            return;
+        }
+
+        if (show)
+        {
+            obj.SetActive(true);
+            
+            // Nếu UI đang hoàn toàn ẩn hoặc bị thu nhỏ, reset trạng thái để chạy hoạt ảnh
+            if (obj.transform.localScale.sqrMagnitude < 0.001f || cg.alpha < 0.01f)
+            {
+                obj.transform.localScale = Vector3.one * 0.5f;
+                cg.alpha = 0f;
+            }
+
+            obj.transform.DOScale(Vector3.one, 0.25f).SetEase(Ease.OutBack).SetUpdate(true);
+            cg.DOFade(1f, 0.2f).SetUpdate(true);
+        }
+        else
+        {
+            if (obj.activeSelf)
+            {
+                cg.DOFade(0f, 0.2f).SetUpdate(true);
+                obj.transform.DOScale(Vector3.one * 0.5f, 0.2f).SetEase(Ease.InQuad).SetUpdate(true).OnComplete(() =>
+                {
+                    obj.SetActive(false);
+                });
+            }
+        }
+    }
+
+    /// <summary>
+    /// Khởi động lại bộ đếm thời gian tự động ẩn UI điều khiển và vòng tròn chỉ báo.
+    /// Gọi mỗi khi có tương tác của người dùng.
+    /// </summary>
+    public void ResetAutoHideTimer()
+    {
+        if (m_SelectedCharacter == null) return;
+
+        if (m_AutoHideCoroutine != null)
+        {
+            StopCoroutine(m_AutoHideCoroutine);
+        }
+
+        // Khôi phục hiển thị nếu đã bị ẩn
+        bool isUiHidden = IsGameplayUiHidden();
+
+        if (!isUiHidden)
+        {
+            SetIndicatorActive(true);
+            UpdateControlUI(true);
+        }
+
+        if (m_AutoHideDelay > 0f)
+        {
+            m_AutoHideCoroutine = StartCoroutine(AutoHideIndicatorAfterDelay(m_AutoHideDelay));
+        }
+    }
+
     /// <summary>
     /// Chọn một nhân vật để bắt đầu điều khiển.
     /// </summary>
@@ -75,11 +217,7 @@ public class CharacterManager : MonoBehaviour
         if (character == null) return;
 
         // Kiểm tra xem UI có đang ẩn hay không
-        bool isUiHidden = false;
-        var bandPanel = FindFirstObjectByType<BandPanelController>();
-        if (bandPanel != null && bandPanel.IsUiHidden) isUiHidden = true;
-        var customPanel = FindFirstObjectByType<CustomCharacterPanelController>();
-        if (customPanel != null && customPanel.IsUiHidden) isUiHidden = true;
+        bool isUiHidden = IsGameplayUiHidden();
 
         if (isUiHidden)
         {
@@ -97,6 +235,12 @@ public class CharacterManager : MonoBehaviour
         // Tạo hiệu ứng vòng tròn chọn dưới chân nhân vật (nếu được cấu hình)
         UpdateSelectionIndicator();
 
+        // Hiển thị UI điều khiển di chuyển và scale
+        if (!isUiHidden)
+        {
+            UpdateControlUI(true);
+        }
+
         // Kích hoạt sự kiện để thông báo cho các component khác (như UI Slider)
         OnCharacterSelected?.Invoke(m_SelectedCharacter);
     }
@@ -112,6 +256,15 @@ public class CharacterManager : MonoBehaviour
             m_ActiveIndicator.transform.DOKill();
             m_ActiveIndicator.SetActive(false);
             m_ActiveIndicator.transform.SetParent(transform, false);
+        }
+
+        // Ẩn UI điều khiển di chuyển và scale
+        UpdateControlUI(false);
+
+        if (m_AutoHideCoroutine != null)
+        {
+            StopCoroutine(m_AutoHideCoroutine);
+            m_AutoHideCoroutine = null;
         }
 
         // Kích hoạt sự kiện với tham số null
@@ -159,6 +312,7 @@ public class CharacterManager : MonoBehaviour
 
             if (animator != null && !string.IsNullOrEmpty(stateName))
             {
+                animator.applyRootMotion = false;
                 string sanitizedStateName = stateName.Replace(".", "_");
                 animator.CrossFade(sanitizedStateName, crossFadeTime);
             }
@@ -182,11 +336,7 @@ public class CharacterManager : MonoBehaviour
         if (m_SelectionIndicatorPrefab == null || m_SelectedCharacter == null) return;
 
         // Không hiển thị vòng chỉ báo chọn dưới chân nhân vật khi UI đang ẩn để quay video sạch
-        bool isUiHidden = false;
-        var bandPanel = FindFirstObjectByType<BandPanelController>();
-        if (bandPanel != null && bandPanel.IsUiHidden) isUiHidden = true;
-        var customPanel = FindFirstObjectByType<CustomCharacterPanelController>();
-        if (customPanel != null && customPanel.IsUiHidden) isUiHidden = true;
+        bool isUiHidden = IsGameplayUiHidden();
 
         if (isUiHidden)
         {
@@ -238,12 +388,12 @@ public class CharacterManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Coroutine tự động ẩn indicator sau một khoảng thời gian.
+    /// Coroutine tự động ẩn indicator sau một khoảng thời gian bằng cách huỷ chọn nhân vật.
     /// </summary>
     private IEnumerator AutoHideIndicatorAfterDelay(float delay)
     {
         yield return new WaitForSeconds(delay);
-        SetIndicatorActive(false);
+        DeselectCharacter();
         m_AutoHideCoroutine = null;
     }
 
@@ -277,6 +427,24 @@ public class CharacterManager : MonoBehaviour
                 }
             }
         }
+    }
+
+    private bool IsGameplayUiHidden()
+    {
+        if (m_BandPanel == null)
+        {
+            m_BandPanel = FindFirstObjectByType<BandPanelController>();
+        }
+        if (m_BandPanel != null && m_BandPanel.IsUiHidden)
+        {
+            return true;
+        }
+
+        if (m_CustomPanel == null)
+        {
+            m_CustomPanel = FindFirstObjectByType<CustomCharacterPanelController>();
+        }
+        return m_CustomPanel != null && m_CustomPanel.IsUiHidden;
     }
 
     private void OnDestroy()

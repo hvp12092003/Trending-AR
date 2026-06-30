@@ -76,7 +76,7 @@ public class HubPanelController : MonoBehaviour
 
         if (arMiniGamesButton != null)
         {
-            arMiniGamesButton.onClick.AddListener(() => LoadGameModeScene(arMiniGamesSceneName));
+            arMiniGamesButton.onClick.AddListener(OnMiniGamesButtonClicked);
         }
         else
         {
@@ -109,6 +109,11 @@ public class HubPanelController : MonoBehaviour
         BandSelectionManager.ClearSelection();
 
         StartCoroutine(CheckARAndLoadScene(bandArSceneName, bandNonArSceneName));
+    }
+
+    private void OnMiniGamesButtonClicked()
+    {
+        ShowTemporaryNotification(ComingSoonMessage);
     }
 
     private void OnDailyChallengeButtonClicked()

@@ -105,7 +105,7 @@ public class BottomBarController : MonoBehaviour
         }
 
         // Kích hoạt tab mặc định ban đầu nếu có quyền hoặc nếu không dùng PermissionPanel
-        PermissionPanelController permissionPanel = FindObjectOfType<PermissionPanelController>();
+        PermissionPanelController permissionPanel = FindFirstObjectByType<PermissionPanelController>();
         if (permissionPanel == null || permissionPanel.AreAllPermissionsGranted())
         {
             SelectTab(defaultTabIndex, true);

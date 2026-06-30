@@ -24,7 +24,8 @@ public class CharacterScaleSlider : MonoBehaviour
 
     // Biến cờ ngăn chặn vòng lặp cập nhật đệ quy giữa Slider và code thay đổi scale
     private bool m_IsUpdatingSliderValue = false;
-    private CharacterManager m_LastManager;
+    private bool m_IsSubscribed = false;
+    private BandARSpawner m_BandSpawner;
 
     private void Awake()
     {
@@ -50,24 +51,48 @@ public class CharacterScaleSlider : MonoBehaviour
         {
             Debug.LogError("CharacterScaleSlider: Không tìm thấy component Slider! Vui lòng gán hoặc thêm Slider vào GameObject này.", this);
         }
+
+        SubscribeToManager();
+    }
+
+    private void OnEnable()
+    {
+        SubscribeToManager();
+    }
+
+    private void OnDisable()
+    {
+        UnsubscribeFromManager();
     }
 
     private void Update()
     {
-        // Đồng bộ hóa việc đăng ký sự kiện động khi CharacterManager.Instance thay đổi/sẵn sàng
-        if (CharacterManager.Instance != m_LastManager)
+        // Fallback phòng trường hợp CharacterManager.Instance chưa sẵn sàng trong lúc Awake/Start/OnEnable
+        if (!m_IsSubscribed && CharacterManager.Instance != null)
         {
-            if (m_LastManager != null)
-            {
-                m_LastManager.OnCharacterSelected -= UpdateSliderFromCharacter;
-            }
-            m_LastManager = CharacterManager.Instance;
-            if (m_LastManager != null)
-            {
-                m_LastManager.OnCharacterSelected += UpdateSliderFromCharacter;
-                UpdateSliderFromCharacter(m_LastManager.SelectedCharacter);
-            }
+            SubscribeToManager();
         }
+    }
+
+    private void SubscribeToManager()
+    {
+        if (m_IsSubscribed) return;
+        if (CharacterManager.Instance != null)
+        {
+            CharacterManager.Instance.OnCharacterSelected += UpdateSliderFromCharacter;
+            m_IsSubscribed = true;
+            UpdateSliderFromCharacter(CharacterManager.Instance.SelectedCharacter);
+        }
+    }
+
+    private void UnsubscribeFromManager()
+    {
+        if (!m_IsSubscribed) return;
+        if (CharacterManager.Instance != null)
+        {
+            CharacterManager.Instance.OnCharacterSelected -= UpdateSliderFromCharacter;
+        }
+        m_IsSubscribed = false;
     }
 
     private void OnDestroy()
@@ -77,12 +102,7 @@ public class CharacterScaleSlider : MonoBehaviour
         {
             m_ScaleSlider.onValueChanged.RemoveListener(OnSliderValueChanged);
         }
-
-        if (m_LastManager != null)
-        {
-            m_LastManager.OnCharacterSelected -= UpdateSliderFromCharacter;
-            m_LastManager = null;
-        }
+        UnsubscribeFromManager();
     }
 
     /// <summary>
@@ -101,7 +121,7 @@ public class CharacterScaleSlider : MonoBehaviour
             selected.transform.localScale = Vector3.one * value;
 
             // Kiểm tra xem nhân vật có đang đứng trên bệ của BandARSpawner hay không
-            BandARSpawner spawner = FindFirstObjectByType<BandARSpawner>();
+            BandARSpawner spawner = GetBandSpawner();
             if (spawner != null && spawner.Pedestals != null && selected.transform.parent != null)
             {
                 if (spawner.Pedestals.Contains(selected.transform.parent.gameObject))
@@ -115,19 +135,20 @@ public class CharacterScaleSlider : MonoBehaviour
                     }
                 }
             }
+
+            // Reset bộ đếm thời gian tự động ẩn UI
+            CharacterManager.Instance.ResetAutoHideTimer();
         }
     }
 
-    /// <summary>
-    /// Đồng bộ giá trị Slider tương ứng khi chọn một nhân vật mới.
-    /// </summary>
     private void UpdateSliderFromCharacter(GameObject character)
     {
         if (m_ScaleSlider == null) return;
 
         if (character != null)
         {
-            // Bật tương tác slider khi chọn được nhân vật
+            // Hiện Slider và bật tương tác khi chọn được nhân vật
+            m_ScaleSlider.gameObject.SetActive(true);
             SetSliderInteractable(true);
 
             // Lấy scale hiện tại của nhân vật theo trục X làm chuẩn đại diện
@@ -144,7 +165,8 @@ public class CharacterScaleSlider : MonoBehaviour
         }
         else
         {
-            // Vô hiệu hóa slider khi không có nhân vật nào được chọn
+            // Ẩn Slider và vô hiệu hóa khi không có nhân vật nào được chọn
+            m_ScaleSlider.gameObject.SetActive(false);
             SetSliderInteractable(false);
         }
     }
@@ -158,5 +180,14 @@ public class CharacterScaleSlider : MonoBehaviour
         {
             m_ScaleSlider.interactable = interactable;
         }
+    }
+
+    private BandARSpawner GetBandSpawner()
+    {
+        if (m_BandSpawner == null)
+        {
+            m_BandSpawner = FindFirstObjectByType<BandARSpawner>();
+        }
+        return m_BandSpawner;
     }
 }

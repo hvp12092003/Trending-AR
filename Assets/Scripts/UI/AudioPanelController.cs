@@ -66,16 +66,6 @@ public class AudioPanelController : MonoBehaviour
     [Tooltip("Cho phép hiển thị tính năng ghi âm trong ScrollView")]
     [SerializeField] private bool enableRecording = true;
 
-    [Tooltip("Prefab của nút ghi âm (chứa component CustomAudioRecordItemUI)")]
-    [SerializeField] private GameObject audioRecordButtonPrefab;
-
-    [Tooltip("Button record dat san trong Content cua ScrollView")]
-    [SerializeField] private CustomAudioRecordItemUI recordItemButton;
-
-    [Tooltip("Text hiển thị trạng thái đang ghi âm / tải dữ liệu")]
-    [SerializeField] private TextMeshProUGUI recordingStatusText;
-
-
     [Tooltip("Nút ghi âm từ bên ngoài truyền vào")]
     [SerializeField] private Button recordButton;
 
@@ -127,7 +117,6 @@ public class AudioPanelController : MonoBehaviour
     public int SelectedIndex { get; private set; } = -1;
     public string SelectedCustomAudioId { get; private set; }
     private bool ShouldShowRecordButton => enableRecording && ResolveRecordItemUI() != null;
-    private bool ShouldInstantiateRecordButton => false;
 
     /// <summary>
     /// Cho phép bật/tắt tính năng ghi âm từ bên ngoài.
@@ -248,25 +237,6 @@ public class AudioPanelController : MonoBehaviour
         // 1. Tạo nút Ghi âm ở đầu danh sách nếu tính năng được bật VÀ nhân vật đã có bản ghi âm
         SetupRecordItemButton();
 
-        if (ShouldInstantiateRecordButton && ShouldShowRecordButton && !string.IsNullOrEmpty(ExistingCustomAudioId))
-        {
-            GameObject recordBtnObj = Instantiate(audioRecordButtonPrefab, scrollViewContent);
-            _instantiatedButtons.Add(recordBtnObj);
-
-            CustomAudioRecordItemUI recordItemUI = recordBtnObj.GetComponent<CustomAudioRecordItemUI>();
-            if (recordItemUI != null)
-            {
-                recordBtnObj.name = "Btn_Audio_Record_Item";
-                // Đã có ghi âm -> Hiển thị thẻ âm thanh đã ghi âm
-                recordItemUI.SetupRecordedItem("Record", null, () =>
-                {
-                    SelectCustomRecording(ExistingCustomAudioId);
-                }, () =>
-                {
-                    DeleteCustomRecording(ExistingCustomAudioId);
-                });
-            }
-        }
 
         // 2. Tạo các nút cho các prefab nhạc cụ mặc định
         if (audioButtonPrefab == null)
@@ -539,12 +509,6 @@ public class AudioPanelController : MonoBehaviour
 
     private CustomAudioRecordItemUI ResolveRecordItemUI()
     {
-        if (recordItemButton != null)
-        {
-            _resolvedRecordItemButton = recordItemButton;
-            return _resolvedRecordItemButton;
-        }
-
         if (_resolvedRecordItemButton != null)
         {
             return _resolvedRecordItemButton;
@@ -732,10 +696,6 @@ public class AudioPanelController : MonoBehaviour
 
             SetRecordProgress(progress, true);
 
-            if (recordingStatusText != null)
-            {
-                recordingStatusText.text = $"Recording: {(int)elapsed}s";
-            }
         }
 
         if (recordItem != null)
@@ -890,25 +850,12 @@ public class AudioPanelController : MonoBehaviour
 
     private void ShowStatusText(string message, float duration = 0f)
     {
-        if (recordingStatusText != null)
-        {
-            recordingStatusText.text = message;
-            recordingStatusText.gameObject.SetActive(true);
-
-            if (duration > 0f)
-            {
-                CancelInvoke(nameof(HideStatusText));
-                Invoke(nameof(HideStatusText), duration);
-            }
-        }
+        // recordingStatusText has been removed.
     }
 
     private void HideStatusText()
     {
-        if (recordingStatusText != null)
-        {
-            recordingStatusText.gameObject.SetActive(false);
-        }
+        // recordingStatusText has been removed.
     }
 
     // ─────────────────────────────────────────────────────────────────────────

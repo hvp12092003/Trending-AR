@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 /// <summary>
 /// Quản lý việc vuốt (swipe/drag) để di chuyển hàng bệ chứa Cast (Pedestals) theo phương ngang,
@@ -39,6 +40,9 @@ public class PedestalsScroller : MonoBehaviour
     private bool _originalUseFixedLimits;
     private float _originalFixedMinX;
     private float _originalFixedMaxX;
+    private readonly List<Transform> _activeChildren = new List<Transform>();
+    private readonly List<RaycastResult> _raycastResults = new List<RaycastResult>(8);
+    private PointerEventData _pointerEventData;
 
     public float FixedMinX
     {
@@ -98,22 +102,22 @@ public class PedestalsScroller : MonoBehaviour
         else
         {
             // Ngược lại, tự động tính toán dựa trên các bệ đứng active thực tế
-            var children = new System.Collections.Generic.List<Transform>();
+            _activeChildren.Clear();
             for (int i = 0; i < transform.childCount; i++)
             {
                 Transform child = transform.GetChild(i);
                 if (child.gameObject.activeSelf)
                 {
-                    children.Add(child);
+                    _activeChildren.Add(child);
                 }
             }
 
-            if (children.Count > 0)
+            if (_activeChildren.Count > 0)
             {
-                children.Sort((a, b) => a.localPosition.x.CompareTo(b.localPosition.x));
+                _activeChildren.Sort((a, b) => a.localPosition.x.CompareTo(b.localPosition.x));
 
-                float minChildX = children[0].localPosition.x;
-                float maxChildX = children[children.Count - 1].localPosition.x;
+                float minChildX = _activeChildren[0].localPosition.x;
+                float maxChildX = _activeChildren[_activeChildren.Count - 1].localPosition.x;
                 float width = maxChildX - minChildX;
 
                 if (width > 0.01f)
@@ -138,7 +142,9 @@ public class PedestalsScroller : MonoBehaviour
         _minLocalX = Mathf.Max(_minLocalX, -7.0f);
         _maxLocalX = Mathf.Min(_maxLocalX, 2.0f);
 
+#if UNITY_EDITOR
         Debug.Log($"[PedestalsScroller] Giới hạn cuộn cuối cùng: Min X = {_minLocalX}, Max X = {_maxLocalX}, useFixedLimits = {useFixedLimits}");
+#endif
     }
 
     private void Update()
@@ -160,20 +166,26 @@ public class PedestalsScroller : MonoBehaviour
             // Không thực hiện cuộn nếu chạm vào UI tương tác
             if (IsPointerOverUI(pointerPos))
             {
+#if UNITY_EDITOR
                 Debug.Log("[PedestalsScroller] Nhấp bị chặn: trúng UI tương tác.");
+#endif
                 return;
             }
 
             // Không thực hiện cuộn nếu chạm vào nhân vật
             if (IsPointerOverCharacter(pointerPos))
             {
+#if UNITY_EDITOR
                 Debug.Log("[PedestalsScroller] Nhấp bị chặn: trúng nhân vật.");
+#endif
                 return;
             }
 
             _isDragging = true;
             _lastPointerPos = pointerPos;
+#if UNITY_EDITOR
             Debug.Log($"[PedestalsScroller] Bắt đầu kéo cuộn từ vị trí: {_lastPointerPos}");
+#endif
         }
         else if (IsPointerPressed() && _isDragging)
         {
@@ -216,7 +228,9 @@ public class PedestalsScroller : MonoBehaviour
             
             if (Mathf.Abs(_targetLocalX - prevTarget) > 0.0001f)
             {
+#if UNITY_EDITOR
                 Debug.Log($"[PedestalsScroller] Đang cuộn. Lượng di chuyển: {moveAmount}, Vị trí X mục tiêu: {_targetLocalX}");
+#endif
             }
             
             _lastPointerPos = pointerPos;
@@ -225,7 +239,9 @@ public class PedestalsScroller : MonoBehaviour
         {
             if (_isDragging)
             {
+#if UNITY_EDITOR
                 Debug.Log("[PedestalsScroller] Thả tay/chuột. Dừng kéo.");
+#endif
                 _isDragging = false;
             }
         }
@@ -331,13 +347,17 @@ public class PedestalsScroller : MonoBehaviour
 
         if (EventSystem.current == null) return false;
 
-        PointerEventData eventData = new PointerEventData(EventSystem.current);
-        eventData.position = screenPosition;
+        if (_pointerEventData == null)
+        {
+            _pointerEventData = new PointerEventData(EventSystem.current);
+        }
 
-        System.Collections.Generic.List<RaycastResult> results = new System.Collections.Generic.List<RaycastResult>();
-        EventSystem.current.RaycastAll(eventData, results);
+        _pointerEventData.Reset();
+        _pointerEventData.position = screenPosition;
+        _raycastResults.Clear();
+        EventSystem.current.RaycastAll(_pointerEventData, _raycastResults);
 
-        foreach (var r in results)
+        foreach (var r in _raycastResults)
         {
             if (r.gameObject.GetComponentInParent<UnityEngine.UI.Selectable>() != null || 
                 r.gameObject.GetComponentInParent<UnityEngine.UI.ScrollRect>() != null)

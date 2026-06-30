@@ -6,6 +6,8 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "MainMenuPrefabCatalog", menuName = "Trending AR/Main Menu Prefab Catalog")]
 public class MainMenuPrefabCatalog : ScriptableObject
 {
+    private static readonly IReadOnlyList<string> EmptyAnimationIds = Array.Empty<string>();
+
     [Serializable]
     public class PrefabAssetEntry
     {
@@ -15,69 +17,39 @@ public class MainMenuPrefabCatalog : ScriptableObject
         [Tooltip("Addressables address/key. When set, this is preferred over the direct prefab.")]
         [SerializeField] private string addressKey;
 
-        [Tooltip("Optional direct prefab fallback. Clear this after Addressables migration if you want the prefab out of the base build.")]
-        [SerializeField] private GameObject prefab;
-
         [Header("UI Metadata")]
         [SerializeField] private string displayName;
-        [SerializeField] private string category;
         [SerializeField] private Sprite avatar;
-
-        [Header("Animation Metadata")]
-        [SerializeField] private string defaultAnimationId;
-        [SerializeField] private List<string> animationIds = new List<string>();
 
         public string Id
         {
             get
             {
                 if (!string.IsNullOrWhiteSpace(id)) return id;
-                if (prefab != null) return prefab.name;
                 if (!string.IsNullOrWhiteSpace(addressKey)) return addressKey;
                 return displayName;
             }
         }
 
         public string AddressKey => addressKey;
-        public GameObject DirectPrefab => prefab;
+        public GameObject DirectPrefab => null;
 
         public string DisplayName
         {
             get
             {
                 if (!string.IsNullOrWhiteSpace(displayName)) return displayName;
-
-                CastPrefab castConfig = prefab != null ? prefab.GetComponent<CastPrefab>() : null;
-                if (castConfig != null && !string.IsNullOrWhiteSpace(castConfig.Name)) return castConfig.Name;
-
-                AudioConfig audioConfig = prefab != null ? prefab.GetComponent<AudioConfig>() : null;
-                if (audioConfig != null && !string.IsNullOrWhiteSpace(audioConfig.Name)) return audioConfig.Name;
-
                 return !string.IsNullOrWhiteSpace(Id) ? Id : "Prefab";
             }
         }
 
-        public string Category
-        {
-            get
-            {
-                if (!string.IsNullOrWhiteSpace(category)) return category;
-
-                return null;
-            }
-        }
+        public string Category => null;
 
         public Sprite Avatar
         {
             get
             {
-                if (avatar != null) return avatar;
-
-                CastPrefab castConfig = prefab != null ? prefab.GetComponent<CastPrefab>() : null;
-                if (castConfig != null && castConfig.characterAvatar != null) return castConfig.characterAvatar;
-
-                AudioConfig audioConfig = prefab != null ? prefab.GetComponent<AudioConfig>() : null;
-                return audioConfig != null ? audioConfig.avatar : null;
+                return avatar;
             }
         }
 
@@ -85,10 +57,7 @@ public class MainMenuPrefabCatalog : ScriptableObject
         {
             get
             {
-                if (animationIds != null && animationIds.Count > 0) return animationIds;
-
-                CastPrefab castConfig = prefab != null ? prefab.GetComponent<CastPrefab>() : null;
-                return GetAnimationIdsFromCastConfig(castConfig);
+                return EmptyAnimationIds;
             }
         }
 
@@ -96,10 +65,7 @@ public class MainMenuPrefabCatalog : ScriptableObject
         {
             get
             {
-                if (!string.IsNullOrWhiteSpace(defaultAnimationId)) return defaultAnimationId;
-
-                IReadOnlyList<string> ids = AnimationIds;
-                return ids != null && ids.Count > 0 ? ids[0] : "";
+                return "";
             }
         }
 
@@ -109,10 +75,7 @@ public class MainMenuPrefabCatalog : ScriptableObject
 
             return EqualsIgnoreCase(Id, lookupId) ||
                    EqualsIgnoreCase(addressKey, lookupId) ||
-                   EqualsIgnoreCase(displayName, lookupId) ||
-                   (prefab != null && EqualsIgnoreCase(prefab.name, lookupId)) ||
-                   MatchesCastConfigName(lookupId) ||
-                   MatchesAudioConfigName(lookupId);
+                   EqualsIgnoreCase(displayName, lookupId);
         }
 
         public async Task<GameObject> LoadPrefabAsync()
@@ -126,24 +89,12 @@ public class MainMenuPrefabCatalog : ScriptableObject
                 }
             }
 
-            return prefab;
+            return null;
         }
 
         internal static PrefabAssetEntry FromPrefab(GameObject sourcePrefab)
         {
-            return new PrefabAssetEntry { prefab = sourcePrefab };
-        }
-
-        private bool MatchesCastConfigName(string lookupId)
-        {
-            CastPrefab castConfig = prefab != null ? prefab.GetComponent<CastPrefab>() : null;
-            return castConfig != null && EqualsIgnoreCase(castConfig.Name, lookupId);
-        }
-
-        private bool MatchesAudioConfigName(string lookupId)
-        {
-            AudioConfig audioConfig = prefab != null ? prefab.GetComponent<AudioConfig>() : null;
-            return audioConfig != null && EqualsIgnoreCase(audioConfig.Name, lookupId);
+            return new PrefabAssetEntry { id = sourcePrefab != null ? sourcePrefab.name : "" };
         }
 
         private static bool EqualsIgnoreCase(string a, string b)

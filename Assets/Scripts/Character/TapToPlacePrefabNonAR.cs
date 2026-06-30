@@ -94,12 +94,23 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
     private bool m_IsDragging = false;
     private Vector3 m_OriginalDraggedScale = Vector3.zero;
 
+    // Phân biệt Tap và Drag cho nhân vật đã đặt
+    private Vector2 m_StartPressPos;
+    private bool m_MaybeDraggingPlacedObject = false;
+    private float m_DragThreshold = 15f; // Ngưỡng pixel để bắt đầu kéo nhân vật đã đặt
+    private GameObject m_PendingDragObject;
+    private Move m_PendingDragMove;
+    private CastAudioData m_PendingDragAudio;
+    private CastPlacementState m_PendingDragPlacementState;
+
     // Cache variables to avoid GC allocations
     private PointerEventData m_PointerEventData;
     private List<RaycastResult> m_RaycastResultsCache = new List<RaycastResult>();
     private Camera m_MainCamera;
     private Joystick m_Joystick;
     private BandARSpawner m_BandSpawner;
+    private BandPanelController m_BandPanel;
+    private CustomCharacterPanelController m_CustomPanel;
     private Move m_DraggedMove;
     private CastAudioData m_DraggedAudio;
     private CastPlacementState m_DraggedPlacementState;
@@ -164,23 +175,24 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
                                 m_DraggedAudio = m_DraggedObject.GetComponent<CastAudioData>();
                                 m_DraggedPlacementState = m_DraggedObject.GetComponent<CastPlacementState>();
                                 m_IsDragging = true;
+                                m_IsDraggingPlacedObject = false;
 
                                 if (DeleteAreaUI.Instance != null)
                                 {
                                     DeleteAreaUI.Instance.Show();
                                 }
 
-                                // Chọn nhân vật làm active
+                                // Bỏ chọn nhân vật để ẩn tất cả UI (Joystick & Scale) khi kéo từ bệ
                                 if (CharacterManager.Instance != null)
                                 {
-                                    CharacterManager.Instance.SelectCharacter(m_DraggedObject);
+                                    CharacterManager.Instance.DeselectCharacter();
                                 }
 
                                 // Tách nhân vật ra khỏi bệ của spawner. Bệ chỉ tự ẩn khi đã đặt đủ 4 Cast.
                                 spawner.DetachMember(m_DraggedObject);
 
-                                // Đặt scale theo m_PlacedScale ngay khi kéo khỏi bệ đứng và lưu lại
-                                m_OriginalDraggedScale = m_PlacedScale;
+                                // Đặt scale theo GetPlacedScale() ngay khi kéo khỏi bệ đứng và lưu lại
+                                m_OriginalDraggedScale = GetPlacedScale();
                                 m_DraggedObject.transform.localScale = m_OriginalDraggedScale;
                             }
                             else
@@ -188,27 +200,13 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
                                 // Nhân vật đã được đặt trước đó (hoặc không ở trên bệ)
                                 if (IsARUIDisplayedNormally())
                                 {
-                                    m_DraggedObject = characterMove.gameObject;
-                                    m_DraggedMove = characterMove;
-                                    m_DraggedAudio = m_DraggedObject.GetComponent<CastAudioData>();
-                                    m_DraggedPlacementState = m_DraggedObject.GetComponent<CastPlacementState>();
-                                    m_IsDragging = true;
-                                    m_IsDraggingPlacedObject = true;
-
-                                    if (DeleteAreaUI.Instance != null)
-                                    {
-                                        DeleteAreaUI.Instance.Show();
-                                    }
-
-                                    m_OriginalDraggedScale = m_DraggedObject.transform.localScale;
-                                    m_DragDistance = Vector3.Distance(m_MainCamera.transform.position, m_DraggedObject.transform.position);
-                                    Vector3 initialSpawnPos = m_MainCamera.ScreenToWorldPoint(new Vector3(pointerPos.x, pointerPos.y, m_DragDistance));
-                                    m_DragOffset = m_DraggedObject.transform.position - initialSpawnPos;
-
-                                    if (CharacterManager.Instance != null)
-                                    {
-                                        CharacterManager.Instance.SelectCharacter(m_DraggedObject);
-                                    }
+                                    // Lưu lại vị trí chạm để kiểm tra threshold phân biệt kéo/chạm
+                                    m_StartPressPos = pointerPos;
+                                    m_MaybeDraggingPlacedObject = true;
+                                    m_PendingDragObject = characterMove.gameObject;
+                                    m_PendingDragMove = characterMove;
+                                    m_PendingDragAudio = m_PendingDragObject.GetComponent<CastAudioData>();
+                                    m_PendingDragPlacementState = m_PendingDragObject.GetComponent<CastPlacementState>();
                                 }
                                 else
                                 {
@@ -221,7 +219,59 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
                             }
                         }
                     }
+                    else
+                    {
+                        // Chạm trúng đối tượng khác không phải Cast -> Bỏ chọn nhân vật
+                        if (CharacterManager.Instance != null)
+                        {
+                            CharacterManager.Instance.DeselectCharacter();
+                        }
+                    }
                 }
+                else
+                {
+                    // Chạm ra ngoài khoảng không -> Bỏ chọn nhân vật
+                    if (CharacterManager.Instance != null)
+                    {
+                        CharacterManager.Instance.DeselectCharacter();
+                    }
+                }
+            }
+        }
+
+        // 1.5 Kiểm tra xem có bắt đầu kéo nhân vật đã đặt hay không (nếu di chuyển qua threshold)
+        if (m_MaybeDraggingPlacedObject && !m_IsDragging && m_PendingDragObject != null)
+        {
+            if (Vector2.Distance(pointerPos, m_StartPressPos) > m_DragThreshold)
+            {
+                m_DraggedObject = m_PendingDragObject;
+                m_DraggedMove = m_PendingDragMove;
+                m_DraggedAudio = m_PendingDragAudio;
+                m_DraggedPlacementState = m_PendingDragPlacementState;
+                m_IsDragging = true;
+                m_IsDraggingPlacedObject = true;
+
+                if (DeleteAreaUI.Instance != null)
+                {
+                    DeleteAreaUI.Instance.Show();
+                }
+
+                m_OriginalDraggedScale = m_DraggedObject.transform.localScale;
+                m_DragDistance = Vector3.Distance(m_MainCamera.transform.position, m_DraggedObject.transform.position);
+                Vector3 initialSpawnPos = m_MainCamera.ScreenToWorldPoint(new Vector3(pointerPos.x, pointerPos.y, m_DragDistance));
+                m_DragOffset = m_DraggedObject.transform.position - initialSpawnPos;
+
+                // Bỏ chọn nhân vật để ẩn tất cả UI (Joystick & Scale) khi bắt đầu kéo
+                if (CharacterManager.Instance != null)
+                {
+                    CharacterManager.Instance.DeselectCharacter();
+                }
+
+                m_MaybeDraggingPlacedObject = false;
+                m_PendingDragObject = null;
+                m_PendingDragMove = null;
+                m_PendingDragAudio = null;
+                m_PendingDragPlacementState = null;
             }
         }
 
@@ -233,12 +283,18 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
             {
                 DeleteAreaUI.Instance.UpdateHoverState(pointerPos);
             }
+
+            // Báo cho CharacterManager reset auto-hide timer vì đang di chuyển nhân vật
+            if (CharacterManager.Instance != null)
+            {
+                CharacterManager.Instance.ResetAutoHideTimer();
+            }
         }
 
         // 3. Khi thả tay ra (Touch/Mouse Up)
-        if (m_IsDragging && IsPointerReleasedThisFrame())
+        if (IsPointerReleasedThisFrame())
         {
-            if (m_DraggedObject != null)
+            if (m_IsDragging && m_DraggedObject != null)
             {
                 GameObject droppedObject = m_DraggedObject;
                 Move droppedMove = m_DraggedMove;
@@ -262,12 +318,11 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
                     Vector3 currentPos = m_DraggedObject.transform.position;
 
                     // Dùng chính vị trí tay thả làm điểm đáp xuống
-                    // (không snap về mặt đất để mỗi Cast có thể đặt ở độ cao / góc màn hình khác nhau)
                     Vector3 finalPos = currentPos;
 
                     // Điểm bắt đầu rơi: nâng lên trên một chút để tạo hiệu ứng rơi từ trên xuống
                     Vector3 startPos = finalPos;
-                    startPos.y += m_MinDropHeight;
+                    startPos.y += GetMinDropHeight();
 
                     // Hủy hẳn parent để cố định nhân vật trong thế giới giả lập
                     m_DraggedObject.transform.SetParent(null);
@@ -281,7 +336,7 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
                     }
                     else
                     {
-                        m_DraggedObject.transform.localScale = m_PlacedScale;
+                        m_DraggedObject.transform.localScale = GetPlacedScale();
                     }
 
                     if (!isPlacedObject && droppedPlacementState != null)
@@ -291,7 +346,7 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
 
                     // Thực hiện hiệu ứng rơi tự do có nảy nhẹ bằng DOTween
                     m_DraggedObject.transform.DOKill();
-                    m_DraggedObject.transform.DOMove(finalPos, m_DropDuration).SetEase(Ease.OutBounce);
+                    m_DraggedObject.transform.DOMove(finalPos, GetDropDuration()).SetEase(Ease.OutBounce);
 
                     if (isPlacedObject)
                     {
@@ -309,6 +364,14 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
                     }
                 }
             }
+            else if (m_MaybeDraggingPlacedObject && m_PendingDragObject != null)
+            {
+                // Chạm nhẹ và thả mà không vượt qua threshold -> Chọn nhân vật
+                if (CharacterManager.Instance != null)
+                {
+                    CharacterManager.Instance.SelectCharacter(m_PendingDragObject);
+                }
+            }
 
             m_DraggedObject = null;
             m_DraggedMove = null;
@@ -317,6 +380,12 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
             m_IsDragging = false;
             m_IsDraggingPlacedObject = false;
             m_OriginalDraggedScale = Vector3.zero;
+
+            m_MaybeDraggingPlacedObject = false;
+            m_PendingDragObject = null;
+            m_PendingDragMove = null;
+            m_PendingDragAudio = null;
+            m_PendingDragPlacementState = null;
 
             if (DeleteAreaUI.Instance != null)
             {
@@ -382,6 +451,24 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
         return m_BandSpawner;
     }
 
+    private Vector3 GetPlacedScale()
+    {
+        var spawner = GetBandSpawner();
+        return spawner != null ? spawner.PlacedScale : m_PlacedScale;
+    }
+
+    private float GetMinDropHeight()
+    {
+        var spawner = GetBandSpawner();
+        return spawner != null ? spawner.MinDropHeight : m_MinDropHeight;
+    }
+
+    private float GetDropDuration()
+    {
+        var spawner = GetBandSpawner();
+        return spawner != null ? spawner.DropDuration : m_DropDuration;
+    }
+
     private IEnumerator CompleteDropNextFrame(GameObject droppedObject, Move moveScript, CastAudioData castAudio)
     {
         yield return null;
@@ -391,9 +478,10 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
             yield break;
         }
 
-        if (CharacterManager.Instance != null && CharacterManager.Instance.SelectedCharacter == droppedObject)
+        // Khi thả nhân vật, bỏ chọn nhân vật để ẩn các UI điều khiển và vòng chân chỉ báo
+        if (CharacterManager.Instance != null)
         {
-            CharacterManager.Instance.SelectCharacter(droppedObject);
+            CharacterManager.Instance.DeselectCharacter();
         }
 
         if (moveScript != null)
@@ -549,9 +637,10 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
             yield break;
         }
 
-        if (CharacterManager.Instance != null && CharacterManager.Instance.SelectedCharacter == droppedObject)
+        // Khi thả nhân vật, bỏ chọn nhân vật để ẩn các UI điều khiển và vòng chân chỉ báo
+        if (CharacterManager.Instance != null)
         {
-            CharacterManager.Instance.SelectCharacter(droppedObject);
+            CharacterManager.Instance.DeselectCharacter();
         }
 
         if (moveScript != null)
@@ -562,18 +651,36 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
 
     private bool IsARUIDisplayedNormally()
     {
-        var bandPanel = FindFirstObjectByType<BandPanelController>();
+        var bandPanel = GetBandPanel();
         if (bandPanel != null)
         {
             return bandPanel.IsArUiActive && !bandPanel.IsUiHidden;
         }
 
-        var customPanel = FindFirstObjectByType<CustomCharacterPanelController>();
+        var customPanel = GetCustomPanel();
         if (customPanel != null)
         {
             return customPanel.IsArUiActive && !customPanel.IsUiHidden;
         }
 
         return true; // Fallback
+    }
+
+    private BandPanelController GetBandPanel()
+    {
+        if (m_BandPanel == null)
+        {
+            m_BandPanel = FindFirstObjectByType<BandPanelController>();
+        }
+        return m_BandPanel;
+    }
+
+    private CustomCharacterPanelController GetCustomPanel()
+    {
+        if (m_CustomPanel == null)
+        {
+            m_CustomPanel = FindFirstObjectByType<CustomCharacterPanelController>();
+        }
+        return m_CustomPanel;
     }
 }

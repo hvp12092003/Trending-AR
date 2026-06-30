@@ -128,11 +128,12 @@ public class AnimPanelController : MonoBehaviour
             return;
         }
 
-        // 1. Thu thập danh sách các hoạt ảnh từ cấu hình nhân vật
-        if (config != null && config.animations != null && config.animations.Count > 0)
+        // 1. Thu thập danh sách các hoạt ảnh từ cấu hình nhân vật (bỏ qua 2 phần tử đầu tiên là Idle và Run)
+        if (config != null && config.animations != null && config.animations.Count > 2)
         {
-            foreach (var animInfo in config.animations)
+            for (int i = 2; i < config.animations.Count; i++)
             {
+                var animInfo = config.animations[i];
                 if (animInfo.animation == null) continue;
                 _availableAnimations.Add(animInfo);
             }

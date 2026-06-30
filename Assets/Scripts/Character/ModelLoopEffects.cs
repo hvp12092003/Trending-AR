@@ -71,6 +71,10 @@ public class ModelLoopEffects : MonoBehaviour
     [Range(1f, 30f)]
     public float releaseSpeed = 10f;
 
+    [Tooltip("Seconds between audio samples. 0.033 is about 30 samples/sec and is lighter on mobile than sampling every frame.")]
+    [Range(0.01f, 0.2f)]
+    public float audioSampleInterval = 0.033f;
+
     // Compatibility Property to prevent compilation errors in CustomCharacterPanelController
     public AudioSource TargetAudioSource 
     { 
@@ -88,9 +92,11 @@ public class ModelLoopEffects : MonoBehaviour
 
     private float _currentLoudness;
     private float _prevLoudness;
+    private float _sampledLoudness;
+    private float _nextSampleTime;
     private float _lastVFXTime;
 
-    private readonly float[] _samples = new float[1024];
+    private readonly float[] _samples = new float[512];
     private System.Collections.Generic.Queue<ParticleSystem> _vfxPool
         = new System.Collections.Generic.Queue<ParticleSystem>();
 
@@ -202,11 +208,22 @@ public class ModelLoopEffects : MonoBehaviour
     // ───────────────────────────────────────────────
     private float SampleLoudness()
     {
+        if (audioSampleInterval > 0f && Time.time < _nextSampleTime)
+        {
+            return _sampledLoudness;
+        }
+
+        _nextSampleTime = Time.time + Mathf.Max(0.01f, audioSampleInterval);
+
         AudioSource src = _overrideSource ?? audioSource;
         if (src == null && MusicSyncManager.Instance != null)
             src = MusicSyncManager.Instance.AudioSource;
 
-        if (src == null || !src.isPlaying) return 0f;
+        if (src == null || !src.isPlaying)
+        {
+            _sampledLoudness = 0f;
+            return _sampledLoudness;
+        }
 
         src.GetOutputData(_samples, 0);
         float sum = 0f;
@@ -214,7 +231,8 @@ public class ModelLoopEffects : MonoBehaviour
             sum += _samples[i] * _samples[i];
 
         float rms = Mathf.Sqrt(sum / _samples.Length) * sensitivity;
-        return rms < noiseThreshold ? 0f : rms;
+        _sampledLoudness = rms < noiseThreshold ? 0f : rms;
+        return _sampledLoudness;
     }
 
     private void ResolveAudioSource()

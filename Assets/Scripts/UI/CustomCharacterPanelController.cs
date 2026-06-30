@@ -38,6 +38,19 @@ public class CustomCharacterPanelController : MonoBehaviour
     [Header("Preview Settings")]
     [SerializeField] private Transform previewContainer;
 
+    [Header("Preview Offset Settings")]
+    [Tooltip("Vị trí cục bộ của nhân vật trong phòng studio preview.")]
+    [SerializeField] private Vector3 characterLocalPosition = Vector3.zero;
+
+    [Tooltip("Scale cục bộ của nhân vật trong phòng studio preview.")]
+    [SerializeField] private Vector3 characterLocalScale = Vector3.one;
+
+    [Tooltip("Vị trí cục bộ của nhạc cụ so với phòng studio preview.")]
+    [SerializeField] private Vector3 instrumentLocalPosition = new Vector3(-1f, 0.5f, 0f);
+
+    [Tooltip("Scale cục bộ của nhạc cụ trong phòng studio preview.")]
+    [SerializeField] private Vector3 instrumentLocalScale = Vector3.one;
+
     [Header("Recording Status")]
     [SerializeField] private TextMeshProUGUI recordingStatusText;
 
@@ -89,6 +102,20 @@ public class CustomCharacterPanelController : MonoBehaviour
     {
         if (startButtonText == null) return;
         startButtonText.text = _isCharacterSaved ? "START" : "SAVE";
+    }
+
+    /// <summary>
+    /// Cập nhật hiển thị của nút SKIP dựa theo số lượng Cast đã lưu.
+    /// Nếu chưa có Cast nào (người chơi mới), ẩn nút SKIP.
+    /// </summary>
+    private void UpdateSkipButtonVisibility()
+    {
+        if (skipButton != null)
+        {
+            MainMenuDataManager dataManager = GetOrCreateMainMenuDataManager();
+            bool hasCasts = dataManager != null && dataManager.GetSavedCastsCount() > 0;
+            skipButton.gameObject.SetActive(hasCasts);
+        }
     }
 
     /// <summary>
@@ -170,6 +197,7 @@ public class CustomCharacterPanelController : MonoBehaviour
     private Dictionary<GameObject, bool> m_UiActiveStates = new Dictionary<GameObject, bool>();
     private Dictionary<GameObject, Vector3> m_UiOriginalScales = new Dictionary<GameObject, Vector3>();
     private Image m_FadeOverlay;
+    private bool m_IsGameplayUiHidden = false;
 
     private CanvasGroup _characterCG;
     private CanvasGroup _instrumentCG;
@@ -186,7 +214,7 @@ public class CustomCharacterPanelController : MonoBehaviour
     private bool _isFirstSwitch = true;
 
     public bool IsArUiActive => uiAr != null && uiAr.activeSelf;
-    public bool IsUiHidden => showUiButton != null && showUiButton.gameObject.activeSelf;
+    public bool IsUiHidden => m_IsGameplayUiHidden || (showUiButton != null && showUiButton.gameObject.activeSelf);
 
     private void Awake()
     {
@@ -388,6 +416,8 @@ public class CustomCharacterPanelController : MonoBehaviour
             refreshButton.onClick.AddListener(RefreshCasts);
             Debug.Log("[CustomCharacterPanelController] Đã gắn sự kiện RefreshCasts cho nút: " + refreshButton.gameObject.name);
         }
+
+        UpdateSkipButtonVisibility();
     }
 
     private void OnEnable()
@@ -400,6 +430,7 @@ public class CustomCharacterPanelController : MonoBehaviour
         if (previewCamera != null) previewCamera.SetActive(true);
 
         HideArPedestalsForCreator();
+        UpdateSkipButtonVisibility();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -639,11 +670,22 @@ public class CustomCharacterPanelController : MonoBehaviour
         if (prefab != null && previewContainer != null)
         {
             _previewInstance = Instantiate(prefab, previewContainer.position, previewContainer.rotation, previewContainer);
-            _previewInstance.transform.localPosition = Vector3.zero;
-            _previewInstance.transform.localScale = Vector3.one;
+            _previewInstance.transform.localPosition = characterLocalPosition;
+            _previewInstance.transform.localScale = characterLocalScale;
 
             // Đồng bộ layer của nhân vật và các object con theo layer của previewContainer
             SetLayerRecursively(_previewInstance, previewContainer.gameObject.layer);
+
+            // Tắt applyRootMotion trên Animator của preview để tránh nhân vật di chuyển khỏi vị trí khi chạy hoạt ảnh
+            Animator anim = _previewInstance.GetComponent<Animator>();
+            if (anim == null)
+            {
+                anim = _previewInstance.GetComponentInChildren<Animator>();
+            }
+            if (anim != null)
+            {
+                anim.applyRootMotion = false;
+            }
 
             // Gán target động cho UICharacterRotator xoay 3D preview
 #if UNITY_2023_1_OR_NEWER
@@ -692,9 +734,9 @@ public class CustomCharacterPanelController : MonoBehaviour
         if (instrumentPrefab != null && previewContainer != null)
         {
             _previewInstrumentInstance = Instantiate(instrumentPrefab, previewContainer.position, previewContainer.rotation, previewContainer);
-            _previewInstrumentInstance.transform.localPosition = new Vector3(-1f, 0.5f, 0f);
+            _previewInstrumentInstance.transform.localPosition = instrumentLocalPosition;
             _previewInstrumentInstance.transform.localRotation = Quaternion.identity;
-            _previewInstrumentInstance.transform.localScale = Vector3.one;
+            _previewInstrumentInstance.transform.localScale = instrumentLocalScale;
 
             SetLayerRecursively(_previewInstrumentInstance, previewContainer.gameObject.layer);
 
@@ -820,6 +862,7 @@ public class CustomCharacterPanelController : MonoBehaviour
 
         if (animator != null)
         {
+            animator.applyRootMotion = false;
             animator.CrossFade("root_Girl_Idle", 0.15f);
             Debug.Log("[CustomCharacterPanelController] PlayIdleAnimation: Đã chạy root_Girl_Idle trên Animator.");
         }
@@ -848,6 +891,7 @@ public class CustomCharacterPanelController : MonoBehaviour
 
         if (animator != null)
         {
+            animator.applyRootMotion = false;
             animator.CrossFade(sanitizedStateName, 0.15f);
             Debug.Log($"[CustomCharacterPanelController] PlayPreviewAnimation: Đã chạy {sanitizedStateName} trên Animator.");
         }
@@ -1152,6 +1196,7 @@ public class CustomCharacterPanelController : MonoBehaviour
             _isCharacterSaved = true;
             _savedCastData = savedCast;
             UpdateStartButtonText(); // text đổi thành "START" sau khi lưu xong
+            UpdateSkipButtonVisibility();
 
             // Tự động xóa bản ghi âm dư thừa nếu không chọn nó làm âm thanh chính của nhân vật
             if (audioPanelController != null)
@@ -1436,6 +1481,7 @@ public class CustomCharacterPanelController : MonoBehaviour
     {
         Debug.Log(logMessage);
         ARFallbackManager.ResumeForCurrentScene();
+        ResetGameplayUiHiddenState();
 
         // 1. Lấy hoặc thêm CanvasGroup cho uiCustome và uiAr để chạy fade mượt mà
         CanvasGroup cgCustome = null;
@@ -1628,7 +1674,7 @@ public class CustomCharacterPanelController : MonoBehaviour
 
         // Khôi phục tất cả UI AR đã ẩn về trạng thái hiển thị mặc định và reset bộ nhớ trạng thái
         m_UiActiveStates.Clear();
-        ShowUI_Internal(false);
+        ResetGameplayUiHiddenState();
 
         // 2. Ẩn UI AR với hiệu ứng fade out
         if (uiAr != null)
@@ -1680,6 +1726,7 @@ public class CustomCharacterPanelController : MonoBehaviour
         SwitchTab(CustomTab.Character, false);
         RestoreFirstCharacterPreview();
         UpdateStartButtonText();
+        UpdateSkipButtonVisibility();
     }
 
     private void RestoreFirstCharacterPreview()
@@ -1831,6 +1878,8 @@ public class CustomCharacterPanelController : MonoBehaviour
 
     private void HideUI_Internal()
     {
+        m_IsGameplayUiHidden = true;
+
         BandARSpawner spawner = null;
 #if UNITY_2023_1_OR_NEWER
         spawner = FindAnyObjectByType<BandARSpawner>();
@@ -1946,6 +1995,8 @@ public class CustomCharacterPanelController : MonoBehaviour
 
     private void ShowUI_Internal(bool showPedestals = true)
     {
+        m_IsGameplayUiHidden = false;
+
         BandARSpawner spawner = null;
 #if UNITY_2023_1_OR_NEWER
         spawner = FindAnyObjectByType<BandARSpawner>();
@@ -2125,6 +2176,73 @@ public class CustomCharacterPanelController : MonoBehaviour
             });
     }
 
+    private void ResetGameplayUiHiddenState()
+    {
+        m_IsGameplayUiHidden = false;
+
+        if (showUiButton == null)
+        {
+            return;
+        }
+
+        CanvasGroup cgShow = showUiButton.GetComponent<CanvasGroup>();
+        if (cgShow == null)
+        {
+            cgShow = showUiButton.gameObject.AddComponent<CanvasGroup>();
+        }
+
+        cgShow.DOKill();
+        showUiButton.transform.DOKill();
+        cgShow.alpha = 0f;
+        cgShow.interactable = false;
+        cgShow.blocksRaycasts = false;
+        showUiButton.transform.localScale = Vector3.zero;
+        showUiButton.gameObject.SetActive(false);
+    }
+
+    private void ApplyHiddenGameplayUiState()
+    {
+        if (arUiPanels != null)
+        {
+            foreach (GameObject uiObj in arUiPanels)
+            {
+                if (uiObj == null) continue;
+                if (showUiButton != null && uiObj == showUiButton.gameObject) continue;
+
+                CanvasGroup cg = uiObj.GetComponent<CanvasGroup>();
+                if (cg != null)
+                {
+                    cg.DOKill();
+                    cg.alpha = 0f;
+                    cg.interactable = false;
+                    cg.blocksRaycasts = false;
+                }
+
+                uiObj.transform.DOKill();
+                uiObj.SetActive(false);
+            }
+        }
+
+        if (showUiButton == null)
+        {
+            return;
+        }
+
+        CanvasGroup cgShow = showUiButton.GetComponent<CanvasGroup>();
+        if (cgShow == null)
+        {
+            cgShow = showUiButton.gameObject.AddComponent<CanvasGroup>();
+        }
+
+        showUiButton.gameObject.SetActive(true);
+        showUiButton.transform.DOKill();
+        cgShow.DOKill();
+        showUiButton.transform.localScale = Vector3.one;
+        cgShow.alpha = 1f;
+        cgShow.interactable = true;
+        cgShow.blocksRaycasts = true;
+    }
+
     private void AutoAssignUIReferences()
     {
         if (hideUiButton == null)
@@ -2247,6 +2365,12 @@ public class CustomCharacterPanelController : MonoBehaviour
     /// </summary>
     public void UpdateARUIBasedOnPlacement(bool hasPlacedCasts)
     {
+        if (IsUiHidden)
+        {
+            ApplyHiddenGameplayUiState();
+            return;
+        }
+
         if (arUiPanels == null || arUiPanels.Count == 0) return;
 
         foreach (var uiObj in arUiPanels)
@@ -2268,6 +2392,20 @@ public class CustomCharacterPanelController : MonoBehaviour
 
             if (hasPlacedCasts)
             {
+                // Bỏ qua hiển thị Joystick và Scale Slider nếu không có nhân vật nào được chọn
+                if (uiObj.GetComponentInChildren<Joystick>(true) != null ||
+                    uiObj.GetComponentInChildren<CharacterScaleSlider>(true) != null ||
+                    uiObj.GetComponent<Joystick>() != null ||
+                    uiObj.GetComponent<CharacterScaleSlider>() != null)
+                {
+                    bool isAnySelected = CharacterManager.Instance != null && CharacterManager.Instance.SelectedCharacter != null;
+                    if (!isAnySelected)
+                    {
+                        uiObj.SetActive(false);
+                        continue;
+                    }
+                }
+
                 uiObj.SetActive(true);
 
                 CanvasGroup cg = uiObj.GetComponent<CanvasGroup>();

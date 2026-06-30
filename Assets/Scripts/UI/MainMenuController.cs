@@ -25,10 +25,6 @@ public class MainMenuController : MonoBehaviour
     [Header("Leaderboard Panel")]
     [SerializeField] private LeaderboardMenuController leaderboardMenuController;
 
-    [Header("UI Scene Loading Overlay")]
-    [SerializeField] private GameObject loadingOverlay;
-    [SerializeField] private TextMeshProUGUI loadingText;
-
     [Header("Profile Panel")]
     [SerializeField] private Button profileButton;
     [SerializeField] private ProfilePanelController profilePanel;
@@ -66,10 +62,6 @@ public class MainMenuController : MonoBehaviour
 
     private void Start()
     {
-        // 1. Reset trạng thái loading overlay
-        if (loadingOverlay != null) 
-            loadingOverlay.SetActive(false);
-
         // Reset profile panel state
         if (profilePanel != null)
         {
@@ -414,6 +406,18 @@ public class MainMenuController : MonoBehaviour
     {
         if (mainAvatarImage == null) return;
 
+        string selectedAvatarId = PlayerPrefs.GetString("SelectedAvatarId", "");
+        if (!string.IsNullOrEmpty(selectedAvatarId))
+        {
+            Sprite presetSprite = GetPresetAvatarSprite(selectedAvatarId);
+            if (presetSprite != null)
+            {
+                mainAvatarImage.sprite = presetSprite;
+                mainAvatarImage.enabled = true;
+                return;
+            }
+        }
+
         string localPath = GetLocalAvatarPath();
         if (File.Exists(localPath))
         {
@@ -448,6 +452,24 @@ public class MainMenuController : MonoBehaviour
             }
             mainAvatarImage.sprite = _defaultAvatarSprite;
         }
+    }
+
+    private Sprite GetPresetAvatarSprite(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        if (MainMenuDataManager.Instance == null) return null;
+
+        if (id.StartsWith("cast_"))
+        {
+            string castId = id.Substring("cast_".Length);
+            return MainMenuDataManager.Instance.GetCharacterAvatarSprite(castId);
+        }
+        else if (id.StartsWith("inst_"))
+        {
+            string instId = id.Substring("inst_".Length);
+            return MainMenuDataManager.Instance.GetInstrumentAvatarSprite(instId);
+        }
+        return null;
     }
 
     private void OnDestroy()

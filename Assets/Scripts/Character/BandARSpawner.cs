@@ -62,9 +62,22 @@ public class BandARSpawner : MonoBehaviour
     [Tooltip("Tỉ lệ scale cục bộ của nhân vật.")]
     [SerializeField] private Vector3 pedestalLocalScale = new Vector3(0.02f, 0.02f, 0.02f);
 
+    [Header("Cast AR Settings")]
+    [Tooltip("Tỉ lệ scale của nhân vật khi được kéo ra đặt vào AR.")]
+    [SerializeField] private Vector3 placedScale = new Vector3(0.5f, 0.5f, 0.5f);
+
+    [Tooltip("Độ cao rơi tối thiểu (m) khi thả nhân vật ra AR.")]
+    [SerializeField] private float minDropHeight = 0.8f;
+
+    [Tooltip("Thời gian rơi tiếp đất (s) khi thả nhân vật ra AR.")]
+    [SerializeField] private float dropDuration = 0.45f;
+
     public Vector3 PedestalLocalPosition => pedestalLocalPosition;
     public Vector3 PedestalLocalRotation => pedestalLocalRotation;
     public Vector3 PedestalLocalScale => pedestalLocalScale;
+    public Vector3 PlacedScale => placedScale;
+    public float MinDropHeight => minDropHeight;
+    public float DropDuration => dropDuration;
 
     private List<GameObject> instrumentPrefabs
     {
@@ -92,6 +105,7 @@ public class BandARSpawner : MonoBehaviour
     private bool m_FollowCamera = true;
     private Transform m_FollowContainer;
     private List<CastData> _cachedCastsToSpawn = new List<CastData>();
+    private readonly List<GameObject> _unplacedMemberBuffer = new List<GameObject>();
     private Dictionary<GameObject, Vector3> _originalPedestalScales = new Dictionary<GameObject, Vector3>();
     private bool _pedestalsVisible = true;
     private bool m_ManualPedestalToggleEnabled = false;
@@ -102,6 +116,7 @@ public class BandARSpawner : MonoBehaviour
     private Coroutine _placementLimitCoroutine;
     private bool _placementLimitCleanupQueued = false;
     private bool _awardedSelectedBandPoints = false;
+    private Camera m_MainCamera;
     private const int CUSTOM_CAST_USE_POINT_REWARD = 10;
     private TextMeshProUGUI _customCastPointNotificationText;
     private CanvasGroup _customCastPointNotificationGroup;
@@ -124,6 +139,7 @@ public class BandARSpawner : MonoBehaviour
     {
         // Đảm bảo bật follow camera mặc định
         m_FollowCamera = followCameraOnStart;
+        m_MainCamera = Camera.main;
         AndroidUtils.WarmUpVibration();
     }
 
@@ -180,6 +196,15 @@ public class BandARSpawner : MonoBehaviour
         }
     }
 
+    private Camera GetMainCamera()
+    {
+        if (m_MainCamera == null)
+        {
+            m_MainCamera = Camera.main;
+        }
+        return m_MainCamera;
+    }
+
     /// <summary>
     /// Tính toán vị trí trước camera và spawn ban nhạc.
     /// </summary>
@@ -188,9 +213,10 @@ public class BandARSpawner : MonoBehaviour
         Vector3 spawnPos = Vector3.zero;
         Quaternion spawnRot = Quaternion.identity;
 
-        if (Camera.main != null)
+        Camera mainCamera = GetMainCamera();
+        if (mainCamera != null)
         {
-            Transform camTrans = Camera.main.transform;
+            Transform camTrans = mainCamera.transform;
             Vector3 camForwardHorizontal = camTrans.forward;
             camForwardHorizontal.y = 0f;
             camForwardHorizontal.Normalize();
@@ -291,9 +317,10 @@ public class BandARSpawner : MonoBehaviour
     {
         // Chỉ cập nhật vị trí container follow camera nếu không sử dụng bệ đứng
         bool usePedestals = pedestals != null && pedestals.Count > 0;
-        if (!usePedestals && m_FollowCamera && Camera.main != null)
+        Camera mainCamera = GetMainCamera();
+        if (!usePedestals && m_FollowCamera && mainCamera != null)
         {
-            Transform camTrans = Camera.main.transform;
+            Transform camTrans = mainCamera.transform;
 
             // Hướng nhìn ngang của camera (chiếu lên trục Y = 0)
             Vector3 camForwardHorizontal = camTrans.forward;
@@ -454,6 +481,7 @@ public class BandARSpawner : MonoBehaviour
         }
         else if (placedCount < 4)
         {
+            _placementLimitCleanupQueued = false;
             RearrangeUnplacedCasts();
         }
 
@@ -490,6 +518,12 @@ public class BandARSpawner : MonoBehaviour
 
         // 4. Cho phép kích hoạt rung haptic trở lại khi người dùng đạt đủ 4 Cast
         _didVibrateForFourPlacedCasts = false;
+        _placementLimitCleanupQueued = false;
+        if (_placementLimitCoroutine != null)
+        {
+            StopCoroutine(_placementLimitCoroutine);
+            _placementLimitCoroutine = null;
+        }
 
         // 5. Bật hiển thị các bệ đứng trở lại nếu đang bị ẩn
         if (pedestals != null && pedestals.Count > 0)
@@ -535,7 +569,7 @@ public class BandARSpawner : MonoBehaviour
         }
 
         // 1. Thu thập tất cả các Cast chưa được đặt ra thế giới
-        List<GameObject> unplacedMembers = new List<GameObject>();
+        _unplacedMemberBuffer.Clear();
         foreach (var member in _spawnedMembers)
         {
             if (member == null) continue;
@@ -543,15 +577,15 @@ public class BandARSpawner : MonoBehaviour
             bool isPlaced = placementState != null ? placementState.IsPlaced : member.transform.parent == null;
             if (!isPlaced)
             {
-                unplacedMembers.Add(member);
+                _unplacedMemberBuffer.Add(member);
             }
         }
 
         // 2. Dồn các Cast chưa đặt lên các bệ đứng đầu tiên
         int targetIndex = 0;
-        for (int i = 0; i < unplacedMembers.Count; i++)
+        for (int i = 0; i < _unplacedMemberBuffer.Count; i++)
         {
-            GameObject member = unplacedMembers[i];
+            GameObject member = _unplacedMemberBuffer[i];
             if (member == null) continue;
 
             while (targetIndex < pedestals.Count && pedestals[targetIndex] == null)
@@ -576,20 +610,35 @@ public class BandARSpawner : MonoBehaviour
             member.transform.DOLocalRotate(pedestalLocalRotation, 0.35f).SetEase(Ease.OutQuad);
             member.transform.DOScale(pedestalLocalScale, 0.35f).SetEase(Ease.OutQuad);
 
-            // Bật hiển thị bệ đứng và khôi phục scale gốc của bệ
-            pedestal.SetActive(true);
+            // Bật hiển thị bệ đứng bằng hiệu ứng phóng to mượt mà
             Vector3 originalScale = GetOriginalPedestalScale(pedestal);
-            pedestal.transform.localScale = originalScale;
+            if (!pedestal.activeSelf)
+            {
+                pedestal.transform.DOKill();
+                pedestal.SetActive(true);
+                pedestal.transform.localScale = Vector3.zero;
+                pedestal.transform.DOScale(originalScale, 0.35f).SetEase(Ease.OutBack);
+            }
+            else
+            {
+                pedestal.transform.DOKill();
+                pedestal.transform.DOScale(originalScale, 0.35f).SetEase(Ease.OutQuad);
+            }
 
             targetIndex++;
         }
 
-        // 3. Ẩn tất cả các bệ đứng trống còn lại ở phía sau
+        // 3. Ẩn tất cả các bệ đứng trống còn lại ở phía sau bằng hiệu ứng thu nhỏ
         for (int j = targetIndex; j < pedestals.Count; j++)
         {
-            if (pedestals[j] != null)
+            if (pedestals[j] != null && pedestals[j].activeSelf)
             {
-                pedestals[j].SetActive(false);
+                GameObject targetPedestal = pedestals[j];
+                targetPedestal.transform.DOKill();
+                targetPedestal.transform.DOScale(Vector3.zero, 0.3f).SetEase(Ease.InQuad).OnComplete(() =>
+                {
+                    targetPedestal.SetActive(false);
+                });
             }
         }
 
@@ -611,7 +660,7 @@ public class BandARSpawner : MonoBehaviour
         if (scroller != null)
         {
             // Cập nhật lại giới hạn cuộn cố định dựa trên số lượng bệ hoạt động
-            int activeCount = unplacedMembers.Count;
+            int activeCount = _unplacedMemberBuffer.Count;
             float newMinX = scroller.FixedMaxX; // Mặc định khi chỉ có 1 hoặc 0 bệ thì không cho cuộn trái (min = max)
             if (activeCount > 1)
             {
@@ -813,41 +862,69 @@ public class BandARSpawner : MonoBehaviour
         // 1. Tat cac be dung con lai va cac nhan vat chua duoc drop ra world.
         if (pedestals != null && pedestals.Count > 0)
         {
+            int activeCount = 0;
+            int completedCount = 0;
+
             foreach (var pedestal in pedestals)
             {
                 if (pedestal != null && pedestal.activeSelf)
                 {
+                    // Ẩn nhân vật chưa đặt đang đứng trên bệ với hiệu ứng thu nhỏ
                     for (int i = 0; i < pedestal.transform.childCount; i++)
                     {
                         Transform child = pedestal.transform.GetChild(i);
-                        if (child != null)
+                        if (child != null && child.gameObject.activeSelf)
                         {
-                            child.gameObject.SetActive(false);
+                            child.transform.DOKill();
+                            child.transform.DOScale(Vector3.zero, 0.25f).SetEase(Ease.InQuad).OnComplete(() =>
+                            {
+                                child.gameObject.SetActive(false);
+                            });
                         }
                     }
 
-                    pedestal.SetActive(false);
+                    activeCount++;
+                    pedestal.transform.DOKill();
+                    pedestal.transform.DOScale(Vector3.zero, 0.35f).SetEase(Ease.InQuad).OnComplete(() =>
+                    {
+                        pedestal.SetActive(false);
+                        completedCount++;
+                        if (completedCount >= activeCount)
+                        {
+                            if (pedestals[0] != null && pedestals[0].transform.parent != null)
+                            {
+                                pedestals[0].transform.parent.gameObject.SetActive(false);
+                            }
+                        }
+                    });
                 }
             }
 
-            if (pedestals[0] != null && pedestals[0].transform.parent != null)
+            if (activeCount == 0)
             {
-                pedestals[0].transform.parent.gameObject.SetActive(false);
+                if (pedestals[0] != null && pedestals[0].transform.parent != null)
+                {
+                    pedestals[0].transform.parent.gameObject.SetActive(false);
+                }
             }
         }
 
         // 2. Truong hop su dung container ao follow camera (fallback).
         if (m_FollowContainer != null)
         {
-            for (int i = 0; i < m_FollowContainer.childCount; i++)
+            m_FollowContainer.DOKill();
+            m_FollowContainer.DOScale(Vector3.zero, 0.35f).SetEase(Ease.InQuad).OnComplete(() =>
             {
-                Transform child = m_FollowContainer.GetChild(i);
-                if (child != null)
+                for (int i = 0; i < m_FollowContainer.childCount; i++)
                 {
-                    child.gameObject.SetActive(false);
+                    Transform child = m_FollowContainer.GetChild(i);
+                    if (child != null)
+                    {
+                        child.gameObject.SetActive(false);
+                    }
                 }
-            }
-            m_FollowContainer.gameObject.SetActive(false);
+                m_FollowContainer.gameObject.SetActive(false);
+            });
         }
 
 #if UNITY_EDITOR
@@ -1007,16 +1084,27 @@ public class BandARSpawner : MonoBehaviour
                         editorMember = editorBand.members[i];
                         if (MainMenuDataManager.Instance != null && 
                             editorMember.castPrefabIndex >= 0 && 
-                            editorMember.castPrefabIndex < MainMenuDataManager.Instance.CharacterPrefabs.Count)
+                            editorMember.castPrefabIndex < MainMenuDataManager.Instance.CharacterEntries.Count)
                         {
-                            prefab = MainMenuDataManager.Instance.CharacterPrefabs[editorMember.castPrefabIndex];
+                            var entry = MainMenuDataManager.Instance.CharacterEntries[editorMember.castPrefabIndex];
+                            if (entry != null)
+                            {
+                                prefab = await MainMenuDataManager.Instance.LoadCharacterPrefabAsync(entry.Id);
+                            }
                         }
                         memberName = GetEditorMemberDisplayName(prefab, i);
                     }
                     else
                     {
                         cast = casts[i];
-                        prefab = GetCharacterPrefab(cast.prefabName);
+                        if (MainMenuDataManager.Instance != null)
+                        {
+                            prefab = await MainMenuDataManager.Instance.LoadCharacterPrefabAsync(cast.prefabName);
+                        }
+                        else
+                        {
+                            prefab = GetCharacterPrefab(cast.prefabName);
+                        }
                         memberName = cast.name;
                     }
 
@@ -1031,7 +1119,7 @@ public class BandARSpawner : MonoBehaviour
                     memberObj.transform.localRotation = Quaternion.Euler(pedestalLocalRotation);
                     memberObj.name = $"BandMember_{i + 1}_{memberName}";
 
-                    SetupMemberComponents(memberObj, cast, i == 0, editorMember);
+                    await SetupMemberComponents(memberObj, cast, false, editorMember);
                     _spawnedMembers.Add(memberObj);
                 }
                 else
@@ -1072,16 +1160,27 @@ public class BandARSpawner : MonoBehaviour
                     editorMember = editorBand.members[i];
                     if (MainMenuDataManager.Instance != null && 
                         editorMember.castPrefabIndex >= 0 && 
-                        editorMember.castPrefabIndex < MainMenuDataManager.Instance.CharacterPrefabs.Count)
+                        editorMember.castPrefabIndex < MainMenuDataManager.Instance.CharacterEntries.Count)
                     {
-                        prefab = MainMenuDataManager.Instance.CharacterPrefabs[editorMember.castPrefabIndex];
+                        var entry = MainMenuDataManager.Instance.CharacterEntries[editorMember.castPrefabIndex];
+                        if (entry != null)
+                        {
+                            prefab = await MainMenuDataManager.Instance.LoadCharacterPrefabAsync(entry.Id);
+                        }
                     }
                     memberName = GetEditorMemberDisplayName(prefab, i);
                 }
                 else
                 {
                     cast = casts[i];
-                    prefab = GetCharacterPrefab(cast.prefabName);
+                    if (MainMenuDataManager.Instance != null)
+                    {
+                        prefab = await MainMenuDataManager.Instance.LoadCharacterPrefabAsync(cast.prefabName);
+                    }
+                    else
+                    {
+                        prefab = GetCharacterPrefab(cast.prefabName);
+                    }
                     memberName = cast.name;
                 }
 
@@ -1106,8 +1205,21 @@ public class BandARSpawner : MonoBehaviour
                 }
 
                 memberObj.name = $"BandMember_{i + 1}_{memberName}";
-                SetupMemberComponents(memberObj, cast, i == 0, editorMember);
+                await SetupMemberComponents(memberObj, cast, false, editorMember);
                 _spawnedMembers.Add(memberObj);
+            }
+
+            // Đồng bộ hóa hoạt ảnh nhảy cho tất cả các thành viên sau khi spawn xong (không dùng bệ)
+            foreach (var member in _spawnedMembers)
+            {
+                if (member != null)
+                {
+                    Move move = member.GetComponent<Move>();
+                    if (move != null)
+                    {
+                        move.ResetLocalDanceState();
+                    }
+                }
             }
         }
 
@@ -1136,7 +1248,7 @@ public class BandARSpawner : MonoBehaviour
     /// <summary>
     /// Cấu hình các component cho thành viên ban nhạc sau khi spawn.
     /// </summary>
-    private void SetupMemberComponents(GameObject memberObj, CastData cast, bool selectFirst, EditorBandMember editorMember = null)
+    private async System.Threading.Tasks.Task SetupMemberComponents(GameObject memberObj, CastData cast, bool selectFirst, EditorBandMember editorMember = null)
     {
         // Đảm bảo nhân vật có Collider để có thể chạm/click chọn
         Collider col = memberObj.GetComponent<Collider>();
@@ -1205,13 +1317,36 @@ public class BandARSpawner : MonoBehaviour
         }
 
         // ── Tự động cấu hình Dance Animation ──
-        string danceAnim = (editorMember != null) ? editorMember.danceAnimId : (cast != null ? cast.danceAnimId : "");
+        string danceAnim = "";
+        if (editorMember != null)
+        {
+            if (MainMenuDataManager.Instance != null && MainMenuDataManager.Instance.selectedBandData != null)
+            {
+                danceAnim = MainMenuDataManager.Instance.selectedBandData.danceAnimId;
+            }
+            if (string.IsNullOrEmpty(danceAnim))
+            {
+                danceAnim = editorMember.danceAnimId;
+            }
+        }
+        else if (cast != null)
+        {
+            danceAnim = cast.danceAnimId;
+        }
+
         if (!string.IsNullOrEmpty(danceAnim))
         {
             if (moveScript != null)
             {
                 moveScript.Pose1StateName = danceAnim;
-                moveScript.PlayDance(0.15f);
+                if (isOnPedestal)
+                {
+                    moveScript.PlayIdle();
+                }
+                else
+                {
+                    moveScript.PlayDance(0.15f);
+                }
             }
         }
 
@@ -1232,9 +1367,13 @@ public class BandARSpawner : MonoBehaviour
             GameObject instPrefab = null;
             if (MainMenuDataManager.Instance != null && 
                 editorMember.instrumentPrefabIndex >= 0 && 
-                editorMember.instrumentPrefabIndex < MainMenuDataManager.Instance.InstrumentPrefabs.Count)
+                editorMember.instrumentPrefabIndex < MainMenuDataManager.Instance.InstrumentEntries.Count)
             {
-                instPrefab = MainMenuDataManager.Instance.InstrumentPrefabs[editorMember.instrumentPrefabIndex];
+                var entry = MainMenuDataManager.Instance.InstrumentEntries[editorMember.instrumentPrefabIndex];
+                if (entry != null)
+                {
+                    instPrefab = await MainMenuDataManager.Instance.LoadInstrumentPrefabAsync(entry.Id);
+                }
             }
 
             if (instPrefab != null)
@@ -1292,7 +1431,16 @@ public class BandARSpawner : MonoBehaviour
             }
             else
             {
-                GameObject instrumentPrefab = GetInstrumentPrefab(cast.audioId);
+                GameObject instrumentPrefab = null;
+                if (MainMenuDataManager.Instance != null)
+                {
+                    instrumentPrefab = await MainMenuDataManager.Instance.LoadInstrumentPrefabAsync(cast.audioId);
+                }
+                else
+                {
+                    instrumentPrefab = GetInstrumentPrefab(cast.audioId);
+                }
+
                 if (instrumentPrefab != null)
                 {
                     GameObject instrumentObj = Instantiate(instrumentPrefab, memberObj.transform);
@@ -1432,9 +1580,10 @@ public class BandARSpawner : MonoBehaviour
     {
         if (string.IsNullOrEmpty(audioId)) return null;
 
-        if (instrumentPrefabs != null)
+        List<GameObject> resolvedInstrumentPrefabs = instrumentPrefabs;
+        if (resolvedInstrumentPrefabs != null)
         {
-            foreach (var prefab in instrumentPrefabs)
+            foreach (var prefab in resolvedInstrumentPrefabs)
             {
                 if (prefab == null) continue;
 
@@ -1813,6 +1962,31 @@ public class BandARSpawner : MonoBehaviour
             return pedestal.transform.localScale;
         }
         return Vector3.one;
+    }
+
+    private void AnimatePedestalShow(GameObject pedestal)
+    {
+        if (pedestal == null) return;
+        pedestal.transform.DOKill();
+        pedestal.SetActive(true);
+        Vector3 originalScale = GetOriginalPedestalScale(pedestal);
+        pedestal.transform.localScale = Vector3.zero;
+        pedestal.transform.DOScale(originalScale, 0.35f).SetEase(Ease.OutBack);
+    }
+
+    private void AnimatePedestalHide(GameObject pedestal, System.Action onComplete = null)
+    {
+        if (pedestal == null)
+        {
+            onComplete?.Invoke();
+            return;
+        }
+        pedestal.transform.DOKill();
+        pedestal.transform.DOScale(Vector3.zero, 0.3f).SetEase(Ease.InQuad).OnComplete(() =>
+        {
+            pedestal.SetActive(false);
+            onComplete?.Invoke();
+        });
     }
 
     /// <summary>

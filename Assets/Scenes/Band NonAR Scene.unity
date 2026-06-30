@@ -494,30 +494,31 @@ MonoBehaviour:
   bandData:
     bandName: 
     point: 90
+    danceAnimId: Dance1
     members:
     - castName: 
-      castPrefabIndex: 1
+      castPrefabIndex: 6
       danceAnimId: Dance1
       instrumentPrefabIndex: 1
       audioClip: {fileID: 8300000, guid: 3bbc3177eba6ded468a3109d3f521224, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 2
+      castPrefabIndex: 0
       danceAnimId: Dance2
       instrumentPrefabIndex: 2
       audioClip: {fileID: 8300000, guid: 899a3a3b08438b142a03e123631d4f78, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 3
+      castPrefabIndex: 29
       danceAnimId: Dance4
       instrumentPrefabIndex: 3
       audioClip: {fileID: 8300000, guid: 26e6f81f02d8a144494822f69f06b268, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
-      castPrefabIndex: 4
+      castPrefabIndex: 21
       danceAnimId: Dance3
       instrumentPrefabIndex: 4
       audioClip: {fileID: 8300000, guid: f4f3d931410cddd4a910bd600279c57d, type: 3}
@@ -897,30 +898,31 @@ MonoBehaviour:
   bandData:
     bandName: 
     point: 90
+    danceAnimId: Dance2
     members:
     - castName: 
-      castPrefabIndex: 1
+      castPrefabIndex: 16
       danceAnimId: Dance1
       instrumentPrefabIndex: 1
       audioClip: {fileID: 8300000, guid: 26e173fdff337eb4eadbedf357230c2b, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 3
+      castPrefabIndex: 15
       danceAnimId: Dance4
       instrumentPrefabIndex: 3
       audioClip: {fileID: 8300000, guid: ef12bcab854f70b4c8e702ead92a6683, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
-      castPrefabIndex: 4
+      castPrefabIndex: 10
       danceAnimId: Dance3
       instrumentPrefabIndex: 4
       audioClip: {fileID: 8300000, guid: 348f2e04101946941b1d5f44c56139ce, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
-      castPrefabIndex: 2
+      castPrefabIndex: 26
       danceAnimId: Dance2
       instrumentPrefabIndex: 2
       audioClip: {fileID: 8300000, guid: 4cb0869620bcc8342b7ed707be26b847, type: 3}
@@ -1045,7 +1047,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 108, y: 650}
+  m_AnchoredPosition: {x: 119, y: 650}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &352114846
@@ -1105,14 +1107,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 0.1745283, b: 0.1745283, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
+  m_Sprite: {fileID: 21300000, guid: 4f965a9d0c8a8bd4f8bae0fbaaeeaeb4, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1318,30 +1320,31 @@ MonoBehaviour:
   bandData:
     bandName: 
     point: 90
+    danceAnimId: Dance4
     members:
     - castName: 
-      castPrefabIndex: 1
+      castPrefabIndex: 3
       danceAnimId: Dance1
       instrumentPrefabIndex: 1
       audioClip: {fileID: 8300000, guid: 7e3d3f2c4704af04c8f0fa2d9662857b, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 2
+      castPrefabIndex: 22
       danceAnimId: Dance2
       instrumentPrefabIndex: 2
       audioClip: {fileID: 8300000, guid: cfa4873bea2f75d45be7d8f6981a55a8, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 3
+      castPrefabIndex: 4
       danceAnimId: Dance4
       instrumentPrefabIndex: 3
       audioClip: {fileID: 8300000, guid: 51d222ee72cf4ac4385a1ab2765dd1e8, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
-      castPrefabIndex: 4
+      castPrefabIndex: 23
       danceAnimId: Dance3
       instrumentPrefabIndex: 4
       audioClip: {fileID: 8300000, guid: 13c23afe256b3da4587b7e31ab5443bb, type: 3}
@@ -1467,7 +1470,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: -194.99994}
-  m_SizeDelta: {x: -92, y: -410}
+  m_SizeDelta: {x: -200, y: -410}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &432295437
 MonoBehaviour:
@@ -1892,9 +1895,10 @@ MonoBehaviour:
   bandData:
     bandName: 
     point: 90
+    danceAnimId: Dance3
     members:
     - castName: 
-      castPrefabIndex: 1
+      castPrefabIndex: 11
       danceAnimId: Dance1
       instrumentPrefabIndex: 1
       audioClip: {fileID: 8300000, guid: 7c00cf08928f3d142803ef63dbee580b, type: 3}
@@ -1908,14 +1912,14 @@ MonoBehaviour:
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 3
+      castPrefabIndex: 12
       danceAnimId: Dance4
       instrumentPrefabIndex: 3
       audioClip: {fileID: 8300000, guid: c7ec39e3fe882bf4893012e0ecc11519, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
-      castPrefabIndex: 4
+      castPrefabIndex: 27
       danceAnimId: Dance3
       instrumentPrefabIndex: 4
       audioClip: {fileID: 8300000, guid: 0f3a2bad44c53ed49a5f9ee4e45dea6c, type: 3}
@@ -2058,30 +2062,31 @@ MonoBehaviour:
   bandData:
     bandName: 
     point: 90
+    danceAnimId: Dance5
     members:
     - castName: 
-      castPrefabIndex: 1
+      castPrefabIndex: 24
       danceAnimId: Dance1
       instrumentPrefabIndex: 1
       audioClip: {fileID: 8300000, guid: 204eceddf192c2b4394137ffc2d54896, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 2
+      castPrefabIndex: 25
       danceAnimId: Dance2
       instrumentPrefabIndex: 2
       audioClip: {fileID: 8300000, guid: a64a9de0ccf66fc4da57adbd3cd003b5, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 3
+      castPrefabIndex: 14
       danceAnimId: Dance4
       instrumentPrefabIndex: 3
       audioClip: {fileID: 8300000, guid: 480687961f933564a92cb9aecfc4e708, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
-      castPrefabIndex: 4
+      castPrefabIndex: 12
       danceAnimId: Dance3
       instrumentPrefabIndex: 4
       audioClip: {fileID: 8300000, guid: 27cf2a0031936674394c7ccc910bc931, type: 3}
@@ -2224,30 +2229,31 @@ MonoBehaviour:
   bandData:
     bandName: 
     point: 90
+    danceAnimId: Dance8
     members:
     - castName: 
-      castPrefabIndex: 1
+      castPrefabIndex: 9
       danceAnimId: Dance1
       instrumentPrefabIndex: 1
       audioClip: {fileID: 8300000, guid: a61d714a5fa8644469e86f4135a88402, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 2
+      castPrefabIndex: 26
       danceAnimId: Dance2
       instrumentPrefabIndex: 2
       audioClip: {fileID: 8300000, guid: b67e39a00f8a3004c915d602a16e32ed, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 3
+      castPrefabIndex: 23
       danceAnimId: Dance4
       instrumentPrefabIndex: 3
       audioClip: {fileID: 8300000, guid: cd98c05257e59c3409f12e21c709ea85, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
-      castPrefabIndex: 4
+      castPrefabIndex: 24
       danceAnimId: Dance3
       instrumentPrefabIndex: 4
       audioClip: {fileID: 8300000, guid: ecc0cf9993d00b340a9b0e40dc26eb16, type: 3}
@@ -2448,7 +2454,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0}
   m_AnchorMax: {x: 0.5, y: 0}
   m_AnchoredPosition: {x: 0, y: 467}
-  m_SizeDelta: {x: 105, y: 105}
+  m_SizeDelta: {x: 150, y: 150}
   m_Pivot: {x: 0.5, y: 0}
 --- !u!114 &824333690
 MonoBehaviour:
@@ -2542,7 +2548,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
-  m_AnchoredPosition: {x: -170, y: 616}
+  m_AnchoredPosition: {x: -119, y: 650}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &877715198
@@ -2763,7 +2769,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -413.8, y: 150.1}
+  m_AnchoredPosition: {x: -360.1, y: 150.1}
   m_SizeDelta: {x: 167, y: 178}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1021761006
@@ -2987,23 +2993,24 @@ MonoBehaviour:
   bandData:
     bandName: 
     point: 90
+    danceAnimId: Dance1
     members:
     - castName: 
-      castPrefabIndex: 1
+      castPrefabIndex: 21
       danceAnimId: Dance1
       instrumentPrefabIndex: 1
       audioClip: {fileID: 8300000, guid: 7fb16c0ade621764ca3525a4e9eef7e9, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 2
+      castPrefabIndex: 19
       danceAnimId: Dance2
       instrumentPrefabIndex: 2
       audioClip: {fileID: 8300000, guid: c804ed71f097e064dab400b731e4d10a, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 3
+      castPrefabIndex: 20
       danceAnimId: Dance4
       instrumentPrefabIndex: 3
       audioClip: {fileID: 8300000, guid: 4a5d29ab2eadc3243b3660efbf9dc1a9, type: 3}
@@ -3266,7 +3273,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 90}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 104, y: 78.00006}
+  m_AnchoredPosition: {x: 119, y: 78.00006}
   m_SizeDelta: {x: 400, y: 35}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!114 &1116294344
@@ -3631,7 +3638,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -412, y: 148.4}
+  m_AnchoredPosition: {x: -356.9, y: 148.4}
   m_SizeDelta: {x: 167, y: 178}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1318706971
@@ -3726,30 +3733,31 @@ MonoBehaviour:
   bandData:
     bandName: 
     point: 90
+    danceAnimId: Dance6
     members:
     - castName: 
-      castPrefabIndex: 1
+      castPrefabIndex: 28
       danceAnimId: Dance1
       instrumentPrefabIndex: 1
       audioClip: {fileID: 8300000, guid: 2b90abc463a5f9647a2e0896ba931d4c, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 2
+      castPrefabIndex: 9
       danceAnimId: Dance2
       instrumentPrefabIndex: 2
       audioClip: {fileID: 8300000, guid: 81c9fd891d462e040849fb7949382df3, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 3
+      castPrefabIndex: 17
       danceAnimId: Dance4
       instrumentPrefabIndex: 3
       audioClip: {fileID: 8300000, guid: 3865cb95d4813e946a32f777795c4aec, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
-      castPrefabIndex: 4
+      castPrefabIndex: 18
       danceAnimId: Dance3
       instrumentPrefabIndex: 4
       audioClip: {fileID: 8300000, guid: 140173e8cd032c7458dd74103391dd00, type: 3}
@@ -4183,36 +4191,37 @@ MonoBehaviour:
   bandData:
     bandName: 
     point: 90
+    danceAnimId: Dance7
     members:
     - castName: 
-      castPrefabIndex: 1
+      castPrefabIndex: 7
       danceAnimId: Dance1
       instrumentPrefabIndex: 1
       audioClip: {fileID: 8300000, guid: e47e6e173ffebb949812f0150704f0f1, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 2
+      castPrefabIndex: 5
       danceAnimId: Dance2
       instrumentPrefabIndex: 2
       audioClip: {fileID: 8300000, guid: ccbb2a5dcc286a245a8ae0f92abd6492, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 3
+      castPrefabIndex: 8
       danceAnimId: Dance4
       instrumentPrefabIndex: 3
       audioClip: {fileID: 8300000, guid: 7bc6591f9a84cfb4abe8ddf403993a01, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
-      castPrefabIndex: 4
+      castPrefabIndex: 1
       danceAnimId: Dance3
       instrumentPrefabIndex: 4
       audioClip: {fileID: 8300000, guid: 49c693644e776944c826401149c907ba, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
-    fullSongAudio: {fileID: 8300000, guid: ccbb2a5dcc286a245a8ae0f92abd6492, type: 3}
+    fullSongAudio: {fileID: 8300000, guid: 88c2425c1614bcb48b373f3c793b5176, type: 3}
 --- !u!114 &1590455429
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4460,12 +4469,15 @@ MonoBehaviour:
   - {fileID: 69614036}
   pedestalsScroller: {fileID: 2006501775}
   togglePedestalsButton: {fileID: 0}
-  pedestalLocalPosition: {x: 0, y: 0, z: 0.002}
+  pedestalLocalPosition: {x: 0, y: 0.0013, z: 0.002}
   pedestalLocalRotation: {x: 0, y: 180, z: 0}
   pedestalLocalScale: {x: 0.02, y: 0.02, z: 0.02}
+  placedScale: {x: 0.5, y: 0.5, z: 0.5}
+  minDropHeight: 0.8
+  dropDuration: 0.45
   instrumentLocalPosition: {x: -0.4, y: 2, z: 0}
   instrumentLocalRotation: {x: 0, y: 0, z: 0}
-  instrumentLocalScale: {x: 1, y: 1, z: 1}
+  instrumentLocalScale: {x: 0.5, y: 0.5, z: 0.5}
   placementLimitCleanupDelay: 0.08
 --- !u!114 &1662375344
 MonoBehaviour:
@@ -4506,6 +4518,8 @@ MonoBehaviour:
   m_IndicatorLocalRotation: {x: 90, y: 0, z: 0}
   m_IndicatorLocalScale: {x: 0.6, y: 0.6, z: 0.6}
   m_AutoHideDelay: 3
+  m_JoystickObject: {fileID: 0}
+  m_ScaleSliderObject: {fileID: 0}
   m_DontDestroyOnLoad: 0
 --- !u!4 &1662375347
 Transform:
@@ -4544,7 +4558,6 @@ MonoBehaviour:
   - {fileID: 824333688}
   - {fileID: 877715196}
   - {fileID: 352114844}
-  - {fileID: 0}
   - {fileID: 1064066026}
   - {fileID: 1116294342}
   useBlackScreenTransition: 0
@@ -4847,36 +4860,37 @@ MonoBehaviour:
   bandData:
     bandName: 
     point: 90
+    danceAnimId: Dance8
     members:
     - castName: 
-      castPrefabIndex: 1
+      castPrefabIndex: 5
       danceAnimId: Dance1
       instrumentPrefabIndex: 1
       audioClip: {fileID: 8300000, guid: b76e5d190534f7f48b4891fc29bef984, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 2
+      castPrefabIndex: 21
       danceAnimId: Dance2
       instrumentPrefabIndex: 2
       audioClip: {fileID: 8300000, guid: 651528dce0281c149b5c819e195b145f, type: 3}
       reduceVolumeWhenTogether: 1
       reduceAmount: 0.5
     - castName: 
-      castPrefabIndex: 3
+      castPrefabIndex: 6
       danceAnimId: Dance4
       instrumentPrefabIndex: 3
       audioClip: {fileID: 8300000, guid: 05e33e38ca342cb489698da70c67046c, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     - castName: 
-      castPrefabIndex: 4
+      castPrefabIndex: 8
       danceAnimId: Dance3
       instrumentPrefabIndex: 4
       audioClip: {fileID: 8300000, guid: 8ca7df0124cf52c42b3e7e479e9a464b, type: 3}
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
-    fullSongAudio: {fileID: 8300000, guid: 8ca7df0124cf52c42b3e7e479e9a464b, type: 3}
+    fullSongAudio: {fileID: 8300000, guid: 004faefd4b2702442b58875fb98a06b6, type: 3}
 --- !u!114 &1827858459
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5354,7 +5368,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0.008, y: -0.0037}
+  m_AnchoredPosition: {x: 0.008, y: -0.004}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2006501775

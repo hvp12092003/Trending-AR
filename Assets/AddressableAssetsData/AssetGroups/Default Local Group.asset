@@ -16,102 +16,107 @@ MonoBehaviour:
   m_GUID: dd121e6b9adc57243a803c7da0af9a38
   m_SerializeEntries:
   - m_GUID: 05e93bd54699b0e48ab9180bea4075d2
-    m_Address: Assets/Prefabs/Cast/ENGLAND.prefab
+    m_Address: cast/ENGLAND
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 06c3fbea107f8854d9a9930fd8b4e097
-    m_Address: Assets/Prefabs/Intrument/OrbBunny.prefab
+    m_Address: instrument/OrbBunny
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 07ac5a9642249ab4ba2db146d8cf240d
-    m_Address: Assets/Prefabs/Cast/MONSTER.prefab
+    m_Address: cast/MONSTER
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1461a9a4acfb7cd48ba91244d784eee4
-    m_Address: Assets/Prefabs/Intrument/Meowbone.prefab
+    m_Address: instrument/Meowbone
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 209c8a7bc8e618c4aa20d644bed15829
-    m_Address: Assets/Prefabs/Cast/BRAZIL.prefab
+    m_Address: cast/BRAZIL
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 23b69d08c90a6f24cb72ce6834115437
-    m_Address: Assets/Prefabs/Intrument/CatBoombox.prefab
+    m_Address: instrument/CatBoombox
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 30381d9a451567849b4fdd090d129fa5
-    m_Address: Assets/Prefabs/Intrument/WingedSpeaker.prefab
+    m_Address: instrument/WingedSpeaker
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 33707c05fa62e6e4799ae991189b05a2
-    m_Address: Assets/Prefabs/Intrument/DrumBot.prefab
+    m_Address: instrument/DrumBot
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 35f6fee99c5cf1649bcdf34b3064bbb2
-    m_Address: Assets/Prefabs/Cast/GERMANY.prefab
+    m_Address: cast/GERMANY
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 3d05bc012282f3e4da1816cd1af68c77
-    m_Address: Assets/Prefabs/Cast/NETHERLANDS.prefab
+    m_Address: cast/NETHERLANDS
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 4244c9d92628d174c94e3fb1d9188db0
-    m_Address: Assets/Prefabs/Intrument/AquaKeyboard.prefab
+    m_Address: instrument/AquaKeyboard
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 43ba01593c94b8f4eb99a6c475d1c5fc
-    m_Address: Assets/Prefabs/Cast/USA.prefab
+    m_Address: cast/USA
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 475efa1d8afbc17459c761f71b5ca549
-    m_Address: Assets/Prefabs/Cast/CAT.prefab
+    m_Address: cast/CAT
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4e8f1545b00aa7a4882564c7ec87ba8e
+    m_Address: cast/LAMB
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 4eaa6220b1ae53a49942d59d9e214a07
-    m_Address: Assets/Prefabs/Intrument/BunnyDrum.prefab
+    m_Address: instrument/BunnyDrum
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 75023cc826138424dbf8ff3df18950f6
-    m_Address: Assets/Prefabs/Cast/NOIR.prefab
+    m_Address: cast/NOIR
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 774e86a1fb5526e4db3a616455ae8399
-    m_Address: Assets/Prefabs/Cast/KOREA.prefab
+    m_Address: cast/KOREA
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7a0adc36f98b53e47aca897a825167e1
-    m_Address: Assets/Prefabs/Cast/PANDA.prefab
+    m_Address: cast/PANDA
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7eb6d9d147e05824c907a06d5379e9f8
-    m_Address: Assets/Prefabs/Intrument/PandaSerenade.prefab
+    m_Address: instrument/PandaSerenade
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 837299f2a1f7c234882fce359f107fc5
-    m_Address: Assets/Prefabs/Cast/FRANCE.prefab
+    m_Address: cast/FRANCE
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 8b49034c8089da745a62ef94cd237f1e
-    m_Address: Assets/Prefabs/Cast/NIA.prefab
+    m_Address: cast/NIA
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -121,107 +126,107 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 8ee85fa72ab69844b837d4ac95ef2527
-    m_Address: Assets/Prefabs/Intrument/DragonSpeaker.prefab
+    m_Address: instrument/DragonSpeaker
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 8f7708aa63e1add428fce60ccf8e3089
-    m_Address: Assets/Prefabs/Cast/JAPAN.prefab
+    m_Address: cast/JAPAN
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 9231fcedeb096af47b47242aeb37c25d
-    m_Address: Assets/Prefabs/Cast/LUNA.prefab
+    m_Address: cast/LUNA
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 9550af5bbef279f41b5e682f568128b6
-    m_Address: Assets/Prefabs/Cast/PIX.prefab
+    m_Address: cast/PIX
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 960d3308036b150419204f231f1184d8
-    m_Address: Assets/Prefabs/Intrument/BunnyBeat.prefab
+    m_Address: instrument/BunnyBeat
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a0b7b6a0accf95540ba8ff31a27929ef
-    m_Address: Assets/Prefabs/Cast/MINH HAT.prefab
+    m_Address: cast/MINH HAT
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a3dc746ef7ff7834aba96c06b5b880a2
-    m_Address: Assets/Prefabs/Cast/MIMI.prefab
+    m_Address: cast/MIMI
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: b645e815bae5fa3429e0c2477303df32
-    m_Address: Assets/Prefabs/Cast/FOX.prefab
+    m_Address: cast/FOX
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c0fabf15a7006c944a1e2d6996555d87
-    m_Address: Assets/Prefabs/Cast/REX.prefab
+    m_Address: cast/REX
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c438b7eda87b3284d96a4e21cf81ac56
-    m_Address: Assets/Prefabs/Cast/DINO.prefab
+    m_Address: cast/DINO
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: cba9afe70ed28b2489d8e90457a9391b
-    m_Address: Assets/Prefabs/Intrument/PeacockBot.prefab
+    m_Address: instrument/PeacockBot
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d6319da12454f7942a4a053a0d001ef5
-    m_Address: Assets/Prefabs/Intrument/LeopardSpeak.prefab
+    m_Address: instrument/LeopardSpeak
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d663cc32f6d30a44092612ae68aa801f
-    m_Address: Assets/Prefabs/Cast/FINN.prefab
+    m_Address: cast/FINN
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: dcaff1e459d908b4cb20eaf23426a24e
-    m_Address: Assets/Prefabs/Cast/MINH MONKEY.prefab
+    m_Address: cast/MINH MONKEY
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: df18bc5ffc3a4d14498fe51b05a31460
-    m_Address: Assets/Prefabs/Cast/ECHO.prefab
+    m_Address: cast/ECHO
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e1eddeac2ea775d4e838af6c4f1f5c37
-    m_Address: Assets/Prefabs/Cast/BOLT.prefab
+    m_Address: cast/BOLT
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e3f1b7900ab52474ab8a2eef6af6042f
-    m_Address: Assets/Prefabs/Intrument/Dragonpipe.prefab
+    m_Address: instrument/Dragonpipe
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e85dcd300471a724b94d733e623fb168
-    m_Address: Assets/Prefabs/Cast/MINH FOOTBALL.prefab
+    m_Address: cast/MINH FOOTBALL
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f8374fc1d43c07e49802e1fb532004ca
-    m_Address: Assets/Prefabs/Cast/SPAIN.prefab
+    m_Address: cast/SPAIN
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: faa5b7b2f6f91d84a990c6359ea84ad2
-    m_Address: Assets/Prefabs/Cast/COCO.prefab
+    m_Address: cast/COCO
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: faad96e7caca49244aacb7ab94dc92b3
-    m_Address: Assets/Prefabs/Cast/BUNNY.prefab
+    m_Address: cast/BUNNY
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

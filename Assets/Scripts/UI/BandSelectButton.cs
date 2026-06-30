@@ -65,10 +65,11 @@ public class BandSelectButton : MonoBehaviour
             }
             
             System.Collections.Generic.List<string> anims = new System.Collections.Generic.List<string>();
-            if (!string.IsNullOrEmpty(m.danceAnimId)) anims.Add(m.danceAnimId);
+            string sharedAnimId = bandData.danceAnimId;
+            if (!string.IsNullOrEmpty(sharedAnimId)) anims.Add(sharedAnimId);
             
             string displayCastName = GetCastDisplayName(castPrefab, oldCastsList.Count + 1);
-            CastData cd = new CastData(displayCastName, prefabName, m.audioClip != null ? m.audioClip.name : "", m.danceAnimId, anims);
+            CastData cd = new CastData(displayCastName, prefabName, m.audioClip != null ? m.audioClip.name : "", sharedAnimId, anims);
             oldCastsList.Add(cd);
 
             Sprite avatar = null;

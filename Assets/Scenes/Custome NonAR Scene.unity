@@ -2018,7 +2018,6 @@ MonoBehaviour:
   - {fileID: 922388183}
   cancelButton: {fileID: 951556785}
   startButton: {fileID: 954166778}
-  backgroundBlocker: {fileID: 1212303735}
 --- !u!1 &241568734
 GameObject:
   m_ObjectHideFlags: 0
@@ -2672,7 +2671,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 119, y: 624}
+  m_AnchoredPosition: {x: 119, y: 650}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &352114846
@@ -2732,14 +2731,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 0.1745283, b: 0.1745283, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
+  m_Sprite: {fileID: 21300000, guid: 4f965a9d0c8a8bd4f8bae0fbaaeeaeb4, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -5287,7 +5286,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
-  m_AnchoredPosition: {x: -170, y: 499}
+  m_AnchoredPosition: {x: -119, y: 650}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &877715198
@@ -7382,7 +7381,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 90}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 104, y: -889}
+  m_AnchoredPosition: {x: 119, y: -889}
   m_SizeDelta: {x: 400, y: 35}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1116294344
@@ -7622,9 +7621,6 @@ MonoBehaviour:
   initializeOnStart: 1
   selectFirstOnStart: 1
   enableRecording: 1
-  audioRecordButtonPrefab: {fileID: 1296830794681833618, guid: a24608f8260791c428e370f1155c4246, type: 3}
-  recordItemButton: {fileID: 0}
-  recordingStatusText: {fileID: 0}
   recordButton: {fileID: 1424045345}
   recordProgressImage: {fileID: 215061781}
   onAudioSelectedEvent:
@@ -10859,12 +10855,15 @@ MonoBehaviour:
   - {fileID: 175959923}
   pedestalsScroller: {fileID: 2006501775}
   togglePedestalsButton: {fileID: 0}
-  pedestalLocalPosition: {x: 0, y: 0, z: 0.002}
+  pedestalLocalPosition: {x: 0, y: 0.0013, z: 0.002}
   pedestalLocalRotation: {x: 0, y: 180, z: 0}
   pedestalLocalScale: {x: 0.02, y: 0.02, z: 0.02}
+  placedScale: {x: 0.5, y: 0.5, z: 0.5}
+  minDropHeight: 0.8
+  dropDuration: 0.45
   instrumentLocalPosition: {x: -0.4, y: 2, z: 0}
   instrumentLocalRotation: {x: 0, y: 0, z: 0}
-  instrumentLocalScale: {x: 1, y: 1, z: 1}
+  instrumentLocalScale: {x: 0.5, y: 0.5, z: 0.5}
   placementLimitCleanupDelay: 0.08
 --- !u!114 &1662375344
 MonoBehaviour:
@@ -10903,8 +10902,10 @@ MonoBehaviour:
   m_SelectionIndicatorPrefab: {fileID: 6063027683084234624, guid: 89dd0f20c4e8a1540884025a7db95734, type: 3}
   m_IndicatorLocalPosition: {x: 0, y: -0.2, z: 0}
   m_IndicatorLocalRotation: {x: 90, y: 0, z: 0}
-  m_IndicatorLocalScale: {x: 0.6, y: 0.6, z: 0.6}
+  m_IndicatorLocalScale: {x: 0.5, y: 0.5, z: 0.5}
   m_AutoHideDelay: 3
+  m_JoystickObject: {fileID: 0}
+  m_ScaleSliderObject: {fileID: 0}
   m_DontDestroyOnLoad: 0
 --- !u!4 &1662375347
 Transform:
@@ -10942,6 +10943,10 @@ MonoBehaviour:
   audioPanelController: {fileID: 1203488694}
   animPanelController: {fileID: 1411065910}
   previewContainer: {fileID: 844336182}
+  characterLocalPosition: {x: 0, y: 0, z: 0}
+  characterLocalScale: {x: 1, y: 1, z: 1}
+  instrumentLocalPosition: {x: -1, y: 0.5, z: 0}
+  instrumentLocalScale: {x: 1, y: 1, z: 1}
   recordingStatusText: {fileID: 0}
   prevButton: {fileID: 632201410}
   nextButton: {fileID: 994687820}
@@ -14267,7 +14272,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0.008, y: -0.0037}
+  m_AnchoredPosition: {x: 0.008, y: -0.004}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2006501775
