@@ -186,3 +186,154 @@ MonoBehaviour:
     addressKey: instrument/WingedSpeaker
     displayName: WingedSpeaker
     avatar: {fileID: 21300000, guid: 3a545a50b0e25e649b73f549c685cf31, type: 3}
+  countryFlagEntries:
+  - id: 0
+    addressKey: flag/0
+    displayName: Flag 0
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 1c0ccee358335b540889c479c15560ed, type: 3}
+  - id: 1
+    addressKey: flag/1
+    displayName: Flag 1
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: dd0628c157bf38d4b8e9921247dbec12, type: 3}
+  - id: 2
+    addressKey: flag/2
+    displayName: Flag 2
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 56ef7fe6aa68a5a4aa43306041ace9c3, type: 3}
+  - id: 3
+    addressKey: flag/3
+    displayName: Flag 3
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 0f9481a131716ac4599f89addc7e4176, type: 3}
+  - id: 4
+    addressKey: flag/4
+    displayName: Flag 4
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 60362a9f3042001458c9427d50992305, type: 3}
+  - id: 5
+    addressKey: flag/5
+    displayName: Flag 5
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 4e9f32a4563d1f044820800e42e6e596, type: 3}
+  - id: 6
+    addressKey: flag/6
+    displayName: Flag 6
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 8cd05f5eb1578f1488b0794d8f5ae193, type: 3}
+  - id: 7
+    addressKey: flag/7
+    displayName: Flag 7
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 561a001115150974f8baaa0b545e5782, type: 3}
+  - id: 8
+    addressKey: flag/8
+    displayName: Flag 8
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: ebace75f44c009642b0c35fca8e10963, type: 3}
+  - id: 9
+    addressKey: flag/9
+    displayName: Flag 9
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: fde620935571fc7499000a2a2714a337, type: 3}
+  - id: 10
+    addressKey: flag/10
+    displayName: Flag 10
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 1f8bcca0a8daaf548a80c4ce5e548d8f, type: 3}
+  - id: 11
+    addressKey: flag/11
+    displayName: Flag 11
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 5ea0e245393e67a439b4b259eea09b61, type: 3}
+  - id: 12
+    addressKey: flag/12
+    displayName: Flag 12
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: ad0b0791e0022e44f92458b5102687dd, type: 3}
+  - id: 13
+    addressKey: flag/13
+    displayName: Flag 13
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 830094277ad59bf41b0d36ba3637a635, type: 3}
+  - id: 14
+    addressKey: flag/14
+    displayName: Flag 14
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 4bef9da1e8fc4c9438fdb23ae4b3abdb, type: 3}
+  - id: 15
+    addressKey: flag/15
+    displayName: Flag 15
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 119c7b0b4f8e09f41ac910c52f6c231e, type: 3}
+  - id: 16
+    addressKey: flag/16
+    displayName: Flag 16
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 5eece1b7de9abc84d91f781206cce882, type: 3}
+  - id: 17
+    addressKey: flag/17
+    displayName: Flag 17
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: e2b172fc4c51cf64a940349d336c2161, type: 3}
+  - id: 18
+    addressKey: flag/18
+    displayName: Flag 18
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 9245d649a03a8d94e9bf1c13db47aa1c, type: 3}
+  - id: 19
+    addressKey: flag/19
+    displayName: Flag 19
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 61019e006068e974ca0085b545a21958, type: 3}
+  - id: 20
+    addressKey: flag/20
+    displayName: Flag 20
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: aba3a672f6e675d43b6ece6c553723b3, type: 3}
+  - id: 21
+    addressKey: flag/21
+    displayName: Flag 21
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: cade36d21abda8b4099525f4d25a76e7, type: 3}
+  - id: 22
+    addressKey: flag/22
+    displayName: Flag 22
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 6783f104d72659646a68cf6aecb7163d, type: 3}
+  - id: 23
+    addressKey: flag/23
+    displayName: Flag 23
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 5d6964c370255a9418b653a65edc48cd, type: 3}
+  - id: 24
+    addressKey: flag/24
+    displayName: Flag 24
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: de4ec4981e6f0ac4aa3d06cc7c6a25ac, type: 3}
+  - id: 25
+    addressKey: flag/25
+    displayName: Flag 25
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 8228ea043fdc42546b77cff2df9524c2, type: 3}
+  - id: 26
+    addressKey: flag/26
+    displayName: Flag 26
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: f4e4d3edb39373943bdd1e09fd142bfa, type: 3}
+  - id: 27
+    addressKey: flag/27
+    displayName: Flag 27
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: b15a1d419af9ee848a98474c1a96c7f2, type: 3}
+  - id: 28
+    addressKey: flag/28
+    displayName: Flag 28
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: cbb951070ff886a4b8721bc881767bbc, type: 3}
+  - id: 29
+    addressKey: flag/29
+    displayName: Flag 29
+    isoCode: 
+    previewSprite: {fileID: 21300000, guid: 88a305dadd62fd0499a4a6ec46c607c6, type: 3}

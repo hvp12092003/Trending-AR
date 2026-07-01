@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 3039325531264799512}
   - component: {fileID: 7435331655558335651}
   m_Layer: 5
-  m_Name: Avatar Button
+  m_Name: Avatar_Flag Button
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

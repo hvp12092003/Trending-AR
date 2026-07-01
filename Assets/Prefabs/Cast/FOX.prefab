@@ -340,7 +340,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CastPrefab
   Name: FOX
-  Category: 
+  audioNoiseThreshold: 0.0005
   characterAvatar: {fileID: 21300000, guid: 0ee9446c6684cb847b3cba943b740911, type: 3}
   animations:
   - animation: {fileID: 7400000, guid: 0c4c9dc4b0235804f906057431e056de, type: 2}

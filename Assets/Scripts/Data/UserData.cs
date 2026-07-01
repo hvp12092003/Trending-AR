@@ -12,4 +12,6 @@ public class UserData
     public string avatarId     { get; set; }
     public string avatarBase64 { get; set; }
     public Sprite avatarSprite { get; set; }
+    public string countryFlagId     { get; set; }
+    public Sprite countryFlagSprite { get; set; }
 }

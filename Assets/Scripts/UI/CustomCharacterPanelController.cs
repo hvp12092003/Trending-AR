@@ -79,6 +79,9 @@ public class CustomCharacterPanelController : MonoBehaviour
     private GameObject _previewInstrumentInstance;
     private AudioSource _previewAudioSource;
     private int _characterPreviewRequestVersion = 0;
+    private Transform _previewAnimationRootLockTarget;
+    private Vector3 _previewAnimationRootBaseLocalPosition;
+    private bool _hasPreviewAnimationRootLock;
 
     private enum CustomTab { Character, Instrument, Animation }
     private CustomTab _currentTab = CustomTab.Character;
@@ -420,6 +423,11 @@ public class CustomCharacterPanelController : MonoBehaviour
         UpdateSkipButtonVisibility();
     }
 
+    private void LateUpdate()
+    {
+        RestorePreviewAnimationRootLock();
+    }
+
     private void OnEnable()
     {
         // Khi bật panel, mặc định chọn tab đầu tiên và không chạy hiệu ứng chuyển động
@@ -659,6 +667,7 @@ public class CustomCharacterPanelController : MonoBehaviour
         if (_previewInstance != null)
         {
             Destroy(_previewInstance);
+            ClearPreviewAnimationRootLock();
         }
 
         GameObject prefab = await LoadCharacterPrefabAsync(prefabName);
@@ -685,6 +694,7 @@ public class CustomCharacterPanelController : MonoBehaviour
             if (anim != null)
             {
                 anim.applyRootMotion = false;
+                ConfigurePreviewAnimationRootLock(anim);
             }
 
             // Gán target động cho UICharacterRotator xoay 3D preview
@@ -849,6 +859,7 @@ public class CustomCharacterPanelController : MonoBehaviour
         if (move != null)
         {
             move.PlayIdle();
+            RestorePreviewAnimationRootLock();
             Debug.Log("[CustomCharacterPanelController] PlayIdleAnimation: Đã chạy PlayIdle() qua component Move.");
             return;
         }
@@ -864,6 +875,7 @@ public class CustomCharacterPanelController : MonoBehaviour
         {
             animator.applyRootMotion = false;
             animator.CrossFade("root_Girl_Idle", 0.15f);
+            RestorePreviewAnimationRootLock();
             Debug.Log("[CustomCharacterPanelController] PlayIdleAnimation: Đã chạy root_Girl_Idle trên Animator.");
         }
     }
@@ -893,6 +905,7 @@ public class CustomCharacterPanelController : MonoBehaviour
         {
             animator.applyRootMotion = false;
             animator.CrossFade(sanitizedStateName, 0.15f);
+            RestorePreviewAnimationRootLock();
             Debug.Log($"[CustomCharacterPanelController] PlayPreviewAnimation: Đã chạy {sanitizedStateName} trên Animator.");
         }
         else
@@ -902,8 +915,45 @@ public class CustomCharacterPanelController : MonoBehaviour
             if (move != null)
             {
                 move.PlayAnimationOnce(animId, 0.15f);
+                RestorePreviewAnimationRootLock();
             }
         }
+    }
+
+    private void ConfigurePreviewAnimationRootLock(Animator animator)
+    {
+        ClearPreviewAnimationRootLock();
+
+        if (animator == null || _previewInstance == null)
+        {
+            return;
+        }
+
+        _previewAnimationRootLockTarget = AnimationRootLockUtility.ResolveLockTarget(animator, _previewInstance.transform);
+        if (_previewAnimationRootLockTarget == null)
+        {
+            return;
+        }
+
+        _previewAnimationRootBaseLocalPosition = _previewAnimationRootLockTarget.localPosition;
+        _hasPreviewAnimationRootLock = true;
+    }
+
+    private void RestorePreviewAnimationRootLock()
+    {
+        if (!_hasPreviewAnimationRootLock || _previewAnimationRootLockTarget == null)
+        {
+            return;
+        }
+
+        AnimationRootLockUtility.RestoreLocalPosition(_previewAnimationRootLockTarget, _previewAnimationRootBaseLocalPosition);
+    }
+
+    private void ClearPreviewAnimationRootLock()
+    {
+        _previewAnimationRootLockTarget = null;
+        _previewAnimationRootBaseLocalPosition = Vector3.zero;
+        _hasPreviewAnimationRootLock = false;
     }
 
     private async Task<GameObject> LoadCharacterPrefabAsync(string prefabName)
@@ -1561,7 +1611,11 @@ public class CustomCharacterPanelController : MonoBehaviour
 
         // Dọn dẹp các đối tượng tạm thời của preview
         if (_previewAudioSource != null) _previewAudioSource.Stop();
-        if (_previewInstance != null) Destroy(_previewInstance);
+        if (_previewInstance != null)
+        {
+            Destroy(_previewInstance);
+            ClearPreviewAnimationRootLock();
+        }
         if (_previewInstrumentInstance != null) Destroy(_previewInstrumentInstance);
 
         // Tìm Spawner và tiến hành spawn nhân vật
@@ -1634,7 +1688,11 @@ public class CustomCharacterPanelController : MonoBehaviour
             ARFallbackManager.ReleaseDeviceCamera();
 
             if (_previewAudioSource != null) _previewAudioSource.Stop();
-            if (_previewInstance != null) Destroy(_previewInstance);
+            if (_previewInstance != null)
+            {
+                Destroy(_previewInstance);
+                ClearPreviewAnimationRootLock();
+            }
             if (_previewInstrumentInstance != null) Destroy(_previewInstrumentInstance);
 
             if (SceneTransitionManager.Instance != null)

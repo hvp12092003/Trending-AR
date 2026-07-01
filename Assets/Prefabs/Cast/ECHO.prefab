@@ -820,7 +820,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CastPrefab
   Name: ECHO
-  Category: 
+  audioNoiseThreshold: 0.0005
   characterAvatar: {fileID: 21300000, guid: 6e5cf5017509d6e4ba576ce57a77677a, type: 3}
   animations:
   - animation: {fileID: 7400000, guid: 0c4c9dc4b0235804f906057431e056de, type: 2}

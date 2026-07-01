@@ -16,8 +16,10 @@ public class ProfilePanelController : MonoBehaviour
     [SerializeField] private TextMeshProUGUI userNameText;
     [SerializeField] private TMP_InputField userNameInputField;
     [SerializeField] private Image avatarImage;
+    [SerializeField] private Image countryFlagImage;
     [SerializeField] private Button backButton;
     [SerializeField] private Button changeAvatarBtn;
+    [SerializeField] private Button changeCountryFlagBtn;
     [SerializeField] private Button changePasswordBtn;
     [SerializeField] private Button helpCenterBtn;
     [SerializeField] private Button aboutUsBtn;
@@ -26,6 +28,7 @@ public class ProfilePanelController : MonoBehaviour
 
     [Header("Avatar Selection Popup")]
     [SerializeField] private AvatarPopup avatarPopup;
+    [SerializeField] private TextMeshProUGUI titleText;
 
     [Header("Change Password Sub-Panel UI")]
     [SerializeField] private GameObject changePassPanel;
@@ -42,12 +45,14 @@ public class ProfilePanelController : MonoBehaviour
 
     // Sự kiện thông báo khi avatar thay đổi
     public static event Action OnAvatarChanged;
+    public static event Action OnCountryFlagChanged;
 
     // Sự kiện thông báo khi đóng Panel để MainMenuController hiển thị lại Bottom Bar
     public event Action OnPanelClosed;
 
     private CanvasGroup _canvasGroup;
     private Tween _nofiTween;
+    private int _countryFlagRefreshVersion;
 
     private void Awake()
     {
@@ -71,6 +76,11 @@ public class ProfilePanelController : MonoBehaviour
         
         if (changeAvatarBtn != null)
             changeAvatarBtn.onClick.AddListener(OnChangeAvatarClicked);
+
+        ResolveCountryFlagControls();
+
+        if (changeCountryFlagBtn != null)
+            changeCountryFlagBtn.onClick.AddListener(OnChangeCountryFlagClicked);
 
         if (changePasswordBtn != null)
             changePasswordBtn.onClick.AddListener(OpenChangePasswordPanel);
@@ -180,6 +190,7 @@ public class ProfilePanelController : MonoBehaviour
 
         // Tải ảnh đại diện
         LoadLocalAvatar();
+        RefreshCountryFlag();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -309,6 +320,14 @@ public class ProfilePanelController : MonoBehaviour
         changePassNofiText.color = color;
     }
 
+    private void SetSelectionTitle(string title)
+    {
+        if (titleText != null)
+        {
+            titleText.text = title;
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Xử lý Thay đổi Avatar
     // ─────────────────────────────────────────────────────────────────────────
@@ -425,6 +444,7 @@ public class ProfilePanelController : MonoBehaviour
     {
         if (avatarPopup != null)
         {
+            SetSelectionTitle("Avatar");
             avatarPopup.OpenPopup(OnAvatarSelectedFromPopup);
         }
         else
@@ -452,6 +472,128 @@ public class ProfilePanelController : MonoBehaviour
         OnAvatarChanged?.Invoke();
 
         ShowMainNotification("Avatar updated successfully!");
+    }
+
+    private void ResolveCountryFlagControls()
+    {
+        if (countryFlagImage == null)
+        {
+            Image[] images = GetComponentsInChildren<Image>(true);
+            for (int i = 0; i < images.Length; i++)
+            {
+                Image image = images[i];
+                if (image != null && image.name.IndexOf("flag", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    countryFlagImage = image;
+                    break;
+                }
+            }
+        }
+
+        if (changeCountryFlagBtn == null)
+        {
+            if (countryFlagImage != null)
+            {
+                changeCountryFlagBtn = countryFlagImage.GetComponent<Button>();
+            }
+
+            if (changeCountryFlagBtn == null)
+            {
+                Button[] buttons = GetComponentsInChildren<Button>(true);
+                for (int i = 0; i < buttons.Length; i++)
+                {
+                    Button button = buttons[i];
+                    if (button != null && button.name.IndexOf("flag", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        changeCountryFlagBtn = button;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private async void RefreshCountryFlag()
+    {
+        ResolveCountryFlagControls();
+
+        int version = ++_countryFlagRefreshVersion;
+        if (countryFlagImage == null)
+        {
+            return;
+        }
+
+        bool hasFlagEntries = MainMenuDataManager.Instance != null &&
+                              MainMenuDataManager.Instance.CountryFlagEntries != null &&
+                              MainMenuDataManager.Instance.CountryFlagEntries.Count > 0;
+
+        if (changeCountryFlagBtn != null)
+        {
+            changeCountryFlagBtn.interactable = hasFlagEntries;
+        }
+
+        if (!hasFlagEntries)
+        {
+            countryFlagImage.gameObject.SetActive(false);
+            return;
+        }
+
+        countryFlagImage.gameObject.SetActive(true);
+        string flagId = MainMenuDataManager.Instance.GetSelectedCountryFlagId();
+        Sprite flagSprite = await MainMenuDataManager.Instance.LoadCountryFlagSpriteAsync(flagId);
+
+        if (version != _countryFlagRefreshVersion || this == null || countryFlagImage == null)
+        {
+            return;
+        }
+
+        countryFlagImage.sprite = flagSprite;
+        countryFlagImage.enabled = true;
+        countryFlagImage.color = flagSprite != null ? Color.white : new Color(1f, 1f, 1f, 0.25f);
+        countryFlagImage.preserveAspect = true;
+    }
+
+    private void OnChangeCountryFlagClicked()
+    {
+        if (MainMenuDataManager.Instance == null ||
+            MainMenuDataManager.Instance.CountryFlagEntries == null ||
+            MainMenuDataManager.Instance.CountryFlagEntries.Count == 0)
+        {
+            ShowMainNotification("Country flags are not configured yet.");
+            return;
+        }
+
+        if (avatarPopup != null)
+        {
+            SetSelectionTitle("Flag");
+            avatarPopup.OpenFlagPopup(OnCountryFlagSelectedFromPopup);
+        }
+        else
+        {
+            Debug.LogWarning("[ProfilePanelController] ChÆ°a gÃ¡n avatarPopup cho country flags!");
+        }
+    }
+
+    private void OnCountryFlagSelectedFromPopup(string flagId, Sprite flagSprite)
+    {
+        if (string.IsNullOrWhiteSpace(flagId))
+        {
+            return;
+        }
+
+        if (MainMenuDataManager.Instance != null)
+        {
+            MainMenuDataManager.Instance.SetSelectedCountryFlagId(flagId);
+        }
+        else
+        {
+            PlayerPrefs.SetString(MainMenuDataManager.SELECTED_COUNTRY_FLAG_PREFS_KEY, flagId);
+            PlayerPrefs.Save();
+        }
+
+        RefreshCountryFlag();
+        OnCountryFlagChanged?.Invoke();
+        ShowMainNotification("Flag updated successfully!");
     }
 
     private void HandlePickedImage(string path)

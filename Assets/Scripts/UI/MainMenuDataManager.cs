@@ -44,6 +44,11 @@ public class MainMenuDataManager : MonoBehaviour
             ? prefabCatalog.GetInstrumentEntries(null)
             : MainMenuPrefabCatalog.CreateRuntimeEntries(null);
 
+    public IReadOnlyList<MainMenuPrefabCatalog.CountryFlagEntry> CountryFlagEntries =>
+        prefabCatalog != null
+            ? prefabCatalog.GetCountryFlagEntries()
+            : Array.Empty<MainMenuPrefabCatalog.CountryFlagEntry>();
+
     /// <summary>
     /// Lưu trữ cấu hình ban nhạc được chọn hiện hành từ Main Menu để truyền sang Scene AR.
     /// </summary>
@@ -56,6 +61,9 @@ public class MainMenuDataManager : MonoBehaviour
     private const string SAVED_BANDS_PREFS_KEY      = "SavedBandsDataJSON";
     private const string OFFLINE_POINTS_PREFS_KEY   = "OfflineUserPoints";
     private const string CUSTOM_CAST_USE_AWARD_PREFIX = "CustomCastUseAwarded_";
+    public const string SELECTED_COUNTRY_FLAG_PREFS_KEY = "SelectedCountryFlagId";
+
+    public static event Action OnCountryFlagChanged;
 
     private CastData _castData;
 
@@ -465,6 +473,89 @@ public class MainMenuDataManager : MonoBehaviour
             }
         }
         return null;
+    }
+
+    public string GetSelectedCountryFlagId()
+    {
+        string savedFlagId = PlayerPrefs.GetString(SELECTED_COUNTRY_FLAG_PREFS_KEY, "");
+        if (!string.IsNullOrWhiteSpace(savedFlagId))
+        {
+            return GetCountryFlagCatalogKey(savedFlagId);
+        }
+
+        IReadOnlyList<MainMenuPrefabCatalog.CountryFlagEntry> entries = CountryFlagEntries;
+        if (entries != null && entries.Count > 0 && entries[0] != null)
+        {
+            return entries[0].Key;
+        }
+
+        return "";
+    }
+
+    public void SetSelectedCountryFlagId(string flagId)
+    {
+        if (string.IsNullOrWhiteSpace(flagId))
+        {
+            PlayerPrefs.DeleteKey(SELECTED_COUNTRY_FLAG_PREFS_KEY);
+        }
+        else
+        {
+            PlayerPrefs.SetString(SELECTED_COUNTRY_FLAG_PREFS_KEY, GetCountryFlagCatalogKey(flagId));
+        }
+
+        PlayerPrefs.Save();
+        OnCountryFlagChanged?.Invoke();
+    }
+
+    public string GetCountryFlagCatalogKey(string flagIdOrKey)
+    {
+        if (string.IsNullOrWhiteSpace(flagIdOrKey) || prefabCatalog == null)
+        {
+            return flagIdOrKey;
+        }
+
+        MainMenuPrefabCatalog.CountryFlagEntry entry = prefabCatalog.GetCountryFlagEntry(flagIdOrKey);
+        return entry != null ? entry.Key : flagIdOrKey;
+    }
+
+    public Task<Sprite> LoadCountryFlagSpriteAsync(string flagId)
+    {
+        if (string.IsNullOrWhiteSpace(flagId) || prefabCatalog == null)
+        {
+            return Task.FromResult<Sprite>(null);
+        }
+
+        return prefabCatalog.LoadCountryFlagSpriteAsync(flagId);
+    }
+
+    public Task<Sprite> LoadCountryFlagSpriteByKeyAsync(string flagKey)
+    {
+        if (string.IsNullOrWhiteSpace(flagKey) || prefabCatalog == null)
+        {
+            return Task.FromResult<Sprite>(null);
+        }
+
+        return prefabCatalog.LoadCountryFlagSpriteByKeyAsync(flagKey);
+    }
+
+    public Sprite GetCountryFlagPreviewSprite(string flagId)
+    {
+        if (string.IsNullOrWhiteSpace(flagId) || prefabCatalog == null)
+        {
+            return null;
+        }
+
+        return prefabCatalog.GetCountryFlagPreviewSprite(flagId);
+    }
+
+    public Sprite GetCountryFlagPreviewSpriteByKey(string flagKey)
+    {
+        if (string.IsNullOrWhiteSpace(flagKey) || prefabCatalog == null)
+        {
+            return null;
+        }
+
+        return prefabCatalog.GetCountryFlagPreviewSpriteByKey(flagKey);
     }
 
     public CastData CreateCastDataFromPrefab(GameObject prefab, string audioId = "", string selectedDanceAnimId = "")
@@ -958,7 +1049,7 @@ public class MainMenuDataManager : MonoBehaviour
     // Leaderboard – Offline Data
     // ─────────────────────────────────────────────────────────────────────────
 
-    public Task<List<UserData>> GetLeaderboardAsync()
+    public async Task<List<UserData>> GetLeaderboardAsync()
     {
         List<UserData> list = new List<UserData>();
         string currentUserName = PlayerPrefs.GetString("OfflineUserName", "");
@@ -966,14 +1057,69 @@ public class MainMenuDataManager : MonoBehaviour
             currentUserName = "Offline Player";
 
         int currentUserPoints = PlayerPrefs.GetInt(OFFLINE_POINTS_PREFS_KEY, 0);
+        string currentUserFlagId = GetSelectedCountryFlagId();
+        string currentUserAvatarId = PlayerPrefs.GetString("SelectedAvatarId", "");
+        if (string.IsNullOrWhiteSpace(currentUserAvatarId))
+        {
+            currentUserAvatarId = "cast_20_MINH HAT";
+        }
 
-        list.Add(new UserData { userId = "offline_user_id", displayName = currentUserName, points = currentUserPoints });
-        list.Add(new UserData { userId = "bot_1", displayName = "Sunny Beats",  points = 950 });
-        list.Add(new UserData { userId = "bot_2", displayName = "Neon Dancer",  points = 720 });
-        list.Add(new UserData { userId = "bot_3", displayName = "AR Groover",   points = 510 });
+        list.Add(new UserData
+        {
+            userId = "offline_user_id",
+            displayName = currentUserName,
+            points = currentUserPoints,
+            avatarId = currentUserAvatarId,
+            avatarSprite = ResolveLeaderboardAvatarSprite(currentUserAvatarId),
+            countryFlagId = currentUserFlagId,
+            countryFlagSprite = await LoadCountryFlagSpriteAsync(currentUserFlagId)
+        });
+        list.Add(await CreateLeaderboardBotAsync("bot_1", "Sunny Beats", 950, "cast_9_BOLT", "flag/1"));
+        list.Add(await CreateLeaderboardBotAsync("bot_2", "Neon Dancer", 720, "cast_28_PIX", "flag/2"));
+        list.Add(await CreateLeaderboardBotAsync("bot_3", "AR Groover", 510, "inst_6_DrumBot", "flag/3"));
         list.Sort((a, b) => b.points.CompareTo(a.points));
 
-        return Task.FromResult(list);
+        return list;
+    }
+
+    private async Task<UserData> CreateLeaderboardBotAsync(string userId, string displayName, int points, string avatarId, string countryFlagId)
+    {
+        return new UserData
+        {
+            userId = userId,
+            displayName = displayName,
+            points = points,
+            avatarId = avatarId,
+            avatarSprite = ResolveLeaderboardAvatarSprite(avatarId),
+            countryFlagId = countryFlagId,
+            countryFlagSprite = await LoadCountryFlagSpriteAsync(countryFlagId)
+        };
+    }
+
+    private Sprite ResolveLeaderboardAvatarSprite(string avatarId)
+    {
+        if (string.IsNullOrWhiteSpace(avatarId))
+        {
+            return null;
+        }
+
+        if (avatarId.StartsWith("cast_"))
+        {
+            return GetCharacterAvatarSprite(avatarId.Substring("cast_".Length));
+        }
+
+        if (avatarId.StartsWith("inst_"))
+        {
+            return GetInstrumentAvatarSprite(avatarId.Substring("inst_".Length));
+        }
+
+        Sprite characterSprite = GetCharacterAvatarSprite(avatarId);
+        if (characterSprite != null)
+        {
+            return characterSprite;
+        }
+
+        return GetInstrumentAvatarSprite(avatarId);
     }
 
     public int AddOfflineUserPoints(int pointsToAdd)

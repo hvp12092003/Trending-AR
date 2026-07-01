@@ -1027,7 +1027,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CastPrefab
   Name: GERMANY
-  Category: 
+  audioNoiseThreshold: 0.0005
   characterAvatar: {fileID: 21300000, guid: a69c5efac1aa139469f8f3f3fc87e48a, type: 3}
   animations:
   - animation: {fileID: 7400000, guid: 0c4c9dc4b0235804f906057431e056de, type: 2}

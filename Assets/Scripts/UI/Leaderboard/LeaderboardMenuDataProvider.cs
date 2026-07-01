@@ -8,12 +8,36 @@ public class LeaderboardMenuDataProvider : MonoBehaviour
 {
     public const string CurrentUserId = "offline_user_id";
 
+    private static readonly string[] DefaultBotAvatarIds =
+    {
+        "inst_1_BunnyBeat",
+        "cast_9_BOLT",
+        "cast_28_PIX",
+        "inst_6_DrumBot",
+        "cast_17_LUNA",
+        "inst_0_AquaKeyboard",
+        "cast_14_ECHO",
+        "inst_7_LeopardSpeak",
+        "inst_11_PeacockBot",
+        "inst_10_PandaSerenade",
+        "cast_18_MIMI",
+        "cast_15_FINN",
+        "cast_24_NIA",
+        "cast_12_COCO",
+        "inst_8_Meowbone",
+        "cast_10_BUNNY",
+        "cast_16_FOX",
+        "cast_22_MONSTER",
+        "cast_27_PANDA"
+    };
+
     [Header("Player Prefs")]
     [SerializeField] private string playerNamePrefsKey = "OfflineUserName";
     [SerializeField] private string playerPointsPrefsKey = "OfflineUserPoints";
     [SerializeField] private string lastPlayerPointsPrefsKey = "LeaderboardLastUserPoints";
     [SerializeField] private string botPointsPrefsPrefix = "LeaderboardBotPoints_";
     [SerializeField] private string defaultPlayerAvatarId = "cast_20_MINH HAT";
+    [SerializeField] private string defaultPlayerCountryFlagId = "flag/0";
 
     [Header("Bot Score Simulation")]
     [SerializeField] private bool updateBotsOnRefresh = true;
@@ -43,7 +67,7 @@ public class LeaderboardMenuDataProvider : MonoBehaviour
         ClearCachedCurrentUserAvatar();
     }
 
-    public Task<LeaderboardSnapshotData> GetSnapshotAsync()
+    public async Task<LeaderboardSnapshotData> GetSnapshotAsync()
     {
         EnsureDefaultBots();
 
@@ -53,8 +77,8 @@ public class LeaderboardMenuDataProvider : MonoBehaviour
             ? PlayerPrefs.GetInt(lastPlayerPointsPrefsKey, currentUserPoints)
             : currentUserPoints;
 
-        List<UserData> previousBots = LoadBotUsers();
-        List<UserData> previousLeaderboard = BuildLeaderboard(previousUserPoints, previousBots);
+        List<UserData> previousBots = await LoadBotUsersAsync();
+        List<UserData> previousLeaderboard = await BuildLeaderboardAsync(previousUserPoints, previousBots);
 
         if (updateBotsOnRefresh)
         {
@@ -87,12 +111,12 @@ public class LeaderboardMenuDataProvider : MonoBehaviour
             }
         }
 
-        List<UserData> currentLeaderboard = BuildLeaderboard(currentUserPoints, LoadBotUsers());
+        List<UserData> currentLeaderboard = await BuildLeaderboardAsync(currentUserPoints, await LoadBotUsersAsync());
 
         PlayerPrefs.SetInt(lastPlayerPointsPrefsKey, currentUserPoints);
         PlayerPrefs.Save();
 
-        return Task.FromResult(new LeaderboardSnapshotData
+        return new LeaderboardSnapshotData
         {
             currentUserId = CurrentUserId,
             previousLeaderboard = previousLeaderboard,
@@ -100,20 +124,21 @@ public class LeaderboardMenuDataProvider : MonoBehaviour
             previousCurrentUserRank = GetRank(previousLeaderboard, CurrentUserId),
             currentUserRank = GetRank(currentLeaderboard, CurrentUserId),
             isFirstView = !hasPreviousUserPoints
-        });
+        };
     }
 
-    public Task<List<UserData>> GetCurrentLeaderboardAsync()
+    public async Task<List<UserData>> GetCurrentLeaderboardAsync()
     {
         EnsureDefaultBots();
 
         int currentUserPoints = PlayerPrefs.GetInt(playerPointsPrefsKey, 0);
-        return Task.FromResult(BuildLeaderboard(currentUserPoints, LoadBotUsers()));
+        return await BuildLeaderboardAsync(currentUserPoints, await LoadBotUsersAsync());
     }
 
-    private List<UserData> BuildLeaderboard(int currentUserPoints, List<UserData> botUsers)
+    private async Task<List<UserData>> BuildLeaderboardAsync(int currentUserPoints, List<UserData> botUsers)
     {
         string currentUserAvatarId = GetCurrentUserAvatarId();
+        string currentUserCountryFlagId = GetCurrentUserCountryFlagId();
         List<UserData> list = new List<UserData>
         {
             new UserData
@@ -122,7 +147,9 @@ public class LeaderboardMenuDataProvider : MonoBehaviour
                 displayName = GetCurrentUserName(),
                 points = currentUserPoints,
                 avatarId = currentUserAvatarId,
-                avatarSprite = ResolveCurrentUserAvatarSprite(currentUserAvatarId)
+                avatarSprite = ResolveCurrentUserAvatarSprite(currentUserAvatarId),
+                countryFlagId = currentUserCountryFlagId,
+                countryFlagSprite = await ResolveCountryFlagSpriteAsync(currentUserCountryFlagId)
             }
         };
 
@@ -143,7 +170,9 @@ public class LeaderboardMenuDataProvider : MonoBehaviour
                     points = bot.points,
                     avatarId = bot.avatarId,
                     avatarBase64 = bot.avatarBase64,
-                    avatarSprite = bot.avatarSprite
+                    avatarSprite = bot.avatarSprite,
+                    countryFlagId = bot.countryFlagId,
+                    countryFlagSprite = bot.countryFlagSprite
                 });
             }
         }
@@ -152,7 +181,7 @@ public class LeaderboardMenuDataProvider : MonoBehaviour
         return list;
     }
 
-    private List<UserData> LoadBotUsers()
+    private async Task<List<UserData>> LoadBotUsersAsync()
     {
         List<UserData> botUsers = new List<UserData>();
         bool changed = false;
@@ -174,13 +203,17 @@ public class LeaderboardMenuDataProvider : MonoBehaviour
                 changed = true;
             }
 
+            Sprite botAvatarSprite = ResolveBotAvatarSprite(bot, i, out string resolvedAvatarId);
+
             botUsers.Add(new UserData
             {
                 userId = bot.userId,
                 displayName = string.IsNullOrEmpty(bot.displayName) ? bot.userId : bot.displayName,
                 points = points,
-                avatarId = bot.avatarId,
-                avatarSprite = ResolveBotAvatarSprite(bot)
+                avatarId = resolvedAvatarId,
+                avatarSprite = botAvatarSprite,
+                countryFlagId = bot.countryFlagId,
+                countryFlagSprite = await ResolveCountryFlagSpriteAsync(bot.countryFlagId)
             });
         }
 
@@ -260,6 +293,26 @@ public class LeaderboardMenuDataProvider : MonoBehaviour
         return PlayerPrefs.GetString("SelectedAvatarId", "");
     }
 
+    private string GetCurrentUserCountryFlagId()
+    {
+        if (MainMenuDataManager.Instance != null)
+        {
+            string selectedFlagId = MainMenuDataManager.Instance.GetSelectedCountryFlagId();
+            if (!string.IsNullOrWhiteSpace(selectedFlagId))
+            {
+                return selectedFlagId;
+            }
+        }
+
+        string savedFlagId = PlayerPrefs.GetString(MainMenuDataManager.SELECTED_COUNTRY_FLAG_PREFS_KEY, "");
+        if (!string.IsNullOrWhiteSpace(savedFlagId))
+        {
+            return savedFlagId;
+        }
+
+        return defaultPlayerCountryFlagId;
+    }
+
     private Sprite ResolveCurrentUserAvatarSprite(string avatarId)
     {
         string resolvedAvatarId = string.IsNullOrEmpty(avatarId) ? defaultPlayerAvatarId : avatarId;
@@ -272,14 +325,39 @@ public class LeaderboardMenuDataProvider : MonoBehaviour
         return LoadCachedCurrentUserAvatarSprite();
     }
 
-    private Sprite ResolveBotAvatarSprite(LeaderboardBotProfile bot)
+    private Sprite ResolveBotAvatarSprite(LeaderboardBotProfile bot, int botIndex, out string resolvedAvatarId)
     {
+        resolvedAvatarId = "";
         if (bot == null)
         {
             return null;
         }
 
-        return ResolvePresetAvatarSprite(bot.avatarId);
+        resolvedAvatarId = bot.avatarId;
+        Sprite sprite = ResolvePresetAvatarSprite(resolvedAvatarId);
+        if (sprite != null)
+        {
+            return sprite;
+        }
+
+        resolvedAvatarId = GetDefaultBotAvatarId(botIndex);
+        sprite = ResolvePresetAvatarSprite(resolvedAvatarId);
+        if (sprite != null)
+        {
+            return sprite;
+        }
+
+        return ResolveCatalogAvatarByIndex(botIndex, out resolvedAvatarId);
+    }
+
+    private async Task<Sprite> ResolveCountryFlagSpriteAsync(string flagId)
+    {
+        if (string.IsNullOrWhiteSpace(flagId) || MainMenuDataManager.Instance == null)
+        {
+            return null;
+        }
+
+        return await MainMenuDataManager.Instance.LoadCountryFlagSpriteAsync(flagId);
     }
 
     private Sprite ResolvePresetAvatarSprite(string avatarId)
@@ -306,6 +384,62 @@ public class LeaderboardMenuDataProvider : MonoBehaviour
         }
 
         return MainMenuDataManager.Instance.GetInstrumentAvatarSprite(avatarId);
+    }
+
+    private static string GetDefaultBotAvatarId(int botIndex)
+    {
+        if (DefaultBotAvatarIds.Length == 0)
+        {
+            return "";
+        }
+
+        int index = Mathf.Abs(botIndex) % DefaultBotAvatarIds.Length;
+        return DefaultBotAvatarIds[index];
+    }
+
+    private Sprite ResolveCatalogAvatarByIndex(int botIndex, out string resolvedAvatarId)
+    {
+        resolvedAvatarId = "";
+        if (MainMenuDataManager.Instance == null)
+        {
+            return null;
+        }
+
+        IReadOnlyList<MainMenuPrefabCatalog.PrefabAssetEntry> characterEntries = MainMenuDataManager.Instance.CharacterEntries;
+        Sprite characterAvatar = ResolveEntryAvatarByIndex(characterEntries, botIndex, "cast_", out resolvedAvatarId);
+        if (characterAvatar != null)
+        {
+            return characterAvatar;
+        }
+
+        IReadOnlyList<MainMenuPrefabCatalog.PrefabAssetEntry> instrumentEntries = MainMenuDataManager.Instance.InstrumentEntries;
+        return ResolveEntryAvatarByIndex(instrumentEntries, botIndex, "inst_", out resolvedAvatarId);
+    }
+
+    private static Sprite ResolveEntryAvatarByIndex(
+        IReadOnlyList<MainMenuPrefabCatalog.PrefabAssetEntry> entries,
+        int index,
+        string idPrefix,
+        out string resolvedAvatarId)
+    {
+        resolvedAvatarId = "";
+        if (entries == null || entries.Count == 0)
+        {
+            return null;
+        }
+
+        int startIndex = Mathf.Abs(index) % entries.Count;
+        for (int offset = 0; offset < entries.Count; offset++)
+        {
+            MainMenuPrefabCatalog.PrefabAssetEntry entry = entries[(startIndex + offset) % entries.Count];
+            if (entry != null && entry.Avatar != null)
+            {
+                resolvedAvatarId = idPrefix + entry.Id;
+                return entry.Avatar;
+            }
+        }
+
+        return null;
     }
 
     private Sprite LoadCachedCurrentUserAvatarSprite()
@@ -384,25 +518,25 @@ public class LeaderboardMenuDataProvider : MonoBehaviour
             return;
         }
 
-        bots.Add(new LeaderboardBotProfile("bot_01", "Nova Beat", 1320, 4, 14, "inst_1_BunnyBeat"));
-        bots.Add(new LeaderboardBotProfile("bot_02", "Sunny Beats", 1160, 5, 16, "cast_9_BOLT"));
-        bots.Add(new LeaderboardBotProfile("bot_03", "Neon Dancer", 980, 4, 15, "cast_28_PIX"));
-        bots.Add(new LeaderboardBotProfile("bot_04", "AR Groover", 830, 3, 14, "inst_6_DrumBot"));
-        bots.Add(new LeaderboardBotProfile("bot_05", "Luna Remix", 700, 4, 13, "cast_17_LUNA"));
-        bots.Add(new LeaderboardBotProfile("bot_06", "Pixel Pop", 585, 3, 12, "inst_0_AquaKeyboard"));
-        bots.Add(new LeaderboardBotProfile("bot_07", "Echo Star", 470, 3, 11, "cast_14_ECHO"));
-        bots.Add(new LeaderboardBotProfile("bot_08", "Beat Runner", 360, 2, 10, "inst_7_LeopardSpeak"));
-        bots.Add(new LeaderboardBotProfile("bot_09", "Melo Rush", 280, 2, 9, "inst_11_PeacockBot"));
-        bots.Add(new LeaderboardBotProfile("bot_10", "Rhythm Ace", 215, 2, 8, "inst_10_PandaSerenade"));
-        bots.Add(new LeaderboardBotProfile("bot_11", "Kiki Loop", 165, 1, 8, "cast_18_MIMI"));
-        bots.Add(new LeaderboardBotProfile("bot_12", "Jazzy Kid", 120, 1, 7, "cast_15_FINN"));
-        bots.Add(new LeaderboardBotProfile("bot_13", "Chill Spark", 85, 1, 6, "cast_24_NIA"));
-        bots.Add(new LeaderboardBotProfile("bot_14", "Mini Mix", 55, 1, 6, "cast_12_COCO"));
-        bots.Add(new LeaderboardBotProfile("bot_15", "Tempo Tin", 35, 1, 5, "inst_8_Meowbone"));
-        bots.Add(new LeaderboardBotProfile("bot_16", "Rookie Jam", 20, 1, 4, "cast_10_BUNNY"));
-        bots.Add(new LeaderboardBotProfile("bot_17", "Fresh Step", 10, 0, 4, "cast_16_FOX"));
-        bots.Add(new LeaderboardBotProfile("bot_18", "Iron man", 3, 0, 3, "cast_22_MONSTER"));
-        bots.Add(new LeaderboardBotProfile("bot_19", "Mr Pazou", 1, 0, 3, "cast_27_PANDA"));
+        bots.Add(new LeaderboardBotProfile("bot_01", "Nova Beat", 1320, 4, 14, "inst_1_BunnyBeat", "flag/1"));
+        bots.Add(new LeaderboardBotProfile("bot_02", "Sunny Beats", 1160, 5, 16, "cast_9_BOLT", "flag/2"));
+        bots.Add(new LeaderboardBotProfile("bot_03", "Neon Dancer", 980, 4, 15, "cast_28_PIX", "flag/3"));
+        bots.Add(new LeaderboardBotProfile("bot_04", "AR Groover", 830, 3, 14, "inst_6_DrumBot", "flag/4"));
+        bots.Add(new LeaderboardBotProfile("bot_05", "Luna Remix", 700, 4, 13, "cast_17_LUNA", "flag/5"));
+        bots.Add(new LeaderboardBotProfile("bot_06", "Pixel Pop", 585, 3, 12, "inst_0_AquaKeyboard", "flag/6"));
+        bots.Add(new LeaderboardBotProfile("bot_07", "Echo Star", 470, 3, 11, "cast_14_ECHO", "flag/7"));
+        bots.Add(new LeaderboardBotProfile("bot_08", "Beat Runner", 360, 2, 10, "inst_7_LeopardSpeak", "flag/8"));
+        bots.Add(new LeaderboardBotProfile("bot_09", "Melo Rush", 280, 2, 9, "inst_11_PeacockBot", "flag/9"));
+        bots.Add(new LeaderboardBotProfile("bot_10", "Rhythm Ace", 215, 2, 8, "inst_10_PandaSerenade", "flag/10"));
+        bots.Add(new LeaderboardBotProfile("bot_11", "Kiki Loop", 165, 1, 8, "cast_18_MIMI", "flag/11"));
+        bots.Add(new LeaderboardBotProfile("bot_12", "Jazzy Kid", 120, 1, 7, "cast_15_FINN", "flag/12"));
+        bots.Add(new LeaderboardBotProfile("bot_13", "Chill Spark", 85, 1, 6, "cast_24_NIA", "flag/13"));
+        bots.Add(new LeaderboardBotProfile("bot_14", "Mini Mix", 55, 1, 6, "cast_12_COCO", "flag/14"));
+        bots.Add(new LeaderboardBotProfile("bot_15", "Tempo Tin", 35, 1, 5, "inst_8_Meowbone", "flag/15"));
+        bots.Add(new LeaderboardBotProfile("bot_16", "Rookie Jam", 20, 1, 4, "cast_10_BUNNY", "flag/16"));
+        bots.Add(new LeaderboardBotProfile("bot_17", "Fresh Step", 10, 0, 4, "cast_16_FOX", "flag/17"));
+        bots.Add(new LeaderboardBotProfile("bot_18", "Iron man", 3, 0, 3, "cast_22_MONSTER", "flag/18"));
+        bots.Add(new LeaderboardBotProfile("bot_19", "Mr Pazou", 1, 0, 3, "cast_27_PANDA", "flag/19"));
     }
 
     public static int GetRank(List<UserData> leaderboard, string userId)

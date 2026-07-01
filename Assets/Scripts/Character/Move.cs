@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 
@@ -46,7 +47,23 @@ public class Move : MonoBehaviour
     [Tooltip("Tên tham số Bool trong Animator để bật/tắt trạng thái di chuyển (nếu sử dụng parameter).")]
     private string m_AnimatorMovingParam = "IsMoving";
 
+    [Header("Audio Reactivity for Auto Dance")]
+    [SerializeField]
+    [Tooltip("Ngưỡng lọc khoảng lặng âm thanh (độ nhạy). Giá trị càng nhỏ càng nhạy (ví dụ 0.001), nhân vật sẽ nhảy kể cả với tiếng nhạc cụ rất nhỏ. Mặc định là 0.002.")]
+    private float m_AudioNoiseThreshold = 0.002f;
+
+    [SerializeField]
+    [Tooltip("Thời gian chờ duy trì trạng thái nhảy sau khi hết nhạc (giây). Mặc định là 0.5.")]
+    private float m_DanceKeepAliveTime = 0.5f;
+
+    private float m_DanceKeepAliveTimer = 0f;
+
     public Animator m_Animator;
+
+    [Header("Animation Root Lock")]
+    [SerializeField]
+    [Tooltip("Locks the visual skeleton root in place so imported clips cannot make the Cast float or sink.")]
+    private bool m_LockAnimationRootLocalPosition = true;
 
     public string IdleStateName
     {
@@ -70,6 +87,10 @@ public class Move : MonoBehaviour
     private Joystick m_Joystick;
     private Camera m_MainCamera;
     private CastPlacementState m_PlacementState;
+    private CastAudioData m_CastAudio;
+    private Transform m_AnimationRootLockTarget;
+    private Vector3 m_AnimationRootBaseLocalPosition;
+    private bool m_HasAnimationRootLock;
 
     // Cache variables for Android Optimization
     private int m_SpeedParamHash;
@@ -91,14 +112,24 @@ public class Move : MonoBehaviour
 
     private void Start()
     {
+        // Đọc độ nhạy lọc khoảng lặng từ CastPrefab (tránh việc component Move được add lúc runtime)
+        CastPrefab castPrefab = GetComponent<CastPrefab>();
+        if (castPrefab != null)
+        {
+            m_AudioNoiseThreshold = castPrefab.audioNoiseThreshold;
+            m_DanceKeepAliveTime = castPrefab.danceKeepAliveTime;
+        }
+
         // Lấy Animator để điều khiển animation chạy/đi bộ nếu có
         m_MainCamera = Camera.main;
         m_PlacementState = GetComponent<CastPlacementState>();
+        m_CastAudio = GetComponent<CastAudioData>();
 
         m_Animator = GetComponentInChildren<Animator>();
         if (m_Animator != null)
         {
             m_Animator.applyRootMotion = false;
+            ConfigureAnimationRootLock();
         }
 
         // Tìm kiếm Joystick từ Joystick Pack trong Scene
@@ -156,17 +187,26 @@ public class Move : MonoBehaviour
         }
     }
 
+    private void LateUpdate()
+    {
+        RestoreAnimationRootLock();
+    }
+
     private void Update()
     {
         // 0. Nếu đang chạy hoạt ảnh tạm thời (chạy 1 lần rồi về Idle), kiểm tra xem có ngắt bằng di chuyển không
         if (m_IsPlayingTempAnim)
         {
             Vector2 joystickDir = Vector2.zero;
-            if (m_Joystick != null) joystickDir = m_Joystick.Direction;
-            else
+            bool isControlledChar = CharacterManager.Instance != null && CharacterManager.Instance.SelectedCharacter == gameObject;
+            if (isControlledChar)
             {
-                m_Joystick = FindFirstObjectByType<Joystick>();
                 if (m_Joystick != null) joystickDir = m_Joystick.Direction;
+                else
+                {
+                    m_Joystick = FindFirstObjectByType<Joystick>();
+                    if (m_Joystick != null) joystickDir = m_Joystick.Direction;
+                }
             }
 
             if (joystickDir.sqrMagnitude > 0.001f)
@@ -183,56 +223,28 @@ public class Move : MonoBehaviour
             }
         }
 
-        // 1. Chỉ nhận đầu vào và di chuyển nếu nhân vật này đang được chọn để điều khiển
-        if (CharacterManager.Instance != null && CharacterManager.Instance.SelectedCharacter != gameObject)
-        {
-            // Nếu không được chọn điều khiển:
-            if (m_State == CharacterState.Walking)
-            {
-                m_State = CharacterState.Idle;
-                m_IdleTimer = 0f;
-                PlayIdle();
-                UpdateAnimatorParams(0f);
-            }
+        // 1. Kiểm tra xem nhân vật có được chọn để điều khiển hay không
+        bool isControlled = CharacterManager.Instance != null && CharacterManager.Instance.SelectedCharacter == gameObject;
 
-            // Vẫn thực hiện đếm thời gian Idle để nhảy đồng bộ ngay cả khi không được chọn (chỉ khi đã đặt ra thế giới)
-            if (m_State == CharacterState.Idle)
-            {
-                if (IsPlaced())
-                {
-                    m_IdleTimer += Time.deltaTime;
-                    if (m_IdleTimer >= 2f)
-                    {
-                        m_State = CharacterState.WaitingForSync;
-                    }
-                }
-            }
-            return;
-        }
-
-        // 2. Kiểm tra chạm đúp để reset nhạc & nhảy khớp phách
-        if (DetectDoubleTap())
-        {
-            ResetToDance();
-            return;
-        }
-
-        // 3. Đọc dữ liệu hướng đi từ Joystick ảo
+        // 2. Đọc dữ liệu hướng đi từ Joystick ảo (chỉ khi được điều khiển)
         Vector2 joystickInput = Vector2.zero;
-        if (m_Joystick != null)
+        if (isControlled)
         {
-            joystickInput = m_Joystick.Direction;
-        }
-        else
-        {
-            m_Joystick = FindFirstObjectByType<Joystick>();
             if (m_Joystick != null)
             {
                 joystickInput = m_Joystick.Direction;
             }
+            else
+            {
+                m_Joystick = FindFirstObjectByType<Joystick>();
+                if (m_Joystick != null)
+                {
+                    joystickInput = m_Joystick.Direction;
+                }
+            }
         }
 
-        // 4. Di chuyển dựa trên Joystick
+        // 3. Di chuyển dựa trên Joystick
         if (joystickInput.sqrMagnitude > 0.001f)
         {
             // Tắt vòng chỉ báo chọn khi di chuyển và reset bộ đếm thời gian tự động ẩn UI
@@ -285,35 +297,66 @@ public class Move : MonoBehaviour
         }
         else
         {
-            // Không có di chuyển
+            // Không có di chuyển (hoặc không được điều khiển)
             if (m_State == CharacterState.Walking)
             {
-                // Sau khi di chuyển xong → quay về anim nhảy đã set (không về Idle)
                 UpdateAnimatorParams(0f);
-                PlayDance();
-            }
-            else if (m_State == CharacterState.Dancing)
-            {
-                // Đang nhảy, giữ nguyên
-            }
-            else if (m_State == CharacterState.Idle)
-            {
-                if (IsPlaced())
+                // Sau khi di chuyển xong, chuyển sang nhảy nếu có nhạc (hoặc trong thời gian duy trì), ngược lại về Idle
+                if (IsMusicPlaying())
                 {
-                    m_IdleTimer += Time.deltaTime;
-                    if (m_IdleTimer >= 2f)
+                    m_DanceKeepAliveTimer = m_DanceKeepAliveTime;
+                    PlayDance(0.15f);
+                }
+                else if (m_DanceKeepAliveTimer > 0f)
+                {
+                    PlayDance(0.15f);
+                }
+                else
+                {
+                    m_State = CharacterState.Idle;
+                    PlayIdle(0.15f);
+                }
+            }
+            else
+            {
+                // Tự động kiểm tra nhạc và chuyển đổi trạng thái khi không di chuyển
+                if (!m_IsPlayingTempAnim)
+                {
+                    bool musicPlaying = IsMusicPlaying();
+                    if (musicPlaying)
                     {
-                        m_State = CharacterState.WaitingForSync;
-                        Debug.Log($"[Move] {gameObject.name}: Chờ đồng bộ nhịp nhạc...");
+                        // Reset timer duy trì trạng thái nhảy khi phát hiện tiếng nhạc
+                        m_DanceKeepAliveTimer = m_DanceKeepAliveTime;
+
+                        if (m_State != CharacterState.Dancing)
+                        {
+                            // Có nhạc -> chuyển sang nhảy nhanh, khớp nhịp
+                            PlayDance(0.1f);
+                        }
+                    }
+                    else
+                    {
+                        if (m_State == CharacterState.Dancing || m_State == CharacterState.WaitingForSync)
+                        {
+                            // Giảm timer duy trì trạng thái nhảy khi nhạc tắt
+                            m_DanceKeepAliveTimer -= Time.deltaTime;
+
+                            if (m_DanceKeepAliveTimer <= 0f)
+                            {
+                                // Hết thời gian duy trì -> chuyển dần về idle
+                                m_State = CharacterState.Idle;
+                                PlayIdle(0.15f);
+                            }
+                        }
                     }
                 }
-                PlayIdle();
-                UpdateAnimatorParams(0f);
-            }
-            else if (m_State == CharacterState.WaitingForSync)
-            {
-                PlayIdle();
-                UpdateAnimatorParams(0f);
+
+                // Nếu ở Idle và không có nhạc phát (và hết thời gian duy trì), đảm bảo chạy animation Idle
+                if (m_State == CharacterState.Idle && m_DanceKeepAliveTimer <= 0f)
+                {
+                    PlayIdle();
+                    UpdateAnimatorParams(0f);
+                }
             }
         }
     }
@@ -414,6 +457,7 @@ public class Move : MonoBehaviour
         if (m_Animator != null)
         {
             m_Animator.Play(m_Pose1StateName, 0, 0f);
+            RestoreAnimationRootLock();
         }
     }
 
@@ -424,15 +468,16 @@ public class Move : MonoBehaviour
     {
         m_State = CharacterState.Dancing;
         m_IdleTimer = 0f;
-        PlayAnimation(m_Pose1StateName, transitionDuration);
+        PlayAnimation(m_Pose1StateName, transitionDuration, true);
     }
 
     /// <summary>
-    /// Phát một animation bất kỳ bằng tên State với hiệu ứng chuyển cảnh mượt mà (CrossFade).
+    /// Phát một animation bất kỳ bằng tên State với hiệu ứng chuyển cảnh mượt mà (CrossFadeInFixedTime) và đồng bộ nhịp nhạc.
     /// </summary>
     /// <param name="stateName">Tên State trong Animator Controller.</param>
     /// <param name="transitionDuration">Thời gian chuyển cảnh mượt mà (mặc định 0.15 giây).</param>
-    public void PlayAnimation(string stateName, float transitionDuration = 0.15f)
+    /// <param name="syncPhase">Nếu true, đồng bộ pha của animation với nhịp beat nhạc hiện tại.</param>
+    public void PlayAnimation(string stateName, float transitionDuration = 0.15f, bool syncPhase = false)
     {
         if (m_Animator == null || string.IsNullOrEmpty(stateName)) return;
 
@@ -442,8 +487,55 @@ public class Move : MonoBehaviour
         // Tránh chạy lại animation nếu đang chạy đúng animation đó
         if (m_CurrentStateName == sanitizedStateName) return;
 
-        m_Animator.CrossFade(sanitizedStateName, transitionDuration);
+        float normalizedTimeOffset = 0f;
+        if (syncPhase && MusicSyncManager.Instance != null && MusicSyncManager.Instance.BeatInterval > 0f)
+        {
+            // Tính toán pha hiện tại trong beat để nhảy khớp ngay lập tức
+            normalizedTimeOffset = MusicSyncManager.Instance.BeatTimer / MusicSyncManager.Instance.BeatInterval;
+            normalizedTimeOffset = Mathf.Clamp01(normalizedTimeOffset);
+        }
+
+        // Sử dụng CrossFadeInFixedTime để chuyển đổi nhanh và độc lập với độ dài của clip cũ
+        m_Animator.CrossFadeInFixedTime(sanitizedStateName, transitionDuration, 0, normalizedTimeOffset);
+        RestoreAnimationRootLock();
+
+        // Đồng bộ tốc độ hoạt ảnh của Animator dựa trên BPM hiện tại so với BPM chuẩn (ví dụ: 120 BPM)
+        if (MusicSyncManager.Instance != null)
+        {
+            m_Animator.speed = MusicSyncManager.Instance.Bpm / 120f;
+        }
+
         m_CurrentStateName = sanitizedStateName;
+    }
+
+    private void ConfigureAnimationRootLock()
+    {
+        m_HasAnimationRootLock = false;
+        m_AnimationRootLockTarget = null;
+
+        if (!m_LockAnimationRootLocalPosition || m_Animator == null)
+        {
+            return;
+        }
+
+        m_AnimationRootLockTarget = AnimationRootLockUtility.ResolveLockTarget(m_Animator, transform);
+        if (m_AnimationRootLockTarget == null)
+        {
+            return;
+        }
+
+        m_AnimationRootBaseLocalPosition = m_AnimationRootLockTarget.localPosition;
+        m_HasAnimationRootLock = true;
+    }
+
+    private void RestoreAnimationRootLock()
+    {
+        if (!m_HasAnimationRootLock || m_AnimationRootLockTarget == null)
+        {
+            return;
+        }
+
+        AnimationRootLockUtility.RestoreLocalPosition(m_AnimationRootLockTarget, m_AnimationRootBaseLocalPosition);
     }
 
     /// <summary>
@@ -485,20 +577,75 @@ public class Move : MonoBehaviour
         PlayIdle();
     }
 
+    private readonly float[] m_AudioSamples = new float[128];
+
+    /// <summary>
+    /// Kiểm tra xem AudioSource có thực sự đang phát ra âm thanh hay không (vượt qua ngưỡng lọc nhiễu khoảng lặng).
+    /// </summary>
+    private bool IsAudioSourceActuallyMakingSound(AudioSource src)
+    {
+        if (src == null || !src.isPlaying || src.mute || src.volume <= 0.005f)
+        {
+            return false;
+        }
+
+        // Lấy mẫu tín hiệu âm thanh hiện tại
+        src.GetOutputData(m_AudioSamples, 0);
+
+        float sum = 0f;
+        for (int i = 0; i < m_AudioSamples.Length; i++)
+        {
+            sum += m_AudioSamples[i] * m_AudioSamples[i];
+        }
+
+        // Tính Root Mean Square (RMS) đại diện cho biên độ trung bình
+        float rms = Mathf.Sqrt(sum / m_AudioSamples.Length);
+
+        // Ngưỡng lọc khoảng lặng (Inspector configurable)
+        return rms > m_AudioNoiseThreshold;
+    }
+
+    /// <summary>
+    /// Kiểm tra xem nhạc của nhạc cụ cá nhân hoặc nhạc tổng có đang thực sự phát ra âm thanh hay không.
+    /// </summary>
+    public bool IsMusicPlaying()
+    {
+        if (!IsPlaced()) return false;
+
+        // 1. Kiểm tra xem nhạc tổng (Full Song) ở chế độ Band có đang phát thực tế không
+        if (BandAudioManager.Instance != null)
+        {
+            AudioSource fullSongSource = BandAudioManager.Instance.GetFullSongSource();
+            if (fullSongSource != null && fullSongSource.isPlaying && !fullSongSource.mute && fullSongSource.volume > 0.01f)
+            {
+                // Khi chơi nhạc tổng, ta kiểm tra độ lớn thực tế phát ra từ Full Song
+                return IsAudioSourceActuallyMakingSound(fullSongSource);
+            }
+        }
+
+        // 2. Kiểm tra nhạc cụ riêng lẻ của Cast
+        if (m_CastAudio != null && m_CastAudio.preparedSource != null)
+        {
+            return IsAudioSourceActuallyMakingSound(m_CastAudio.preparedSource);
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Chạy animation Đứng yên (Idle).
     /// </summary>
-    public void PlayIdle()
+    public void PlayIdle(float transitionDuration = 0.15f)
     {
-        PlayAnimation(m_IdleStateName);
+        PlayAnimation(m_IdleStateName, transitionDuration);
     }
 
     /// <summary>
     /// Chạy animation Đi bộ (Walk).
     /// </summary>
-    public void PlayWalk()
+    public void PlayWalk(float transitionDuration = 0.15f)
     {
-        PlayAnimation(m_WalkStateName);
+        PlayAnimation(m_WalkStateName, transitionDuration);
     }
 
     /// <summary>
@@ -507,7 +654,7 @@ public class Move : MonoBehaviour
     public void PlayPose1()
     {
         Stop(); // Dừng di chuyển nếu đang đi
-        PlayAnimation(m_Pose1StateName);
+        PlayAnimation(m_Pose1StateName, 0.15f, true);
     }
 
     /// <summary>
@@ -535,5 +682,103 @@ public class Move : MonoBehaviour
     {
         PlayIdle();
         UpdateAnimatorParams(0f);
+    }
+}
+
+internal static class AnimationRootLockUtility
+{
+    private static readonly string[] RootCandidateNames =
+    {
+        "Armature",
+        "Root",
+        "root",
+        "Rig",
+        "rig"
+    };
+
+    public static Transform ResolveLockTarget(Animator animator, Transform gameplayRoot)
+    {
+        if (animator == null)
+        {
+            return null;
+        }
+
+        Transform animatorTransform = animator.transform;
+        Transform namedRoot = FindImmediateChildByName(animatorTransform);
+        if (IsSafeTarget(namedRoot, gameplayRoot))
+        {
+            return namedRoot;
+        }
+
+        Transform hips = null;
+        if (animator.isHuman)
+        {
+            hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+        }
+
+        Transform topmostBoneRoot = GetTopmostChildUnder(animatorTransform, hips);
+        if (IsSafeTarget(topmostBoneRoot, gameplayRoot))
+        {
+            return topmostBoneRoot;
+        }
+
+        // If Animator is already on a visual child, locking it will not fight gameplay movement.
+        if (IsSafeTarget(animatorTransform, gameplayRoot))
+        {
+            return animatorTransform;
+        }
+
+        return null;
+    }
+
+    public static void RestoreLocalPosition(Transform target, Vector3 localPosition)
+    {
+        if (target != null && target.localPosition != localPosition)
+        {
+            target.localPosition = localPosition;
+        }
+    }
+
+    private static Transform FindImmediateChildByName(Transform root)
+    {
+        if (root == null)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < root.childCount; i++)
+        {
+            Transform child = root.GetChild(i);
+            for (int j = 0; j < RootCandidateNames.Length; j++)
+            {
+                if (string.Equals(child.name, RootCandidateNames[j], StringComparison.OrdinalIgnoreCase))
+                {
+                    return child;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static Transform GetTopmostChildUnder(Transform root, Transform child)
+    {
+        if (root == null || child == null || child == root || !child.IsChildOf(root))
+        {
+            return null;
+        }
+
+        Transform current = child;
+        while (current.parent != null && current.parent != root)
+        {
+            current = current.parent;
+        }
+
+        return current.parent == root ? current : null;
+    }
+
+    private static bool IsSafeTarget(Transform target, Transform gameplayRoot)
+    {
+        return target != null && target != gameplayRoot;
     }
 }

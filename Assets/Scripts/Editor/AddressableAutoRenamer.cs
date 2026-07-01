@@ -46,6 +46,12 @@ public static class AddressableAutoRenamer
                 {
                     newAddress = "instrument/" + fileName;
                 }
+                else if ((path.StartsWith("Assets/Sprites/Flags/", System.StringComparison.OrdinalIgnoreCase) ||
+                          path.StartsWith("Assets/Sprites/FlagImage/", System.StringComparison.OrdinalIgnoreCase)) &&
+                         path.EndsWith(".png", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    newAddress = "flag/" + fileName;
+                }
 
                 if (newAddress != null && entry.address != newAddress)
                 {

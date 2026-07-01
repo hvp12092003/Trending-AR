@@ -58,6 +58,9 @@ public class SceneTransitionManager : MonoBehaviour
         "A stable internet connection ensures a smooth AR experience."
     };
 
+    [Header("Startup")]
+    [SerializeField] private bool hideLoadingPanelOnAwake = true;
+
     private bool isTransitioning = false;
     private Vector2 screenResolution;
     private SynchronizationContext _mainContext;
@@ -76,19 +79,34 @@ public class SceneTransitionManager : MonoBehaviour
             screenResolution = new Vector2(Screen.width, Screen.height);
 
             // Tự động ẩn Panel khi khởi tạo để tránh che khuất màn hình chính
-            if (loadingPanel != null)
+            if (ShouldHideLoadingPanelOnAwake())
             {
-                loadingPanel.SetActive(false);
-            }
-            else if (transitionCanvasGroup != null)
-            {
-                transitionCanvasGroup.gameObject.SetActive(false);
+                if (loadingPanel != null)
+                {
+                    loadingPanel.SetActive(false);
+                }
+                else if (transitionCanvasGroup != null)
+                {
+                    transitionCanvasGroup.gameObject.SetActive(false);
+                }
             }
         }
         else
         {
             Destroy(gameObject);
         }
+    }
+
+    private bool ShouldHideLoadingPanelOnAwake()
+    {
+        if (!hideLoadingPanelOnAwake)
+        {
+            return false;
+        }
+
+        string activeSceneName = SceneManager.GetActiveScene().name;
+        return string.IsNullOrEmpty(activeSceneName) ||
+               !activeSceneName.ToLowerInvariant().Contains("bootstrap");
     }
 
 

@@ -9,6 +9,7 @@ public class LeaderboardItemUI : MonoBehaviour
 
     [SerializeField] private TextMeshProUGUI rankText;
     [SerializeField] private Image avatarImage;
+    [SerializeField] private Image countryFlagImage;
     [SerializeField] private TextMeshProUGUI nameText;
     [SerializeField] private TextMeshProUGUI pointsText;
 
@@ -41,6 +42,7 @@ public class LeaderboardItemUI : MonoBehaviour
             return;
         }
 
+        EnsureImageReferences();
         UserId = data.userId;
 
         if (rankText != null)
@@ -53,6 +55,7 @@ public class LeaderboardItemUI : MonoBehaviour
             nameText.text = data.displayName;
         }
 
+        SetCountryFlag(data.countryFlagSprite);
         SetAvatar(data.avatarSprite);
         SetPoints(displayPoints);
     }
@@ -82,10 +85,53 @@ public class LeaderboardItemUI : MonoBehaviour
             return;
         }
 
+        bool hasFlagChild = countryFlagImage != null && countryFlagImage.transform.IsChildOf(avatarImage.transform);
+        bool hasFlagSprite = hasFlagChild && countryFlagImage.sprite != null;
         avatarImage.sprite = avatarSprite;
         avatarImage.enabled = avatarSprite != null;
-        avatarImage.gameObject.SetActive(avatarSprite != null);
+        avatarImage.gameObject.SetActive(avatarSprite != null || hasFlagSprite);
         avatarImage.preserveAspect = true;
+    }
+
+    private void SetCountryFlag(Sprite flagSprite)
+    {
+        if (countryFlagImage == null)
+        {
+            return;
+        }
+
+        countryFlagImage.sprite = flagSprite;
+        countryFlagImage.enabled = flagSprite != null;
+        countryFlagImage.gameObject.SetActive(flagSprite != null);
+        countryFlagImage.preserveAspect = true;
+    }
+
+    private void EnsureImageReferences()
+    {
+        if (avatarImage == null)
+        {
+            avatarImage = FindImageByName("Avatar");
+        }
+
+        if (countryFlagImage == null)
+        {
+            countryFlagImage = FindImageByName("Flag");
+        }
+    }
+
+    private Image FindImageByName(string objectName)
+    {
+        Image[] images = GetComponentsInChildren<Image>(true);
+        for (int i = 0; i < images.Length; i++)
+        {
+            Image image = images[i];
+            if (image != null && image.gameObject.name.Equals(objectName, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return image;
+            }
+        }
+
+        return null;
     }
 
     public static LeaderboardItemUI CreateRuntimeItem(Transform parent)

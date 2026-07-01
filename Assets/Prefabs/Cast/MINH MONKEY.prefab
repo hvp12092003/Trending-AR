@@ -2680,7 +2680,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CastPrefab
   Name: MINH MONKEY
-  Category: 
+  audioNoiseThreshold: 0.0005
   characterAvatar: {fileID: 21300000, guid: b768fbeae49680944b24e6d8f45d06ed, type: 3}
   animations:
   - animation: {fileID: 7400000, guid: 0c4c9dc4b0235804f906057431e056de, type: 2}

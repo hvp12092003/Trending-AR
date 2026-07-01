@@ -612,13 +612,13 @@ public class ARFallbackManager : MonoBehaviour
 
         if (!string.IsNullOrEmpty(deviceName))
         {
-            m_WebCamTexture = new WebCamTexture(deviceName, 1280, 720, 30);
+            m_WebCamTexture = new WebCamTexture(deviceName, 1280, 720, 60);
             m_WebCamTexture.Play();
             m_WebCamIsFront = isFront;
             m_WebCamStartTime = Time.unscaledTime;
             m_WebCamFrameLogged = false;
             m_WebCamNoFrameWarned = false;
-            Debug.Log($"ARFallbackManager: Dang mo WebCamTexture device='{deviceName}', front={isFront}.");
+            Debug.Log($"ARFallbackManager: Dang mo WebCamTexture device='{deviceName}', front={isFront}, requestedFps=60.");
         }
         else
         {
@@ -703,7 +703,12 @@ public class ARFallbackManager : MonoBehaviour
             return;
         }
 
-        if (!m_WebCamFrameLogged && m_WebCamTexture.didUpdateThisFrame)
+        if (!m_WebCamTexture.didUpdateThisFrame)
+        {
+            return;
+        }
+
+        if (!m_WebCamFrameLogged)
         {
             m_WebCamFrameLogged = true;
             Debug.Log($"ARFallbackManager: Da nhan frame webcam dau tien {m_WebCamTexture.width}x{m_WebCamTexture.height}, rotation={m_WebCamTexture.videoRotationAngle}, mirrored={m_WebCamTexture.videoVerticallyMirrored}.");

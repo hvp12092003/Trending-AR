@@ -29,6 +29,21 @@ public class MusicSyncManager : MonoBehaviour
     /// </summary>
     public AudioSource AudioSource => audioSource;
 
+    /// <summary>
+    /// Thời gian đã trôi qua kể từ beat cuối cùng.
+    /// </summary>
+    public float BeatTimer => beatTimer;
+
+    /// <summary>
+    /// Khoảng thời gian giữa các beat nhạc (giây).
+    /// </summary>
+    public float BeatInterval => beatInterval;
+
+    /// <summary>
+    /// Nhịp nhạc BPM hiện tại.
+    /// </summary>
+    public float Bpm => bpm;
+
     private float beatInterval;
     private float beatTimer;
 
