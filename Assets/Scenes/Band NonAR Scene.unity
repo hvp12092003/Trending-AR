@@ -453,6 +453,7 @@ GameObject:
   - component: {fileID: 76294223}
   - component: {fileID: 76294222}
   - component: {fileID: 76294221}
+  - component: {fileID: 76294225}
   m_Layer: 5
   m_Name: Band10
   m_TagString: Untagged
@@ -607,6 +608,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 76294219}
   m_CullTransparentMesh: 1
+--- !u!225 &76294225
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 76294219}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &151905318
 GameObject:
   m_ObjectHideFlags: 0
@@ -778,7 +791,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 194998605}
-  - component: {fileID: 194998606}
+  - component: {fileID: 194998607}
   m_Layer: 5
   m_Name: Tutorial
   m_TagString: Untagged
@@ -798,17 +811,16 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1955082206}
   - {fileID: 206265986}
   - {fileID: 1189529782}
   m_Father: {fileID: 702334510}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 307}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &194998606
+--- !u!114 &194998607
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -817,80 +829,105 @@ MonoBehaviour:
   m_GameObject: {fileID: 194998604}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8fcacd00b54241229296f08720f41ddd, type: 3}
+  m_Script: {fileID: 11500000, guid: d9c025ef4b036d54cb21bf71a12ec8cc, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FirstTimeGuide
+  m_EditorClassIdentifier: Assembly-CSharp::ARBandTutorial
   textBox: {fileID: 206265986}
-  bLocker: {fileID: 1955082206}
   tmp: {fileID: 1953140814}
   iconHand: {fileID: 1912765115}
   guider: {fileID: 1189529782}
-  steps:
-  - iD: Band
-    message: Choose the band you want.
-    ui: {fileID: 1827858457}
-    showHand: 1
-    handOffset: {x: 0, y: -280}
-    handAngle: 0
-    targetPulseScale: 1.05
-  - iD: Drag Cast
-    message: Drag your desired Idol into the AR space.
-    ui: {fileID: 462904233}
-    showHand: 1
-    handOffset: {x: 0, y: 0}
-    handAngle: 0
-    targetPulseScale: 1.05
-  - iD: Tap Cast
-    message: Tap on your Idol to customize.
-    ui: {fileID: 462904233}
-    showHand: 0
-    handOffset: {x: 0, y: 0}
-    handAngle: 0
-    targetPulseScale: 1.05
-  - iD: Hiden UI
-    message: Tap on your Idol to customize.
-    ui: {fileID: 462904233}
-    showHand: 0
-    handOffset: {x: 0, y: 0}
-    handAngle: 0
-    targetPulseScale: 1.05
-  - iD: Hiden UI
-    message: This button lets you hide the UI to optimize space for your creativity.
-    ui: {fileID: 352114845}
-    showHand: 1
-    handOffset: {x: 0, y: 0}
-    handAngle: 0
-    targetPulseScale: 1.05
-  - iD: 'Refesh '
-    message: This button allows the idols to restart the performance.
-    ui: {fileID: 877715197}
-    showHand: 1
-    handOffset: {x: 0, y: 0}
-    handAngle: 0
-    targetPulseScale: 1.05
-  - iD: Show UI
-    message: The avatar in the top left corner will help display the UI again.
-    ui: {fileID: 877715197}
-    showHand: 0
-    handOffset: {x: 0, y: 0}
-    handAngle: 0
-    targetPulseScale: 1.05
-  uiToDim:
-  - {fileID: 1064066027}
-  - {fileID: 260286154}
-  - {fileID: 1048071080}
-  - {fileID: 310714531}
-  - {fileID: 707269126}
-  - {fileID: 398312461}
-  - {fileID: 711629945}
-  - {fileID: 1338063804}
-  - {fileID: 1590455427}
-  - {fileID: 735237919}
-  - {fileID: 76294220}
-  dimmedAlpha: 0.02
-  guideId: Default
-  completionScope: 0
+  guideId: ARBandTutorial
+  completionScope: 1
   customCompletionKey: 
+  autoStartDelay: 0.25
+  step1:
+    stepName: Band
+    message: Choose the band you want.
+    targetButton: {fileID: 1827858459}
+    showHand: 1
+    handOffset: {x: 0, y: -200}
+    handAngle: 0
+    showGuider: 1
+    pulseTarget: 1
+    targetPulseScale: 1.05
+    showSkipButton: 1
+    buttonsToDisable:
+    - {fileID: 1048071081}
+    - {fileID: 310714533}
+    - {fileID: 707269128}
+    - {fileID: 398312463}
+    - {fileID: 711629947}
+    - {fileID: 1338063806}
+    - {fileID: 1590455429}
+    - {fileID: 735237921}
+    - {fileID: 735237921}
+    - {fileID: 1064066028}
+    targetScrollRect: {fileID: 432295437}
+  step2:
+    stepName: 'Drag '
+    message: Drag your desired Idol into the AR space.
+    targetButton: {fileID: 0}
+    showHand: 1
+    handOffset: {x: 50, y: -50}
+    handAngle: 0
+    showGuider: 1
+    pulseTarget: 1
+    targetPulseScale: 1.05
+    showSkipButton: 1
+    buttonsToDisable: []
+    targetScrollRect: {fileID: 0}
+  step3:
+    stepName: Hiden UI
+    message: Hidden UI buttons give you more space to unleash your creativity.
+    targetButton: {fileID: 352114846}
+    showHand: 1
+    handOffset: {x: 50, y: -50}
+    handAngle: 0
+    showGuider: 1
+    pulseTarget: 1
+    targetPulseScale: 1.05
+    showSkipButton: 1
+    buttonsToDisable: []
+    targetScrollRect: {fileID: 0}
+  step4:
+    stepName: Show UI
+    message: Displaying the UI gives you back the buttons to edit the team lineup.
+    targetButton: {fileID: 1652668614}
+    showHand: 1
+    handOffset: {x: 50, y: -124.6}
+    handAngle: 0
+    showGuider: 1
+    pulseTarget: 1
+    targetPulseScale: 1.05
+    showSkipButton: 1
+    buttonsToDisable: []
+    targetScrollRect: {fileID: 0}
+  step5:
+    stepName: Reset
+    message: This button allows the idols to restart the performance.
+    targetButton: {fileID: 877715198}
+    showHand: 1
+    handOffset: {x: 50, y: -50}
+    handAngle: 0
+    showGuider: 1
+    pulseTarget: 1
+    targetPulseScale: 1.05
+    showSkipButton: 1
+    buttonsToDisable: []
+    targetScrollRect: {fileID: 0}
+  step6:
+    stepName: Tap
+    message: Tap Cast to display the control UI.
+    targetButton: {fileID: 0}
+    showHand: 1
+    handOffset: {x: 50, y: -50}
+    handAngle: 0
+    showGuider: 1
+    pulseTarget: 1
+    targetPulseScale: 1.05
+    showSkipButton: 1
+    buttonsToDisable: []
+    targetScrollRect: {fileID: 0}
 --- !u!1 &206265985
 GameObject:
   m_ObjectHideFlags: 0
@@ -902,6 +939,7 @@ GameObject:
   - component: {fileID: 206265986}
   - component: {fileID: 206265988}
   - component: {fileID: 206265987}
+  - component: {fileID: 206265989}
   m_Layer: 5
   m_Name: Text box
   m_TagString: Untagged
@@ -968,6 +1006,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 206265985}
   m_CullTransparentMesh: 1
+--- !u!225 &206265989
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 206265985}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &260286153
 GameObject:
   m_ObjectHideFlags: 0
@@ -979,6 +1029,7 @@ GameObject:
   - component: {fileID: 260286154}
   - component: {fileID: 260286156}
   - component: {fileID: 260286155}
+  - component: {fileID: 260286157}
   m_Layer: 5
   m_Name: Title
   m_TagString: Untagged
@@ -1043,6 +1094,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 260286153}
   m_CullTransparentMesh: 1
+--- !u!225 &260286157
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 260286153}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &310714530
 GameObject:
   m_ObjectHideFlags: 0
@@ -1056,6 +1119,7 @@ GameObject:
   - component: {fileID: 310714534}
   - component: {fileID: 310714533}
   - component: {fileID: 310714532}
+  - component: {fileID: 310714536}
   m_Layer: 5
   m_Name: Band2
   m_TagString: Untagged
@@ -1210,6 +1274,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 310714530}
   m_CullTransparentMesh: 1
+--- !u!225 &310714536
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 310714530}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &352114844
 GameObject:
   m_ObjectHideFlags: 0
@@ -1477,6 +1553,7 @@ GameObject:
   - component: {fileID: 398312464}
   - component: {fileID: 398312463}
   - component: {fileID: 398312462}
+  - component: {fileID: 398312466}
   m_Layer: 5
   m_Name: Band5
   m_TagString: Untagged
@@ -1631,6 +1708,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 398312460}
   m_CullTransparentMesh: 1
+--- !u!225 &398312466
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 398312460}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &432295435
 GameObject:
   m_ObjectHideFlags: 0
@@ -1770,7 +1859,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0}
   m_AnchorMax: {x: 0.5, y: 0}
-  m_AnchoredPosition: {x: 0, y: 50}
+  m_AnchoredPosition: {x: 0, y: 350}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &582147209
@@ -2040,7 +2129,7 @@ Canvas:
   serializedVersion: 3
   m_RenderMode: 1
   m_Camera: {fileID: 1912455768}
-  m_PlaneDistance: 1
+  m_PlaneDistance: 0.12
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
   m_OverrideSorting: 0
@@ -2089,6 +2178,7 @@ GameObject:
   - component: {fileID: 707269129}
   - component: {fileID: 707269128}
   - component: {fileID: 707269127}
+  - component: {fileID: 707269131}
   m_Layer: 5
   m_Name: Band4
   m_TagString: Untagged
@@ -2243,6 +2333,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 707269125}
   m_CullTransparentMesh: 1
+--- !u!225 &707269131
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 707269125}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &711629944
 GameObject:
   m_ObjectHideFlags: 0
@@ -2256,6 +2358,7 @@ GameObject:
   - component: {fileID: 711629948}
   - component: {fileID: 711629947}
   - component: {fileID: 711629946}
+  - component: {fileID: 711629950}
   m_Layer: 5
   m_Name: Band6
   m_TagString: Untagged
@@ -2410,6 +2513,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 711629944}
   m_CullTransparentMesh: 1
+--- !u!225 &711629950
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 711629944}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &735237918
 GameObject:
   m_ObjectHideFlags: 0
@@ -2423,6 +2538,7 @@ GameObject:
   - component: {fileID: 735237922}
   - component: {fileID: 735237921}
   - component: {fileID: 735237920}
+  - component: {fileID: 735237924}
   m_Layer: 5
   m_Name: Band9
   m_TagString: Untagged
@@ -2577,6 +2693,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 735237918}
   m_CullTransparentMesh: 1
+--- !u!225 &735237924
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 735237918}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &789515378
 GameObject:
   m_ObjectHideFlags: 0
@@ -3224,6 +3352,7 @@ GameObject:
   - component: {fileID: 1048071082}
   - component: {fileID: 1048071081}
   - component: {fileID: 1048071084}
+  - component: {fileID: 1048071085}
   m_Layer: 5
   m_Name: Band1
   m_TagString: Untagged
@@ -3379,6 +3508,18 @@ MonoBehaviour:
       reduceVolumeWhenTogether: 0
       reduceAmount: 0
     fullSongAudio: {fileID: 8300000, guid: 30e121a9d9b447c469aeda3901398d03, type: 3}
+--- !u!225 &1048071085
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1048071079}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &1064066026
 GameObject:
   m_ObjectHideFlags: 0
@@ -3391,6 +3532,7 @@ GameObject:
   - component: {fileID: 1064066030}
   - component: {fileID: 1064066029}
   - component: {fileID: 1064066028}
+  - component: {fileID: 1064066031}
   m_Layer: 5
   m_Name: Back Button
   m_TagString: Untagged
@@ -3499,6 +3641,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1064066026}
   m_CullTransparentMesh: 1
+--- !u!225 &1064066031
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1064066026}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &1111859336
 GameObject:
   m_ObjectHideFlags: 0
@@ -4123,6 +4277,7 @@ GameObject:
   - component: {fileID: 1338063807}
   - component: {fileID: 1338063806}
   - component: {fileID: 1338063805}
+  - component: {fileID: 1338063809}
   m_Layer: 5
   m_Name: Band7
   m_TagString: Untagged
@@ -4277,6 +4432,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1338063803}
   m_CullTransparentMesh: 1
+--- !u!225 &1338063809
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1338063803}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &1379232056
 GameObject:
   m_ObjectHideFlags: 0
@@ -4581,6 +4748,7 @@ GameObject:
   - component: {fileID: 1590455430}
   - component: {fileID: 1590455429}
   - component: {fileID: 1590455428}
+  - component: {fileID: 1590455432}
   m_Layer: 5
   m_Name: Band8
   m_TagString: Untagged
@@ -4735,6 +4903,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1590455426}
   m_CullTransparentMesh: 1
+--- !u!225 &1590455432
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1590455426}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &1652668612
 GameObject:
   m_ObjectHideFlags: 0
@@ -5698,6 +5878,7 @@ GameObject:
   - component: {fileID: 1912765115}
   - component: {fileID: 1912765117}
   - component: {fileID: 1912765116}
+  - component: {fileID: 1912765118}
   m_Layer: 5
   m_Name: Hand
   m_TagString: Untagged
@@ -5721,7 +5902,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 3.1287484, y: 47.229187}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1912765116
@@ -5762,6 +5943,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1912765114}
   m_CullTransparentMesh: 1
+--- !u!225 &1912765118
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1912765114}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &1953140812
 GameObject:
   m_ObjectHideFlags: 0
@@ -5797,7 +5990,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 200, y: 50}
+  m_SizeDelta: {x: 133.8, y: 167.7}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1953140814
 MonoBehaviour:
@@ -5819,7 +6012,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: New TextNew TextNew TextNew TextNew TextNew TextNew TextNew TextNew Text
+  m_text: Choose the band you want.
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -5846,8 +6039,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 30
-  m_fontSizeBase: 30
+  m_fontSize: 40
+  m_fontSizeBase: 40
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -5898,81 +6091,6 @@ CanvasRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1953140812}
-  m_CullTransparentMesh: 1
---- !u!1 &1955082205
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1955082206}
-  - component: {fileID: 1955082208}
-  - component: {fileID: 1955082207}
-  m_Layer: 5
-  m_Name: Panel
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!224 &1955082206
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1955082205}
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 194998605}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
-  m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1955082207
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1955082205}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
-  m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0}
-  m_RaycastTarget: 1
-  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
-  m_OnCullStateChanged:
-    m_PersistentCalls:
-      m_Calls: []
-  m_Sprite: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
-  m_Type: 1
-  m_PreserveAspect: 0
-  m_FillCenter: 1
-  m_FillMethod: 4
-  m_FillAmount: 1
-  m_FillClockwise: 1
-  m_FillOrigin: 0
-  m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 1
---- !u!222 &1955082208
-CanvasRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1955082205}
   m_CullTransparentMesh: 1
 --- !u!1 &2006501773
 GameObject:

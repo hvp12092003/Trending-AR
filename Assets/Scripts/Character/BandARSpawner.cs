@@ -127,6 +127,13 @@ public class BandARSpawner : MonoBehaviour
     [SerializeField, Tooltip("Delay nho de tranh cleanup/haptic chay dung frame dau cua thao tac drop.")]
     private float placementLimitCleanupDelay = 0.08f;
 
+    public static event System.Action<GameObject> OnCastPlacedToWorld;
+
+    public static void NotifyCastPlaced(GameObject castObject)
+    {
+        OnCastPlacedToWorld?.Invoke(castObject);
+    }
+
     public SpawnerMode spawnerMode
     {
         get => m_SpawnerMode;

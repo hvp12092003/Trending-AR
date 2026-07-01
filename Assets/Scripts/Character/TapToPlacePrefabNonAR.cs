@@ -504,6 +504,7 @@ public class TapToPlacePrefabNonAR : MonoBehaviour
                 spawner.TryAwardCustomCastUsePoints(droppedObject);
                 spawner.CheckAndLimitCasts();
             }
+            BandARSpawner.NotifyCastPlaced(droppedObject);
         }
     }
 

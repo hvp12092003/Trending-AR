@@ -82,6 +82,7 @@ public class FirstTimeGuide : MonoBehaviour
     private int _currentStepIndex = -1;
     private bool _isRunning;
     private bool _isHandAnimating;
+    private int _lastTransitionFrame = -1;
 
     public bool IsRunning => _isRunning;
     public int CurrentStepIndex => _currentStepIndex;
@@ -106,6 +107,34 @@ public class FirstTimeGuide : MonoBehaviour
     private void OnDestroy()
     {
         StopGuideRuntime(false);
+    }
+
+    private void Update()
+    {
+        if (!_isRunning)
+        {
+            return;
+        }
+
+        if (IsPointerPressedThisFrame())
+        {
+            NextStep();
+        }
+    }
+
+    private bool IsPointerPressedThisFrame()
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (UnityEngine.InputSystem.Touchscreen.current != null && UnityEngine.InputSystem.Touchscreen.current.touches.Count > 0)
+        {
+            return UnityEngine.InputSystem.Touchscreen.current.touches[0].press.wasPressedThisFrame;
+        }
+        if (UnityEngine.InputSystem.Mouse.current != null)
+        {
+            return UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame;
+        }
+#endif
+        return Input.GetMouseButtonDown(0);
     }
 
     private void LateUpdate()
@@ -154,6 +183,12 @@ public class FirstTimeGuide : MonoBehaviour
         {
             return;
         }
+
+        if (Time.frameCount == _lastTransitionFrame)
+        {
+            return;
+        }
+        _lastTransitionFrame = Time.frameCount;
 
         ShowStep(_currentStepIndex + 1);
     }
